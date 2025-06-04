@@ -50,6 +50,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
   const [orderList, setOrderList] = useState<OrderItem[]>([]);
   const [editingItem, setEditingItem] = useState<OrderItem | null>(null);
   const [totalPrice, setTotalPrice] = useState(0);
+  const [selectedOrderItem, setSelectedOrderItem] = useState<OrderItem | null>(null);
 
   // Calculate total price whenever orderList changes
   useEffect(() => {
@@ -69,6 +70,13 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
         finishing: '',
         subTotal: 0
       }]
+    }));
+  };
+
+  const removeItem = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.filter((_, i) => i !== index)
     }));
   };
 
@@ -112,7 +120,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
 
     setOrderList(prev => [...prev, ...newOrderItems]);
     
-    // Reset form
+    // Clear form after adding to order list
     setFormData(prev => ({
       ...prev,
       items: [{ id: Date.now().toString(), bahan: '', item: '', ukuran: { panjang: '', lebar: '' }, quantity: '', finishing: '', subTotal: 0 }]
@@ -160,16 +168,11 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
     setEditingItem(updatedItem);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const finalOrderData = {
-      ...formData,
-      items: orderList,
-      totalPrice: formatCurrency(totalPrice)
-    };
-    onSubmit(finalOrderData);
-    
-    // Reset everything
+  const selectOrderItem = (item: OrderItem) => {
+    setSelectedOrderItem(item);
+  };
+
+  const resetForm = () => {
     setFormData({
       orderNumber: `#${String(Math.floor(Math.random() * 100000)).padStart(6, '0')}`,
       customer: '',
@@ -191,6 +194,19 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
     });
     setOrderList([]);
     setTotalPrice(0);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const finalOrderData = {
+      ...formData,
+      items: orderList,
+      totalPrice: formatCurrency(totalPrice)
+    };
+    onSubmit(finalOrderData);
+    
+    // Reset everything after submitting
+    resetForm();
     onClose();
   };
 
@@ -299,7 +315,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
               </div>
               
               {formData.items.map((item, index) => (
-                <div key={index} className="grid grid-cols-8 gap-2 p-3 border rounded-lg">
+                <div key={index} className="grid grid-cols-9 gap-2 p-3 border rounded-lg">
                   <div>
                     <Label>ID Item</Label>
                     <Input
@@ -363,7 +379,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
                       type="number"
                     />
                   </div>
-                  <div className="col-span-2">
+                  <div>
                     <Label>Finishing</Label>
                     <Select value={item.finishing} onValueChange={(value) => updateItem(index, 'finishing', value)}>
                       <SelectTrigger className="text-xs">
@@ -377,8 +393,19 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="flex items-end">
+                    <Button 
+                      type="button" 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                      onClick={() => removeItem(index)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                   {item.subTotal > 0 && (
-                    <div className="col-span-8 text-right text-sm font-semibold text-green-600">
+                    <div className="col-span-9 text-right text-sm font-semibold text-green-600">
                       Subtotal: {formatCurrency(item.subTotal)}
                     </div>
                   )}
@@ -388,7 +415,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
 
             {/* Action Buttons */}
             <div className="flex space-x-2">
-              <Button type="button" variant="outline">Reset</Button>
+              <Button type="button" variant="outline" onClick={resetForm}>Reset</Button>
               <Button type="button" onClick={addToOrderList} className="bg-[#0050C8] hover:bg-[#003a9b]">Tambah</Button>
               <Button type="button" variant="outline">Baru</Button>
               <Button type="button" variant="outline">Simpan</Button>
@@ -411,7 +438,11 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
                 <span>Del</span>
               </div>
               {orderList.map((item, index) => (
-                <div key={item.id} className="grid grid-cols-6 gap-1 text-xs py-1 border-b">
+                <div 
+                  key={item.id} 
+                  className="grid grid-cols-6 gap-1 text-xs py-1 border-b cursor-pointer hover:bg-gray-100 rounded px-1"
+                  onClick={() => selectOrderItem(item)}
+                >
                   <span>{index + 1}</span>
                   <span className="truncate" title={item.item}>{item.item}</span>
                   <span>{item.quantity}</span>
@@ -421,7 +452,10 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
                     size="sm" 
                     variant="ghost" 
                     className="h-6 w-6 p-0"
-                    onClick={() => editOrderItem(item)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      editOrderItem(item);
+                    }}
                   >
                     <Edit className="h-3 w-3" />
                   </Button>
@@ -430,7 +464,10 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
                     size="sm" 
                     variant="ghost" 
                     className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                    onClick={() => deleteFromOrderList(item.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteFromOrderList(item.id);
+                    }}
                   >
                     <Trash2 className="h-3 w-3" />
                   </Button>
@@ -566,6 +603,69 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
                 </Button>
                 <Button variant="outline" onClick={() => setEditingItem(null)}>
                   Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Order Item Details Modal */}
+        {selectedOrderItem && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold mb-4">Order Item Details</h3>
+              <div className="space-y-3">
+                <div>
+                  <Label>Item</Label>
+                  <div className="p-2 bg-gray-100 rounded">{selectedOrderItem.item}</div>
+                </div>
+                <div>
+                  <Label>Bahan</Label>
+                  <div className="p-2 bg-gray-100 rounded">{selectedOrderItem.bahan}</div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Panjang (mm)</Label>
+                    <div className="p-2 bg-gray-100 rounded">{selectedOrderItem.ukuran.panjang}</div>
+                  </div>
+                  <div>
+                    <Label>Lebar (mm)</Label>
+                    <div className="p-2 bg-gray-100 rounded">{selectedOrderItem.ukuran.lebar}</div>
+                  </div>
+                </div>
+                <div>
+                  <Label>Quantity</Label>
+                  <div className="p-2 bg-gray-100 rounded">{selectedOrderItem.quantity}</div>
+                </div>
+                <div>
+                  <Label>Finishing</Label>
+                  <div className="p-2 bg-gray-100 rounded">{selectedOrderItem.finishing}</div>
+                </div>
+                <div className="text-right font-semibold text-green-600">
+                  Subtotal: {formatCurrency(selectedOrderItem.subTotal)}
+                </div>
+              </div>
+              <div className="flex space-x-2 mt-4">
+                <Button 
+                  onClick={() => {
+                    setSelectedOrderItem(null);
+                    editOrderItem(selectedOrderItem);
+                  }} 
+                  className="bg-[#0050C8] hover:bg-[#003a9b]"
+                >
+                  Edit
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={() => {
+                    deleteFromOrderList(selectedOrderItem.id);
+                    setSelectedOrderItem(null);
+                  }}
+                >
+                  Delete
+                </Button>
+                <Button variant="outline" onClick={() => setSelectedOrderItem(null)}>
+                  Close
                 </Button>
               </div>
             </div>

@@ -18,9 +18,10 @@ interface Order {
 interface OrderTableProps {
   orders: Order[];
   onUpdateStatus: (orderId: string, newStatus: Order['status']) => void;
+  onOrderClick?: (order: Order) => void;
 }
 
-const OrderTable = ({ orders, onUpdateStatus }: OrderTableProps) => {
+const OrderTable = ({ orders, onUpdateStatus, onOrderClick }: OrderTableProps) => {
   const getStatusColor = (status: Order['status']) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
@@ -28,6 +29,12 @@ const OrderTable = ({ orders, onUpdateStatus }: OrderTableProps) => {
       case 'ready': return 'bg-green-100 text-green-800';
       case 'done': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const handleRowClick = (order: Order) => {
+    if (onOrderClick) {
+      onOrderClick(order);
     }
   };
 
@@ -48,7 +55,11 @@ const OrderTable = ({ orders, onUpdateStatus }: OrderTableProps) => {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {orders.map((order) => (
-              <tr key={order.id} className="hover:bg-gray-50">
+              <tr 
+                key={order.id} 
+                className="hover:bg-gray-50 cursor-pointer"
+                onClick={() => handleRowClick(order)}
+              >
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.orderNumber}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.customer}</td>
                 <td className="px-6 py-4 text-sm text-gray-900">
@@ -63,14 +74,19 @@ const OrderTable = ({ orders, onUpdateStatus }: OrderTableProps) => {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.date}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <div className="flex space-x-2">
-                    <Button size="sm" variant="outline">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <Edit className="h-3 w-3" />
                     </Button>
                     {order.status !== 'done' && (
                       <Button 
                         size="sm" 
                         className="bg-[#0050C8] hover:bg-[#003a9b]"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           const nextStatus = order.status === 'pending' ? 'in-progress' : 
                                            order.status === 'in-progress' ? 'ready' : 'done';
                           onUpdateStatus(order.id, nextStatus);

@@ -20,9 +20,10 @@ interface OrderCardProps {
   order: Order;
   provided?: any;
   snapshot?: any;
+  onOrderClick?: (order: Order) => void;
 }
 
-const OrderCard = ({ order, provided, snapshot }: OrderCardProps) => {
+const OrderCard = ({ order, provided, snapshot, onOrderClick }: OrderCardProps) => {
   const getStatusColor = (status: Order['status']) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
@@ -33,19 +34,36 @@ const OrderCard = ({ order, provided, snapshot }: OrderCardProps) => {
     }
   };
 
+  const handleCardClick = () => {
+    if (onOrderClick) {
+      onOrderClick(order);
+    }
+  };
+
+  const handleEditClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Handle edit functionality here
+  };
+
   return (
     <Card 
       ref={provided?.innerRef}
       {...(provided?.draggableProps || {})}
       {...(provided?.dragHandleProps || {})}
-      className={`cursor-grab hover:shadow-md transition-shadow ${
+      className={`cursor-pointer hover:shadow-md transition-shadow ${
         snapshot?.isDragging ? 'shadow-lg' : ''
       }`}
+      onClick={handleCardClick}
     >
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <CardTitle className="text-sm font-medium">{order.orderNumber}</CardTitle>
-          <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+          <Button 
+            size="sm" 
+            variant="ghost" 
+            className="h-6 w-6 p-0"
+            onClick={handleEditClick}
+          >
             <Edit className="h-3 w-3" />
           </Button>
         </div>

@@ -18,9 +18,10 @@ interface Order {
 interface KanbanBoardProps {
   orders: Order[];
   onDragEnd: (result: DropResult) => void;
+  onOrderClick?: (order: Order) => void;
 }
 
-const KanbanBoard = ({ orders, onDragEnd }: KanbanBoardProps) => {
+const KanbanBoard = ({ orders, onDragEnd, onOrderClick }: KanbanBoardProps) => {
   const kanbanColumns = [
     { status: 'pending' as const, title: 'Pending', orders: orders.filter(o => o.status === 'pending') },
     { status: 'in-progress' as const, title: 'In Progress', orders: orders.filter(o => o.status === 'in-progress') },
@@ -50,6 +51,7 @@ const KanbanBoard = ({ orders, onDragEnd }: KanbanBoardProps) => {
                           order={order}
                           provided={provided}
                           snapshot={snapshot}
+                          onOrderClick={onOrderClick}
                         />
                       )}
                     </Draggable>

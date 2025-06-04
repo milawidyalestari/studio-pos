@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Search, Grid, List } from 'lucide-react';
 import { DropResult } from 'react-beautiful-dnd';
 import RequestOrderModal from '@/components/RequestOrderModal';
@@ -22,6 +23,7 @@ interface Order {
 const Orderan = () => {
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
   const [showRequestModal, setShowRequestModal] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orders, setOrders] = useState<Order[]>([
     {
       id: '1',
@@ -86,6 +88,10 @@ const Orderan = () => {
     updateOrderStatus(draggableId, newStatus);
   };
 
+  const handleOrderClick = (order: Order) => {
+    setSelectedOrder(order);
+  };
+
   return (
     <div className="p-6">
       {/* Header */}
@@ -134,9 +140,9 @@ const Orderan = () => {
 
       {/* Content */}
       {viewMode === 'kanban' ? (
-        <KanbanBoard orders={orders} onDragEnd={handleDragEnd} />
+        <KanbanBoard orders={orders} onDragEnd={handleDragEnd} onOrderClick={handleOrderClick} />
       ) : (
-        <OrderTable orders={orders} onUpdateStatus={updateOrderStatus} />
+        <OrderTable orders={orders} onUpdateStatus={updateOrderStatus} onOrderClick={handleOrderClick} />
       )}
 
       <RequestOrderModal
@@ -144,6 +150,49 @@ const Orderan = () => {
         onClose={() => setShowRequestModal(false)}
         onSubmit={handleAddOrder}
       />
+
+      {/* Order Details Modal */}
+      {selectedOrder && (
+        <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Order Details - {selectedOrder.orderNumber}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="font-semibold">Customer:</label>
+                <p>{selectedOrder.customer}</p>
+              </div>
+              <div>
+                <label className="font-semibold">Items:</label>
+                <div className="space-y-1">
+                  {selectedOrder.items.map((item, index) => (
+                    <span key={index} className="text-sm bg-gray-100 px-2 py-1 rounded mr-1 inline-block">
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="font-semibold">Total:</label>
+                <p className="text-[#0050C8] font-semibold">{selectedOrder.total}</p>
+              </div>
+              <div>
+                <label className="font-semibold">Status:</label>
+                <p className="capitalize">{selectedOrder.status}</p>
+              </div>
+              <div>
+                <label className="font-semibold">Order Date:</label>
+                <p>{selectedOrder.date}</p>
+              </div>
+              <div>
+                <label className="font-semibold">Estimated Date:</label>
+                <p>{selectedOrder.estimatedDate}</p>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
