@@ -1,10 +1,10 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Search, Grid, List, Edit } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 import RequestOrderModal from '@/components/RequestOrderModal';
 
 interface Order {
@@ -60,7 +60,7 @@ const Orderan = () => {
       orderNumber: orderData.orderNumber,
       customer: orderData.customer,
       items: orderData.items.map((item: any) => item.item).filter((item: string) => item),
-      total: orderData.subTotal || 'IDR 0',
+      total: orderData.totalPrice || 'IDR 0',
       status: 'pending',
       date: orderData.tanggal,
       estimatedDate: orderData.estimasi
@@ -72,6 +72,17 @@ const Orderan = () => {
     setOrders(prev => prev.map(order => 
       order.id === orderId ? { ...order, status: newStatus } : order
     ));
+  };
+
+  const handleDragEnd = (result: DropResult) => {
+    const { destination, source, draggableId } = result;
+
+    if (!destination) return;
+
+    if (destination.droppableId === source.droppableId) return;
+
+    const newStatus = destination.droppableId as Order['status'];
+    updateOrderStatus(draggableId, newStatus);
   };
 
   const getStatusColor = (status: Order['status']) => {
@@ -138,77 +149,68 @@ const Orderan = () => {
 
       {/* Content */}
       {viewMode === 'kanban' ? (
-        <div className="grid grid-cols-3 gap-6">
-          {kanbanColumns.map((column) => (
-            <div key={column.status} className="bg-gray-50 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-900">{column.title}</h3>
-                <Badge variant="secondary">{column.orders.length}</Badge>
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <div className="grid grid-cols-3 gap-6">
+            {kanbanColumns.map((column) => (
+              <div key={column.status} className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-gray-900">{column.title}</h3>
+                  <Badge variant="secondary">{column.orders.length}</Badge>
+                </div>
+                <Droppable droppableId={column.status}>
+                  {(provided) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className="space-y-3 min-h-[200px]"
+                    >
+                      {column.orders.map((order, index) => (
+                        <Draggable key={order.id} draggableId={order.id} index={index}>
+                          {(provided, snapshot) => (
+                            <Card 
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              className={`cursor-grab hover:shadow-md transition-shadow ${
+                                snapshot.isDragging ? 'shadow-lg' : ''
+                              }`}
+                            >
+                              <CardHeader className="pb-2">
+                                <div className="flex justify-between items-start">
+                                  <CardTitle className="text-sm font-medium">{order.orderNumber}</CardTitle>
+                                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                                    <Edit className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </CardHeader>
+                              <CardContent className="pt-0">
+                                <p className="text-sm text-gray-600 mb-2">{order.customer}</p>
+                                <div className="space-y-1 mb-3">
+                                  {order.items.map((item, index) => (
+                                    <span key={index} className="text-xs bg-gray-100 px-2 py-1 rounded mr-1 inline-block">
+                                      {item}
+                                    </span>
+                                  ))}
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm font-semibold text-[#0050C8]">{order.total}</span>
+                                  <Badge className={getStatusColor(order.status)}>
+                                    {order.status}
+                                  </Badge>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
               </div>
-              <div className="space-y-3">
-                {column.orders.map((order) => (
-                  <Card key={order.id} className="cursor-pointer hover:shadow-md transition-shadow">
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-start">
-                        <CardTitle className="text-sm font-medium">{order.orderNumber}</CardTitle>
-                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
-                          <Edit className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <p className="text-sm text-gray-600 mb-2">{order.customer}</p>
-                      <div className="space-y-1 mb-3">
-                        {order.items.map((item, index) => (
-                          <span key={index} className="text-xs bg-gray-100 px-2 py-1 rounded mr-1 inline-block">
-                            {item}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-semibold text-[#0050C8]">{order.total}</span>
-                        <Badge className={getStatusColor(order.status)}>
-                          {order.status}
-                        </Badge>
-                      </div>
-                      <div className="mt-2 flex space-x-1">
-                        {order.status === 'pending' && (
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            onClick={() => updateOrderStatus(order.id, 'in-progress')}
-                            className="text-xs"
-                          >
-                            Start
-                          </Button>
-                        )}
-                        {order.status === 'in-progress' && (
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            onClick={() => updateOrderStatus(order.id, 'ready')}
-                            className="text-xs"
-                          >
-                            Ready
-                          </Button>
-                        )}
-                        {order.status === 'ready' && (
-                          <Button 
-                            size="sm" 
-                            className="bg-[#0050C8] hover:bg-[#003a9b] text-xs"
-                            onClick={() => updateOrderStatus(order.id, 'done')}
-                          >
-                            Complete
-                          </Button>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </DragDropContext>
       ) : (
         <div className="bg-white rounded-lg border">
           <div className="overflow-x-auto">

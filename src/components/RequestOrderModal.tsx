@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,18 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus } from 'lucide-react';
+import { Plus, Trash2, Edit } from 'lucide-react';
+import { calculateItemPrice, formatCurrency } from '@/services/masterData';
+
+interface OrderItem {
+  id: string;
+  bahan: string;
+  item: string;
+  ukuran: { panjang: string; lebar: string };
+  quantity: string;
+  finishing: string;
+  subTotal: number;
+}
 
 interface RequestOrderModalProps {
   open: boolean;
@@ -26,7 +37,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
     outdoor: false,
     laserPrinting: false,
     mugNota: false,
-    items: [{ id: '', bahan: '', item: '', ukuran: { panjang: '', lebar: '' }, quantity: '', finishing: '' }],
+    items: [{ id: Date.now().toString(), bahan: '', item: '', ukuran: { panjang: '', lebar: '' }, quantity: '', finishing: '', subTotal: 0 }],
     jasaDesain: '',
     biayaLain: '',
     subTotal: '',
@@ -36,25 +47,150 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
     bank: ''
   });
 
+  const [orderList, setOrderList] = useState<OrderItem[]>([]);
+  const [editingItem, setEditingItem] = useState<OrderItem | null>(null);
+  const [totalPrice, setTotalPrice] = useState(0);
+
+  // Calculate total price whenever orderList changes
+  useEffect(() => {
+    const total = orderList.reduce((sum, item) => sum + item.subTotal, 0);
+    setTotalPrice(total);
+  }, [orderList]);
+
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { id: '', bahan: '', item: '', ukuran: { panjang: '', lebar: '' }, quantity: '', finishing: '' }]
+      items: [...prev.items, { 
+        id: Date.now().toString(), 
+        bahan: '', 
+        item: '', 
+        ukuran: { panjang: '', lebar: '' }, 
+        quantity: '', 
+        finishing: '',
+        subTotal: 0
+      }]
     }));
   };
 
   const updateItem = (index: number, field: string, value: any) => {
+    setFormData(prev => {
+      const newItems = [...prev.items];
+      if (field === 'ukuran') {
+        newItems[index] = { ...newItems[index], [field]: value };
+      } else {
+        newItems[index] = { ...newItems[index], [field]: value };
+      }
+
+      // Calculate subtotal when relevant fields change
+      if (['ukuran', 'quantity', 'bahan', 'finishing'].includes(field)) {
+        const item = newItems[index];
+        const panjang = parseFloat(item.ukuran.panjang) || 0;
+        const lebar = parseFloat(item.ukuran.lebar) || 0;
+        const quantity = parseInt(item.quantity) || 0;
+        
+        if (panjang > 0 && lebar > 0 && quantity > 0) {
+          const subTotal = calculateItemPrice(panjang, lebar, quantity, item.bahan, item.finishing);
+          newItems[index].subTotal = subTotal;
+        }
+      }
+
+      return { ...prev, items: newItems };
+    });
+  };
+
+  const addToOrderList = () => {
+    const validItems = formData.items.filter(item => 
+      item.item && item.ukuran.panjang && item.ukuran.lebar && item.quantity
+    );
+    
+    if (validItems.length === 0) return;
+
+    const newOrderItems = validItems.map(item => ({
+      ...item,
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9)
+    }));
+
+    setOrderList(prev => [...prev, ...newOrderItems]);
+    
+    // Reset form
     setFormData(prev => ({
       ...prev,
-      items: prev.items.map((item, i) => 
-        i === index ? { ...item, [field]: value } : item
-      )
+      items: [{ id: Date.now().toString(), bahan: '', item: '', ukuran: { panjang: '', lebar: '' }, quantity: '', finishing: '', subTotal: 0 }]
     }));
+  };
+
+  const deleteFromOrderList = (itemId: string) => {
+    setOrderList(prev => prev.filter(item => item.id !== itemId));
+  };
+
+  const editOrderItem = (item: OrderItem) => {
+    setEditingItem(item);
+  };
+
+  const saveEditedItem = () => {
+    if (!editingItem) return;
+    
+    setOrderList(prev => prev.map(item => 
+      item.id === editingItem.id ? editingItem : item
+    ));
+    setEditingItem(null);
+  };
+
+  const updateEditingItem = (field: string, value: any) => {
+    if (!editingItem) return;
+    
+    let updatedItem = { ...editingItem };
+    if (field === 'ukuran') {
+      updatedItem[field] = value;
+    } else {
+      updatedItem = { ...updatedItem, [field]: value };
+    }
+
+    // Recalculate subtotal
+    if (['ukuran', 'quantity', 'bahan', 'finishing'].includes(field)) {
+      const panjang = parseFloat(updatedItem.ukuran.panjang) || 0;
+      const lebar = parseFloat(updatedItem.ukuran.lebar) || 0;
+      const quantity = parseInt(updatedItem.quantity) || 0;
+      
+      if (panjang > 0 && lebar > 0 && quantity > 0) {
+        updatedItem.subTotal = calculateItemPrice(panjang, lebar, quantity, updatedItem.bahan, updatedItem.finishing);
+      }
+    }
+
+    setEditingItem(updatedItem);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    const finalOrderData = {
+      ...formData,
+      items: orderList,
+      totalPrice: formatCurrency(totalPrice)
+    };
+    onSubmit(finalOrderData);
+    
+    // Reset everything
+    setFormData({
+      orderNumber: `#${String(Math.floor(Math.random() * 100000)).padStart(6, '0')}`,
+      customer: '',
+      tanggal: new Date().toISOString().split('T')[0],
+      waktu: new Date().toTimeString().slice(0, 5),
+      estimasi: '',
+      estimasiWaktu: '',
+      outdoor: false,
+      laserPrinting: false,
+      mugNota: false,
+      items: [{ id: Date.now().toString(), bahan: '', item: '', ukuran: { panjang: '', lebar: '' }, quantity: '', finishing: '', subTotal: 0 }],
+      jasaDesain: '',
+      biayaLain: '',
+      subTotal: '',
+      discount: 0,
+      ppn: 10,
+      paymentType: '',
+      bank: ''
+    });
+    setOrderList([]);
+    setTotalPrice(0);
     onClose();
   };
 
@@ -62,7 +198,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold">Request Order #{formData.orderNumber}</DialogTitle>
+          <DialogTitle className="text-xl font-bold">Request Order {formData.orderNumber}</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="grid grid-cols-12 gap-4">
@@ -175,12 +311,18 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
                   </div>
                   <div>
                     <Label>Bahan</Label>
-                    <Input
-                      value={item.bahan}
-                      onChange={(e) => updateItem(index, 'bahan', e.target.value)}
-                      placeholder="Bahan"
-                      className="text-xs"
-                    />
+                    <Select value={item.bahan} onValueChange={(value) => updateItem(index, 'bahan', value)}>
+                      <SelectTrigger className="text-xs">
+                        <SelectValue placeholder="Bahan" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="vinyl">Vinyl</SelectItem>
+                        <SelectItem value="banner">Banner</SelectItem>
+                        <SelectItem value="sticker">Sticker</SelectItem>
+                        <SelectItem value="canvas">Canvas</SelectItem>
+                        <SelectItem value="paper">Paper</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <Label>Item</Label>
@@ -192,21 +334,23 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
                     />
                   </div>
                   <div>
-                    <Label>Ukuran (P)</Label>
+                    <Label>Ukuran (P mm)</Label>
                     <Input
                       value={item.ukuran.panjang}
                       onChange={(e) => updateItem(index, 'ukuran', { ...item.ukuran, panjang: e.target.value })}
                       placeholder="P"
                       className="text-xs"
+                      type="number"
                     />
                   </div>
                   <div>
-                    <Label>Ukuran (L)</Label>
+                    <Label>Ukuran (L mm)</Label>
                     <Input
                       value={item.ukuran.lebar}
                       onChange={(e) => updateItem(index, 'ukuran', { ...item.ukuran, lebar: e.target.value })}
                       placeholder="L"
                       className="text-xs"
+                      type="number"
                     />
                   </div>
                   <div>
@@ -216,56 +360,36 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
                       onChange={(e) => updateItem(index, 'quantity', e.target.value)}
                       placeholder="Qty"
                       className="text-xs"
+                      type="number"
                     />
                   </div>
                   <div className="col-span-2">
                     <Label>Finishing</Label>
-                    <Textarea
-                      value={item.finishing}
-                      onChange={(e) => updateItem(index, 'finishing', e.target.value)}
-                      placeholder="Finishing details"
-                      className="text-xs h-8"
-                    />
+                    <Select value={item.finishing} onValueChange={(value) => updateItem(index, 'finishing', value)}>
+                      <SelectTrigger className="text-xs">
+                        <SelectValue placeholder="Finishing" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="laminating">Laminating</SelectItem>
+                        <SelectItem value="cutting">Cutting</SelectItem>
+                        <SelectItem value="mounting">Mounting</SelectItem>
+                        <SelectItem value="grommets">Grommets</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
+                  {item.subTotal > 0 && (
+                    <div className="col-span-8 text-right text-sm font-semibold text-green-600">
+                      Subtotal: {formatCurrency(item.subTotal)}
+                    </div>
+                  )}
                 </div>
               ))}
-            </div>
-
-            {/* Additional Details */}
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="jasaDesain">Jasa Desain</Label>
-                <Input
-                  id="jasaDesain"
-                  value={formData.jasaDesain}
-                  onChange={(e) => setFormData(prev => ({ ...prev, jasaDesain: e.target.value }))}
-                  placeholder="Design fee"
-                />
-              </div>
-              <div>
-                <Label htmlFor="biayaLain">Biaya Lain</Label>
-                <Input
-                  id="biayaLain"
-                  value={formData.biayaLain}
-                  onChange={(e) => setFormData(prev => ({ ...prev, biayaLain: e.target.value }))}
-                  placeholder="Other costs"
-                />
-              </div>
-              <div>
-                <Label htmlFor="subTotal">Sub Total</Label>
-                <Input
-                  id="subTotal"
-                  value={formData.subTotal}
-                  onChange={(e) => setFormData(prev => ({ ...prev, subTotal: e.target.value }))}
-                  placeholder="Sub total"
-                />
-              </div>
             </div>
 
             {/* Action Buttons */}
             <div className="flex space-x-2">
               <Button type="button" variant="outline">Reset</Button>
-              <Button type="submit" className="bg-[#0050C8] hover:bg-[#003a9b]">Tambah</Button>
+              <Button type="button" onClick={addToOrderList} className="bg-[#0050C8] hover:bg-[#003a9b]">Tambah</Button>
               <Button type="button" variant="outline">Baru</Button>
               <Button type="button" variant="outline">Simpan</Button>
               <Button type="button" variant="outline">Koreksi</Button>
@@ -277,22 +401,39 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
           <div className="col-span-4 bg-gray-50 p-4 rounded-lg">
             <h3 className="text-lg font-semibold mb-4">Daftar Order</h3>
             
-            <div className="space-y-2 mb-4">
-              <div className="flex justify-between text-sm">
+            <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">
+              <div className="grid grid-cols-6 gap-1 text-xs font-semibold border-b pb-2">
                 <span>No</span>
-                <span>ID Item</span>
                 <span>Item</span>
                 <span>Qty</span>
                 <span>Sub Total</span>
+                <span>Edit</span>
+                <span>Del</span>
               </div>
-              <hr />
-              {formData.items.map((item, index) => (
-                <div key={index} className="flex justify-between text-sm py-1">
+              {orderList.map((item, index) => (
+                <div key={item.id} className="grid grid-cols-6 gap-1 text-xs py-1 border-b">
                   <span>{index + 1}</span>
-                  <span>{item.id || '-'}</span>
-                  <span>{item.item || '-'}</span>
-                  <span>{item.quantity || '-'}</span>
-                  <span>-</span>
+                  <span className="truncate" title={item.item}>{item.item}</span>
+                  <span>{item.quantity}</span>
+                  <span className="text-green-600 font-semibold text-[10px]">{formatCurrency(item.subTotal)}</span>
+                  <Button 
+                    type="button" 
+                    size="sm" 
+                    variant="ghost" 
+                    className="h-6 w-6 p-0"
+                    onClick={() => editOrderItem(item)}
+                  >
+                    <Edit className="h-3 w-3" />
+                  </Button>
+                  <Button 
+                    type="button" 
+                    size="sm" 
+                    variant="ghost" 
+                    className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                    onClick={() => deleteFromOrderList(item.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
                 </div>
               ))}
             </div>
@@ -300,7 +441,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
             <div className="space-y-3 border-t pt-3">
               <div className="flex justify-between items-center">
                 <span className="font-semibold">TOTAL</span>
-                <span className="text-xl font-bold">IDR 140,00,00</span>
+                <span className="text-xl font-bold text-[#0050C8]">{formatCurrency(totalPrice)}</span>
               </div>
               
               <div className="grid grid-cols-2 gap-2">
@@ -311,6 +452,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
                       value={formData.discount}
                       onChange={(e) => setFormData(prev => ({ ...prev, discount: Number(e.target.value) }))}
                       className="text-xs"
+                      type="number"
                     />
                     <span className="ml-1 text-xs">%</span>
                   </div>
@@ -329,58 +471,106 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
                     value={formData.ppn}
                     onChange={(e) => setFormData(prev => ({ ...prev, ppn: Number(e.target.value) }))}
                     className="w-12 text-xs"
+                    type="number"
                   />
                   <span className="text-xs">%</span>
                 </div>
                 <div>
                   <Label>Sisa</Label>
-                  <Input value="IDR 140,00,00" readOnly className="text-xs" />
+                  <Input value={formatCurrency(totalPrice)} readOnly className="text-xs" />
                 </div>
               </div>
 
-              <div>
-                <Label>Lunas</Label>
-                <Input className="text-xs" />
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox />
-                <Label className="text-xs">Pembayaran Non Tunai</Label>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label>Jenis</Label>
-                  <Select>
-                    <SelectTrigger className="text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="transfer">Transfer</SelectItem>
-                      <SelectItem value="card">Card</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Bank</Label>
-                  <Select>
-                    <SelectTrigger className="text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="bca">BCA</SelectItem>
-                      <SelectItem value="mandiri">Mandiri</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <Button className="w-full bg-[#0050C8] hover:bg-[#003a9b]">
+              <Button type="submit" className="w-full bg-[#0050C8] hover:bg-[#003a9b]">
                 Cetak Nota
               </Button>
             </div>
           </div>
         </form>
+
+        {/* Edit Item Modal */}
+        {editingItem && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold mb-4">Edit Item</h3>
+              <div className="space-y-3">
+                <div>
+                  <Label>Item</Label>
+                  <Input
+                    value={editingItem.item}
+                    onChange={(e) => updateEditingItem('item', e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>Bahan</Label>
+                  <Select value={editingItem.bahan} onValueChange={(value) => updateEditingItem('bahan', value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="vinyl">Vinyl</SelectItem>
+                      <SelectItem value="banner">Banner</SelectItem>
+                      <SelectItem value="sticker">Sticker</SelectItem>
+                      <SelectItem value="canvas">Canvas</SelectItem>
+                      <SelectItem value="paper">Paper</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Panjang (mm)</Label>
+                    <Input
+                      type="number"
+                      value={editingItem.ukuran.panjang}
+                      onChange={(e) => updateEditingItem('ukuran', { ...editingItem.ukuran, panjang: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Lebar (mm)</Label>
+                    <Input
+                      type="number"
+                      value={editingItem.ukuran.lebar}
+                      onChange={(e) => updateEditingItem('ukuran', { ...editingItem.ukuran, lebar: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label>Quantity</Label>
+                  <Input
+                    type="number"
+                    value={editingItem.quantity}
+                    onChange={(e) => updateEditingItem('quantity', e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>Finishing</Label>
+                  <Select value={editingItem.finishing} onValueChange={(value) => updateEditingItem('finishing', value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="laminating">Laminating</SelectItem>
+                      <SelectItem value="cutting">Cutting</SelectItem>
+                      <SelectItem value="mounting">Mounting</SelectItem>
+                      <SelectItem value="grommets">Grommets</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="text-right font-semibold">
+                  Subtotal: {formatCurrency(editingItem.subTotal)}
+                </div>
+              </div>
+              <div className="flex space-x-2 mt-4">
+                <Button onClick={saveEditedItem} className="bg-[#0050C8] hover:bg-[#003a9b]">
+                  Save
+                </Button>
+                <Button variant="outline" onClick={() => setEditingItem(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
