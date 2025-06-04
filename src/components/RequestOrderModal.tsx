@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -212,14 +211,14 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-7xl h-[95vh] max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">Request Order {formData.orderNumber}</DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="grid grid-cols-12 gap-4">
+        <form onSubmit={handleSubmit} className="grid grid-cols-12 gap-4 h-full">
           {/* Left Side - Order Details */}
-          <div className="col-span-8 space-y-4">
+          <div className="col-span-8 space-y-4 flex flex-col">
             {/* Customer Info */}
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -306,7 +305,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
             </div>
 
             {/* Items */}
-            <div className="space-y-3">
+            <div className="space-y-3 flex-1 min-h-0">
               <div className="flex justify-between items-center">
                 <Label className="text-base font-semibold">Items</Label>
                 <Button type="button" onClick={addItem} size="sm" className="bg-[#0050C8] hover:bg-[#003a9b]">
@@ -314,107 +313,109 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
                 </Button>
               </div>
               
-              {formData.items.map((item, index) => (
-                <div key={index} className="grid grid-cols-9 gap-2 p-3 border rounded-lg">
-                  <div>
-                    <Label>ID Item</Label>
-                    <Input
-                      value={item.id}
-                      onChange={(e) => updateItem(index, 'id', e.target.value)}
-                      placeholder="ID"
-                      className="text-xs"
-                    />
-                  </div>
-                  <div>
-                    <Label>Bahan</Label>
-                    <Select value={item.bahan} onValueChange={(value) => updateItem(index, 'bahan', value)}>
-                      <SelectTrigger className="text-xs">
-                        <SelectValue placeholder="Bahan" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="vinyl">Vinyl</SelectItem>
-                        <SelectItem value="banner">Banner</SelectItem>
-                        <SelectItem value="sticker">Sticker</SelectItem>
-                        <SelectItem value="canvas">Canvas</SelectItem>
-                        <SelectItem value="paper">Paper</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Item</Label>
-                    <Input
-                      value={item.item}
-                      onChange={(e) => updateItem(index, 'item', e.target.value)}
-                      placeholder="Item"
-                      className="text-xs"
-                    />
-                  </div>
-                  <div>
-                    <Label>Ukuran (P mm)</Label>
-                    <Input
-                      value={item.ukuran.panjang}
-                      onChange={(e) => updateItem(index, 'ukuran', { ...item.ukuran, panjang: e.target.value })}
-                      placeholder="P"
-                      className="text-xs"
-                      type="number"
-                    />
-                  </div>
-                  <div>
-                    <Label>Ukuran (L mm)</Label>
-                    <Input
-                      value={item.ukuran.lebar}
-                      onChange={(e) => updateItem(index, 'ukuran', { ...item.ukuran, lebar: e.target.value })}
-                      placeholder="L"
-                      className="text-xs"
-                      type="number"
-                    />
-                  </div>
-                  <div>
-                    <Label>Quantity</Label>
-                    <Input
-                      value={item.quantity}
-                      onChange={(e) => updateItem(index, 'quantity', e.target.value)}
-                      placeholder="Qty"
-                      className="text-xs"
-                      type="number"
-                    />
-                  </div>
-                  <div>
-                    <Label>Finishing</Label>
-                    <Select value={item.finishing} onValueChange={(value) => updateItem(index, 'finishing', value)}>
-                      <SelectTrigger className="text-xs">
-                        <SelectValue placeholder="Finishing" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="laminating">Laminating</SelectItem>
-                        <SelectItem value="cutting">Cutting</SelectItem>
-                        <SelectItem value="mounting">Mounting</SelectItem>
-                        <SelectItem value="grommets">Grommets</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-end">
-                    <Button 
-                      type="button" 
-                      size="sm" 
-                      variant="ghost" 
-                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
-                      onClick={() => removeItem(index)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  {item.subTotal > 0 && (
-                    <div className="col-span-9 text-right text-sm font-semibold text-green-600">
-                      Subtotal: {formatCurrency(item.subTotal)}
+              <div className="overflow-y-auto max-h-80">
+                {formData.items.map((item, index) => (
+                  <div key={index} className="grid grid-cols-9 gap-2 p-3 border rounded-lg mb-3">
+                    <div>
+                      <Label>ID Item</Label>
+                      <Input
+                        value={item.id}
+                        onChange={(e) => updateItem(index, 'id', e.target.value)}
+                        placeholder="ID"
+                        className="text-xs"
+                      />
                     </div>
-                  )}
-                </div>
-              ))}
+                    <div>
+                      <Label>Bahan</Label>
+                      <Select value={item.bahan} onValueChange={(value) => updateItem(index, 'bahan', value)}>
+                        <SelectTrigger className="text-xs">
+                          <SelectValue placeholder="Bahan" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="vinyl">Vinyl</SelectItem>
+                          <SelectItem value="banner">Banner</SelectItem>
+                          <SelectItem value="sticker">Sticker</SelectItem>
+                          <SelectItem value="canvas">Canvas</SelectItem>
+                          <SelectItem value="paper">Paper</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Item</Label>
+                      <Input
+                        value={item.item}
+                        onChange={(e) => updateItem(index, 'item', e.target.value)}
+                        placeholder="Item"
+                        className="text-xs"
+                      />
+                    </div>
+                    <div>
+                      <Label>Ukuran (P mm)</Label>
+                      <Input
+                        value={item.ukuran.panjang}
+                        onChange={(e) => updateItem(index, 'ukuran', { ...item.ukuran, panjang: e.target.value })}
+                        placeholder="P"
+                        className="text-xs"
+                        type="number"
+                      />
+                    </div>
+                    <div>
+                      <Label>Ukuran (L mm)</Label>
+                      <Input
+                        value={item.ukuran.lebar}
+                        onChange={(e) => updateItem(index, 'ukuran', { ...item.ukuran, lebar: e.target.value })}
+                        placeholder="L"
+                        className="text-xs"
+                        type="number"
+                      />
+                    </div>
+                    <div>
+                      <Label>Quantity</Label>
+                      <Input
+                        value={item.quantity}
+                        onChange={(e) => updateItem(index, 'quantity', e.target.value)}
+                        placeholder="Qty"
+                        className="text-xs"
+                        type="number"
+                      />
+                    </div>
+                    <div>
+                      <Label>Finishing</Label>
+                      <Select value={item.finishing} onValueChange={(value) => updateItem(index, 'finishing', value)}>
+                        <SelectTrigger className="text-xs">
+                          <SelectValue placeholder="Finishing" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="laminating">Laminating</SelectItem>
+                          <SelectItem value="cutting">Cutting</SelectItem>
+                          <SelectItem value="mounting">Mounting</SelectItem>
+                          <SelectItem value="grommets">Grommets</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-end">
+                      <Button 
+                        type="button" 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                        onClick={() => removeItem(index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {item.subTotal > 0 && (
+                      <div className="col-span-9 text-right text-sm font-semibold text-green-600">
+                        Subtotal: {formatCurrency(item.subTotal)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex space-x-2">
+            <div className="flex space-x-2 mt-auto">
               <Button type="button" variant="outline" onClick={resetForm}>Reset</Button>
               <Button type="button" onClick={addToOrderList} className="bg-[#0050C8] hover:bg-[#003a9b]">Tambah</Button>
               <Button type="button" variant="outline">Baru</Button>
@@ -425,10 +426,10 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
           </div>
 
           {/* Right Side - Order Summary */}
-          <div className="col-span-4 bg-gray-50 p-4 rounded-lg">
+          <div className="col-span-4 bg-gray-50 p-4 rounded-lg flex flex-col h-full">
             <h3 className="text-lg font-semibold mb-4">Daftar Order</h3>
             
-            <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">
+            <div className="space-y-2 mb-4 flex-1 overflow-y-auto">
               <div className="grid grid-cols-6 gap-1 text-xs font-semibold border-b pb-2">
                 <span>No</span>
                 <span>Item</span>
@@ -475,7 +476,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
               ))}
             </div>
 
-            <div className="space-y-3 border-t pt-3">
+            <div className="space-y-3 border-t pt-3 mt-auto">
               <div className="flex justify-between items-center">
                 <span className="font-semibold">TOTAL</span>
                 <span className="text-xl font-bold text-[#0050C8]">{formatCurrency(totalPrice)}</span>
