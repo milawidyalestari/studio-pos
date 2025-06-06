@@ -63,16 +63,24 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
   const [orderList, setOrderList] = useState<OrderItem[]>([]);
   const [totalPrice, setTotalPrice] = useState(0);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
   useEffect(() => {
     const total = orderList.reduce((sum, item) => sum + item.subTotal, 0);
     setTotalPrice(total);
   }, [orderList]);
 
-  // Track changes to mark as unsaved
+  // Track changes to form data
   useEffect(() => {
     setHasUnsavedChanges(true);
-  }, [formData, orderList, currentItem]);
+  }, [formData]);
+
+  // Track changes to current item only when editing
+  useEffect(() => {
+    if (editingItemId) {
+      setHasUnsavedChanges(true);
+    }
+  }, [currentItem, editingItemId]);
 
   const updateCurrentItem = (field: string, value: any) => {
     setCurrentItem(prev => {
@@ -92,6 +100,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
       quantity: '',
       finishing: ''
     });
+    setEditingItemId(null);
   };
 
   const addToOrderList = () => {
@@ -124,11 +133,33 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
 
   const editOrderItem = (item: OrderItem) => {
     setCurrentItem(item);
+    setEditingItemId(item.id);
     deleteFromOrderList(item.id);
   };
 
   const handleSave = () => {
-    // Save logic here - for now just mark as saved
+    // If we're editing an item, save it back to the order list
+    if (editingItemId && currentItem.item && currentItem.ukuran.panjang && currentItem.ukuran.lebar && currentItem.quantity) {
+      const panjang = parseFloat(currentItem.ukuran.panjang) || 0;
+      const lebar = parseFloat(currentItem.ukuran.lebar) || 0;
+      const quantity = parseInt(currentItem.quantity) || 0;
+      
+      let subTotal = 0;
+      if (panjang > 0 && lebar > 0 && quantity > 0) {
+        subTotal = calculateItemPrice(panjang, lebar, quantity, currentItem.bahan, currentItem.finishing);
+      }
+
+      const updatedItem: OrderItem = {
+        ...currentItem,
+        id: editingItemId,
+        subTotal
+      };
+
+      setOrderList(prev => [...prev, updatedItem]);
+      resetCurrentItem();
+    }
+    
+    // Mark as saved
     setHasUnsavedChanges(false);
     console.log('Order saved:', { formData, orderList });
   };
@@ -378,7 +409,17 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
 
                       <div className="flex space-x-2">
                         <Button type="button" variant="outline" onClick={resetCurrentItem}>Reset</Button>
-                        <Button type="button" onClick={addToOrderList} className="bg-[#0050C8] hover:bg-[#003a9b]">Add Item</Button>
+                        {editingItemId ? (
+                          <Button 
+                            type="button" 
+                            onClick={handleSave} 
+                            className="bg-[#0050C8] hover:bg-[#003a9b]"
+                          >
+                            Update Item
+                          </Button>
+                        ) : (
+                          <Button type="button" onClick={addToOrderList} className="bg-[#0050C8] hover:bg-[#003a9b]">Add Item</Button>
+                        )}
                       </div>
                     </div>
                   </div>
