@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -138,7 +137,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
   };
 
   const handleSave = () => {
-    // If we're editing an item, save it back to the order list
+    // If we're editing an item, save it back to the order list first
     if (editingItemId && currentItem.item && currentItem.ukuran.panjang && currentItem.ukuran.lebar && currentItem.quantity) {
       const panjang = parseFloat(currentItem.ukuran.panjang) || 0;
       const lebar = parseFloat(currentItem.ukuran.lebar) || 0;
@@ -159,9 +158,24 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
       resetCurrentItem();
     }
     
-    // Mark as saved
+    // Save the entire order
+    const finalOrderData = {
+      ...formData,
+      items: orderList,
+      totalPrice: formatCurrency(totalPrice)
+    };
+    onSubmit(finalOrderData);
+    
+    // Mark as saved and close modal
     setHasUnsavedChanges(false);
-    console.log('Order saved:', { formData, orderList });
+    resetForm();
+    onClose();
+    console.log('Order saved and submitted:', finalOrderData);
+  };
+
+  const handlePrintReceipt = () => {
+    // Empty logic for now - to be implemented later
+    console.log('Print Receipt clicked - functionality to be implemented');
   };
 
   const resetForm = () => {
@@ -195,14 +209,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const finalOrderData = {
-      ...formData,
-      items: orderList,
-      totalPrice: formatCurrency(totalPrice)
-    };
-    onSubmit(finalOrderData);
-    resetForm();
-    onClose();
+    handlePrintReceipt();
   };
 
   return (
@@ -612,7 +619,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
                     className={hasUnsavedChanges ? "bg-[#0050C8] hover:bg-[#003a9b] text-white" : ""}
                     variant={hasUnsavedChanges ? "default" : "outline"}
                   >
-                    Save
+                    Save Order
                   </Button>
                   <Button type="button" className="bg-[#0050C8] hover:bg-[#003a9b]">Print SPK</Button>
                 </div>
