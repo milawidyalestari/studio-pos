@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -61,11 +62,17 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
 
   const [orderList, setOrderList] = useState<OrderItem[]>([]);
   const [totalPrice, setTotalPrice] = useState(0);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   useEffect(() => {
     const total = orderList.reduce((sum, item) => sum + item.subTotal, 0);
     setTotalPrice(total);
   }, [orderList]);
+
+  // Track changes to mark as unsaved
+  useEffect(() => {
+    setHasUnsavedChanges(true);
+  }, [formData, orderList, currentItem]);
 
   const updateCurrentItem = (field: string, value: any) => {
     setCurrentItem(prev => {
@@ -120,6 +127,12 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
     deleteFromOrderList(item.id);
   };
 
+  const handleSave = () => {
+    // Save logic here - for now just mark as saved
+    setHasUnsavedChanges(false);
+    console.log('Order saved:', { formData, orderList });
+  };
+
   const resetForm = () => {
     setFormData({
       orderNumber: `#${String(Math.floor(Math.random() * 100000)).padStart(6, '0')}`,
@@ -146,6 +159,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
     setOrderList([]);
     resetCurrentItem();
     setTotalPrice(0);
+    setHasUnsavedChanges(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -418,18 +432,16 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
                       </div>
                     </div>
 
-                    {/* Notes - Fixed height with internal scrolling */}
+                    {/* Notes - Scrollable textarea only */}
                     <div className="mb-4">
                       <Label htmlFor="notes" className="text-sm font-medium">Notes</Label>
-                      <ScrollArea className="h-20 border rounded-md mt-1">
-                        <Textarea
-                          id="notes"
-                          value={formData.notes}
-                          onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                          placeholder="Order notes..."
-                          className="h-20 border-0 resize-none focus:ring-0"
-                        />
-                      </ScrollArea>
+                      <Textarea
+                        id="notes"
+                        value={formData.notes}
+                        onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                        placeholder="Order notes..."
+                        className="mt-1 h-20 resize-none"
+                      />
                     </div>
 
                     {/* Service and Cost Details */}
@@ -550,11 +562,19 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
 
             {/* Fixed Bottom Action Buttons */}
             <div className="border-t px-6 py-4 bg-white flex-shrink-0">
-              <div className="flex space-x-2">
-                <Button type="button" variant="outline" onClick={resetForm}>New</Button>
-                <Button type="button" variant="outline">Save</Button>
-                <Button type="button" variant="outline">Correct</Button>
-                <Button type="button" className="bg-[#0050C8] hover:bg-[#003a9b] ml-auto">Print SPK</Button>
+              <div className="flex justify-between">
+                <div className="flex space-x-2">
+                  <Button type="button" variant="outline" onClick={resetForm}>New</Button>
+                  <Button 
+                    type="button" 
+                    onClick={handleSave}
+                    className={hasUnsavedChanges ? "bg-[#0050C8] hover:bg-[#003a9b] text-white" : ""}
+                    variant={hasUnsavedChanges ? "default" : "outline"}
+                  >
+                    Save
+                  </Button>
+                  <Button type="button" className="bg-[#0050C8] hover:bg-[#003a9b]">Print SPK</Button>
+                </div>
                 <Button type="submit" className="bg-[#0050C8] hover:bg-[#003a9b]">Print Receipt</Button>
               </div>
             </div>
