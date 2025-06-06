@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -36,20 +37,30 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
     outdoor: false,
     laserPrinting: false,
     mugNota: false,
-    items: [{ id: Date.now().toString(), bahan: '', item: '', ukuran: { panjang: '', lebar: '' }, quantity: '', finishing: '', subTotal: 0 }],
     jasaDesain: '',
     biayaLain: '',
     subTotal: '',
     discount: 0,
     ppn: 10,
     paymentType: '',
-    bank: ''
+    bank: '',
+    admin: '',
+    desainer: '',
+    komputer: '',
+    notes: ''
+  });
+
+  const [currentItem, setCurrentItem] = useState({
+    id: '',
+    bahan: '',
+    item: '',
+    ukuran: { panjang: '', lebar: '' },
+    quantity: '',
+    finishing: ''
   });
 
   const [orderList, setOrderList] = useState<OrderItem[]>([]);
-  const [editingItem, setEditingItem] = useState<OrderItem | null>(null);
   const [totalPrice, setTotalPrice] = useState(0);
-  const [selectedOrderItem, setSelectedOrderItem] = useState<OrderItem | null>(null);
 
   // Calculate total price whenever orderList changes
   useEffect(() => {
@@ -57,73 +68,48 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
     setTotalPrice(total);
   }, [orderList]);
 
-  const addItem = () => {
-    setFormData(prev => ({
-      ...prev,
-      items: [...prev.items, { 
-        id: Date.now().toString(), 
-        bahan: '', 
-        item: '', 
-        ukuran: { panjang: '', lebar: '' }, 
-        quantity: '', 
-        finishing: '',
-        subTotal: 0
-      }]
-    }));
-  };
-
-  const removeItem = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      items: prev.items.filter((_, i) => i !== index)
-    }));
-  };
-
-  const updateItem = (index: number, field: string, value: any) => {
-    setFormData(prev => {
-      const newItems = [...prev.items];
+  const updateCurrentItem = (field: string, value: any) => {
+    setCurrentItem(prev => {
       if (field === 'ukuran') {
-        newItems[index] = { ...newItems[index], [field]: value };
-      } else {
-        newItems[index] = { ...newItems[index], [field]: value };
+        return { ...prev, [field]: value };
       }
+      return { ...prev, [field]: value };
+    });
+  };
 
-      // Calculate subtotal when relevant fields change
-      if (['ukuran', 'quantity', 'bahan', 'finishing'].includes(field)) {
-        const item = newItems[index];
-        const panjang = parseFloat(item.ukuran.panjang) || 0;
-        const lebar = parseFloat(item.ukuran.lebar) || 0;
-        const quantity = parseInt(item.quantity) || 0;
-        
-        if (panjang > 0 && lebar > 0 && quantity > 0) {
-          const subTotal = calculateItemPrice(panjang, lebar, quantity, item.bahan, item.finishing);
-          newItems[index].subTotal = subTotal;
-        }
-      }
-
-      return { ...prev, items: newItems };
+  const resetCurrentItem = () => {
+    setCurrentItem({
+      id: '',
+      bahan: '',
+      item: '',
+      ukuran: { panjang: '', lebar: '' },
+      quantity: '',
+      finishing: ''
     });
   };
 
   const addToOrderList = () => {
-    const validItems = formData.items.filter(item => 
-      item.item && item.ukuran.panjang && item.ukuran.lebar && item.quantity
-    );
-    
-    if (validItems.length === 0) return;
+    if (!currentItem.item || !currentItem.ukuran.panjang || !currentItem.ukuran.lebar || !currentItem.quantity) {
+      return;
+    }
 
-    const newOrderItems = validItems.map(item => ({
-      ...item,
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9)
-    }));
-
-    setOrderList(prev => [...prev, ...newOrderItems]);
+    const panjang = parseFloat(currentItem.ukuran.panjang) || 0;
+    const lebar = parseFloat(currentItem.ukuran.lebar) || 0;
+    const quantity = parseInt(currentItem.quantity) || 0;
     
-    // Clear form after adding to order list
-    setFormData(prev => ({
-      ...prev,
-      items: [{ id: Date.now().toString(), bahan: '', item: '', ukuran: { panjang: '', lebar: '' }, quantity: '', finishing: '', subTotal: 0 }]
-    }));
+    let subTotal = 0;
+    if (panjang > 0 && lebar > 0 && quantity > 0) {
+      subTotal = calculateItemPrice(panjang, lebar, quantity, currentItem.bahan, currentItem.finishing);
+    }
+
+    const newOrderItem: OrderItem = {
+      ...currentItem,
+      id: currentItem.id || Date.now().toString(),
+      subTotal
+    };
+
+    setOrderList(prev => [...prev, newOrderItem]);
+    resetCurrentItem();
   };
 
   const deleteFromOrderList = (itemId: string) => {
@@ -131,44 +117,8 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
   };
 
   const editOrderItem = (item: OrderItem) => {
-    setEditingItem(item);
-  };
-
-  const saveEditedItem = () => {
-    if (!editingItem) return;
-    
-    setOrderList(prev => prev.map(item => 
-      item.id === editingItem.id ? editingItem : item
-    ));
-    setEditingItem(null);
-  };
-
-  const updateEditingItem = (field: string, value: any) => {
-    if (!editingItem) return;
-    
-    let updatedItem = { ...editingItem };
-    if (field === 'ukuran') {
-      updatedItem[field] = value;
-    } else {
-      updatedItem = { ...updatedItem, [field]: value };
-    }
-
-    // Recalculate subtotal
-    if (['ukuran', 'quantity', 'bahan', 'finishing'].includes(field)) {
-      const panjang = parseFloat(updatedItem.ukuran.panjang) || 0;
-      const lebar = parseFloat(updatedItem.ukuran.lebar) || 0;
-      const quantity = parseInt(updatedItem.quantity) || 0;
-      
-      if (panjang > 0 && lebar > 0 && quantity > 0) {
-        updatedItem.subTotal = calculateItemPrice(panjang, lebar, quantity, updatedItem.bahan, updatedItem.finishing);
-      }
-    }
-
-    setEditingItem(updatedItem);
-  };
-
-  const selectOrderItem = (item: OrderItem) => {
-    setSelectedOrderItem(item);
+    setCurrentItem(item);
+    deleteFromOrderList(item.id);
   };
 
   const resetForm = () => {
@@ -182,16 +132,20 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
       outdoor: false,
       laserPrinting: false,
       mugNota: false,
-      items: [{ id: Date.now().toString(), bahan: '', item: '', ukuran: { panjang: '', lebar: '' }, quantity: '', finishing: '', subTotal: 0 }],
       jasaDesain: '',
       biayaLain: '',
       subTotal: '',
       discount: 0,
       ppn: 10,
       paymentType: '',
-      bank: ''
+      bank: '',
+      admin: '',
+      desainer: '',
+      komputer: '',
+      notes: ''
     });
     setOrderList([]);
+    resetCurrentItem();
     setTotalPrice(0);
   };
 
@@ -203,475 +157,394 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
       totalPrice: formatCurrency(totalPrice)
     };
     onSubmit(finalOrderData);
-    
-    // Reset everything after submitting
     resetForm();
     onClose();
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl h-[95vh] max-h-[95vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold">Request Order {formData.orderNumber}</DialogTitle>
-        </DialogHeader>
-        
-        <form onSubmit={handleSubmit} className="grid grid-cols-12 gap-4 h-full">
-          {/* Left Side - Order Details */}
-          <div className="col-span-8 space-y-4 flex flex-col">
-            {/* Customer Info */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="customer">Customer</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="customer"
-                    value={formData.customer}
-                    onChange={(e) => setFormData(prev => ({ ...prev, customer: e.target.value }))}
-                    placeholder="Customer name"
-                  />
-                  <Button type="button" size="sm" className="bg-[#0050C8] hover:bg-[#003a9b]">
+      <DialogContent className="max-w-7xl h-[90vh] max-h-[90vh] overflow-hidden p-0">
+        <div className="flex flex-col h-full">
+          <DialogHeader className="px-6 py-4 border-b">
+            <DialogTitle className="text-xl font-bold">Request Order {formData.orderNumber}</DialogTitle>
+          </DialogHeader>
+          
+          <form onSubmit={handleSubmit} className="flex-1 flex overflow-hidden">
+            {/* Left Panel */}
+            <div className="w-1/2 p-6 border-r overflow-y-auto">
+              {/* Customer Info */}
+              <div className="mb-6">
+                <div className="flex gap-2 mb-4">
+                  <div className="flex-1">
+                    <Label htmlFor="customer" className="text-sm font-medium">Customer</Label>
+                    <Input
+                      id="customer"
+                      value={formData.customer}
+                      onChange={(e) => setFormData(prev => ({ ...prev, customer: e.target.value }))}
+                      placeholder="Customer name"
+                      className="mt-1"
+                    />
+                  </div>
+                  <Button type="button" size="sm" className="bg-[#0050C8] hover:bg-[#003a9b] mt-6">
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
+                
+                <div className="flex items-center space-x-6 mb-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="outdoor"
+                      checked={formData.outdoor}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, outdoor: !!checked }))}
+                    />
+                    <Label htmlFor="outdoor" className="text-sm">Outdoor/Indoor</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="laser"
+                      checked={formData.laserPrinting}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, laserPrinting: !!checked }))}
+                    />
+                    <Label htmlFor="laser" className="text-sm">Laser Printing</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="mug"
+                      checked={formData.mugNota}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, mugNota: !!checked }))}
+                    />
+                    <Label htmlFor="mug" className="text-sm">Mug/Nota/Stemple</Label>
+                  </div>
+                </div>
+
+                {/* Date Time */}
+                <div className="grid grid-cols-4 gap-4">
+                  <div>
+                    <Label htmlFor="tanggal" className="text-sm font-medium">Tanggal</Label>
+                    <Input
+                      id="tanggal"
+                      type="date"
+                      value={formData.tanggal}
+                      onChange={(e) => setFormData(prev => ({ ...prev, tanggal: e.target.value }))}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="waktu" className="text-sm font-medium">Waktu</Label>
+                    <Input
+                      id="waktu"
+                      type="time"
+                      value={formData.waktu}
+                      onChange={(e) => setFormData(prev => ({ ...prev, waktu: e.target.value }))}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="estimasi" className="text-sm font-medium">Estimasi</Label>
+                    <Input
+                      id="estimasi"
+                      value={formData.estimasi}
+                      onChange={(e) => setFormData(prev => ({ ...prev, estimasi: e.target.value }))}
+                      placeholder="Days"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="estimasiWaktu" className="text-sm font-medium">Waktu</Label>
+                    <Input
+                      id="estimasiWaktu"
+                      type="time"
+                      value={formData.estimasiWaktu}
+                      onChange={(e) => setFormData(prev => ({ ...prev, estimasiWaktu: e.target.value }))}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
               </div>
-              
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="outdoor"
-                    checked={formData.outdoor}
-                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, outdoor: !!checked }))}
-                  />
-                  <Label htmlFor="outdoor">Outdoor/Indoor</Label>
+
+              {/* Items Section */}
+              <div className="border rounded-lg p-4 mb-6">
+                <h3 className="text-lg font-semibold mb-4">Items</h3>
+                
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <Label htmlFor="idItem" className="text-sm font-medium">ID Item</Label>
+                    <Input
+                      id="idItem"
+                      value={currentItem.id}
+                      onChange={(e) => updateCurrentItem('id', e.target.value)}
+                      placeholder="ID Item"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="bahan" className="text-sm font-medium">Bahan</Label>
+                    <Select value={currentItem.bahan} onValueChange={(value) => updateCurrentItem('bahan', value)}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select Bahan" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="vinyl">Vinyl</SelectItem>
+                        <SelectItem value="banner">Banner</SelectItem>
+                        <SelectItem value="sticker">Sticker</SelectItem>
+                        <SelectItem value="canvas">Canvas</SelectItem>
+                        <SelectItem value="paper">Paper</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="laser"
-                    checked={formData.laserPrinting}
-                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, laserPrinting: !!checked }))}
+
+                <div className="mb-4">
+                  <Label htmlFor="item" className="text-sm font-medium">Item</Label>
+                  <Input
+                    id="item"
+                    value={currentItem.item}
+                    onChange={(e) => updateCurrentItem('item', e.target.value)}
+                    placeholder="Item description"
+                    className="mt-1"
                   />
-                  <Label htmlFor="laser">Laser Printing</Label>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="mug"
-                    checked={formData.mugNota}
-                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, mugNota: !!checked }))}
-                  />
-                  <Label htmlFor="mug">Mug/Nota/Stemple</Label>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <Label htmlFor="panjang" className="text-sm font-medium">Ukuran (P mm)</Label>
+                    <Input
+                      id="panjang"
+                      type="number"
+                      value={currentItem.ukuran.panjang}
+                      onChange={(e) => updateCurrentItem('ukuran', { ...currentItem.ukuran, panjang: e.target.value })}
+                      placeholder="Panjang"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="lebar" className="text-sm font-medium">Ukuran (L mm)</Label>
+                    <Input
+                      id="lebar"
+                      type="number"
+                      value={currentItem.ukuran.lebar}
+                      onChange={(e) => updateCurrentItem('ukuran', { ...currentItem.ukuran, lebar: e.target.value })}
+                      placeholder="Lebar"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <Label htmlFor="quantity" className="text-sm font-medium">Quantity</Label>
+                    <Input
+                      id="quantity"
+                      type="number"
+                      value={currentItem.quantity}
+                      onChange={(e) => updateCurrentItem('quantity', e.target.value)}
+                      placeholder="Quantity"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="finishing" className="text-sm font-medium">Finishing</Label>
+                    <Select value={currentItem.finishing} onValueChange={(value) => updateCurrentItem('finishing', value)}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select Finishing" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="laminating">Laminating</SelectItem>
+                        <SelectItem value="cutting">Cutting</SelectItem>
+                        <SelectItem value="mounting">Mounting</SelectItem>
+                        <SelectItem value="grommets">Grommets</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="flex space-x-2">
+                  <Button type="button" variant="outline" onClick={resetCurrentItem}>Reset</Button>
+                  <Button type="button" onClick={addToOrderList} className="bg-[#0050C8] hover:bg-[#003a9b]">Tambah</Button>
                 </div>
               </div>
             </div>
 
-            {/* Date Time */}
-            <div className="grid grid-cols-4 gap-4">
-              <div>
-                <Label htmlFor="tanggal">Tanggal</Label>
-                <Input
-                  id="tanggal"
-                  type="date"
-                  value={formData.tanggal}
-                  onChange={(e) => setFormData(prev => ({ ...prev, tanggal: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label htmlFor="waktu">Waktu</Label>
-                <Input
-                  id="waktu"
-                  type="time"
-                  value={formData.waktu}
-                  onChange={(e) => setFormData(prev => ({ ...prev, waktu: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label htmlFor="estimasi">Estimasi</Label>
-                <Input
-                  id="estimasi"
-                  value={formData.estimasi}
-                  onChange={(e) => setFormData(prev => ({ ...prev, estimasi: e.target.value }))}
-                  placeholder="Days"
-                />
-              </div>
-              <div>
-                <Label htmlFor="estimasiWaktu">Waktu</Label>
-                <Input
-                  id="estimasiWaktu"
-                  type="time"
-                  value={formData.estimasiWaktu}
-                  onChange={(e) => setFormData(prev => ({ ...prev, estimasiWaktu: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            {/* Items */}
-            <div className="space-y-3 flex-1 min-h-0">
-              <div className="flex justify-between items-center">
-                <Label className="text-base font-semibold">Items</Label>
-                <Button type="button" onClick={addItem} size="sm" className="bg-[#0050C8] hover:bg-[#003a9b]">
-                  <Plus className="h-4 w-4 mr-1" /> Add Item
-                </Button>
-              </div>
-              
-              <div className="overflow-y-auto max-h-80">
-                {formData.items.map((item, index) => (
-                  <div key={index} className="grid grid-cols-9 gap-2 p-3 border rounded-lg mb-3">
-                    <div>
-                      <Label>ID Item</Label>
-                      <Input
-                        value={item.id}
-                        onChange={(e) => updateItem(index, 'id', e.target.value)}
-                        placeholder="ID"
-                        className="text-xs"
-                      />
-                    </div>
-                    <div>
-                      <Label>Bahan</Label>
-                      <Select value={item.bahan} onValueChange={(value) => updateItem(index, 'bahan', value)}>
-                        <SelectTrigger className="text-xs">
-                          <SelectValue placeholder="Bahan" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="vinyl">Vinyl</SelectItem>
-                          <SelectItem value="banner">Banner</SelectItem>
-                          <SelectItem value="sticker">Sticker</SelectItem>
-                          <SelectItem value="canvas">Canvas</SelectItem>
-                          <SelectItem value="paper">Paper</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Item</Label>
-                      <Input
-                        value={item.item}
-                        onChange={(e) => updateItem(index, 'item', e.target.value)}
-                        placeholder="Item"
-                        className="text-xs"
-                      />
-                    </div>
-                    <div>
-                      <Label>Ukuran (P mm)</Label>
-                      <Input
-                        value={item.ukuran.panjang}
-                        onChange={(e) => updateItem(index, 'ukuran', { ...item.ukuran, panjang: e.target.value })}
-                        placeholder="P"
-                        className="text-xs"
-                        type="number"
-                      />
-                    </div>
-                    <div>
-                      <Label>Ukuran (L mm)</Label>
-                      <Input
-                        value={item.ukuran.lebar}
-                        onChange={(e) => updateItem(index, 'ukuran', { ...item.ukuran, lebar: e.target.value })}
-                        placeholder="L"
-                        className="text-xs"
-                        type="number"
-                      />
-                    </div>
-                    <div>
-                      <Label>Quantity</Label>
-                      <Input
-                        value={item.quantity}
-                        onChange={(e) => updateItem(index, 'quantity', e.target.value)}
-                        placeholder="Qty"
-                        className="text-xs"
-                        type="number"
-                      />
-                    </div>
-                    <div>
-                      <Label>Finishing</Label>
-                      <Select value={item.finishing} onValueChange={(value) => updateItem(index, 'finishing', value)}>
-                        <SelectTrigger className="text-xs">
-                          <SelectValue placeholder="Finishing" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="laminating">Laminating</SelectItem>
-                          <SelectItem value="cutting">Cutting</SelectItem>
-                          <SelectItem value="mounting">Mounting</SelectItem>
-                          <SelectItem value="grommets">Grommets</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex items-end">
+            {/* Right Panel */}
+            <div className="w-1/2 p-6 flex flex-col">
+              {/* Daftar Order */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-4">Daftar Order</h3>
+                <div className="border rounded-lg h-48 overflow-y-auto">
+                  <div className="grid grid-cols-6 gap-1 text-xs font-semibold border-b p-2">
+                    <span>No</span>
+                    <span>Item</span>
+                    <span>Qty</span>
+                    <span>Sub Total</span>
+                    <span>Edit</span>
+                    <span>Del</span>
+                  </div>
+                  {orderList.map((item, index) => (
+                    <div key={item.id} className="grid grid-cols-6 gap-1 text-xs py-2 px-2 border-b hover:bg-gray-50">
+                      <span>{index + 1}</span>
+                      <span className="truncate" title={item.item}>{item.item}</span>
+                      <span>{item.quantity}</span>
+                      <span className="text-green-600 font-semibold">{formatCurrency(item.subTotal)}</span>
                       <Button 
                         type="button" 
                         size="sm" 
                         variant="ghost" 
-                        className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
-                        onClick={() => removeItem(index)}
+                        className="h-6 w-6 p-0"
+                        onClick={() => editOrderItem(item)}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Edit className="h-3 w-3" />
+                      </Button>
+                      <Button 
+                        type="button" 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-6 w-6 p-0 text-red-500"
+                        onClick={() => deleteFromOrderList(item.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
-                    {item.subTotal > 0 && (
-                      <div className="col-span-9 text-right text-sm font-semibold text-green-600">
-                        Subtotal: {formatCurrency(item.subTotal)}
-                      </div>
-                    )}
+                  ))}
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="mb-4">
+                <Label htmlFor="notes" className="text-sm font-medium">Notes</Label>
+                <Textarea
+                  id="notes"
+                  value={formData.notes}
+                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Order notes..."
+                  className="mt-1 h-20"
+                />
+              </div>
+
+              {/* Jasa Desain, Biaya Lain, Sub Total */}
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div>
+                  <Label htmlFor="jasaDesain" className="text-sm font-medium">Jasa Desain</Label>
+                  <Input
+                    id="jasaDesain"
+                    value={formData.jasaDesain}
+                    onChange={(e) => setFormData(prev => ({ ...prev, jasaDesain: e.target.value }))}
+                    placeholder="Design fee"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="biayaLain" className="text-sm font-medium">Biaya Lain</Label>
+                  <Input
+                    id="biayaLain"
+                    value={formData.biayaLain}
+                    onChange={(e) => setFormData(prev => ({ ...prev, biayaLain: e.target.value }))}
+                    placeholder="Other costs"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="subTotal" className="text-sm font-medium">Sub Total</Label>
+                  <Input
+                    id="subTotal"
+                    value={formatCurrency(totalPrice)}
+                    readOnly
+                    className="mt-1 bg-gray-100"
+                  />
+                </div>
+              </div>
+
+              {/* Admin, Desainer, Komputer */}
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div>
+                  <Label htmlFor="admin" className="text-sm font-medium">Admin</Label>
+                  <Input
+                    id="admin"
+                    value={formData.admin}
+                    onChange={(e) => setFormData(prev => ({ ...prev, admin: e.target.value }))}
+                    placeholder="Admin name"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="desainer" className="text-sm font-medium">Desainer</Label>
+                  <Input
+                    id="desainer"
+                    value={formData.desainer}
+                    onChange={(e) => setFormData(prev => ({ ...prev, desainer: e.target.value }))}
+                    placeholder="Designer name"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="komputer" className="text-sm font-medium">Komputer</Label>
+                  <Input
+                    id="komputer"
+                    value={formData.komputer}
+                    onChange={(e) => setFormData(prev => ({ ...prev, komputer: e.target.value }))}
+                    placeholder="Computer info"
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+
+              {/* Total and Payment Info */}
+              <div className="border-t pt-4 mb-4">
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-lg font-semibold">TOTAL</span>
+                  <span className="text-2xl font-bold text-[#0050C8]">{formatCurrency(totalPrice)}</span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <Label className="text-sm font-medium">Diskon</Label>
+                    <div className="flex items-center mt-1">
+                      <Input 
+                        value={formData.discount}
+                        onChange={(e) => setFormData(prev => ({ ...prev, discount: Number(e.target.value) }))}
+                        type="number"
+                        className="mr-2"
+                      />
+                      <span className="text-sm">%</span>
+                    </div>
                   </div>
-                ))}
+                  <div>
+                    <Label className="text-sm font-medium">DP</Label>
+                    <Input placeholder="Down payment" className="mt-1" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox />
+                    <Label className="text-sm">PPN</Label>
+                    <Input 
+                      value={formData.ppn}
+                      onChange={(e) => setFormData(prev => ({ ...prev, ppn: Number(e.target.value) }))}
+                      className="w-16 text-sm"
+                      type="number"
+                    />
+                    <span className="text-sm">%</span>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Sisa</Label>
+                    <Input value={formatCurrency(totalPrice)} readOnly className="mt-1 bg-gray-100" />
+                  </div>
+                </div>
               </div>
             </div>
+          </form>
 
-            {/* Action Buttons */}
-            <div className="flex space-x-2 mt-auto">
-              <Button type="button" variant="outline" onClick={resetForm}>Reset</Button>
-              <Button type="button" onClick={addToOrderList} className="bg-[#0050C8] hover:bg-[#003a9b]">Tambah</Button>
-              <Button type="button" variant="outline">Baru</Button>
+          {/* Bottom Buttons */}
+          <div className="border-t px-6 py-4">
+            <div className="flex space-x-2">
+              <Button type="button" variant="outline" onClick={resetForm}>Baru</Button>
               <Button type="button" variant="outline">Simpan</Button>
               <Button type="button" variant="outline">Koreksi</Button>
-              <Button type="button" className="bg-[#0050C8] hover:bg-[#003a9b]">Cetak SPK</Button>
+              <Button type="button" className="bg-[#0050C8] hover:bg-[#003a9b] ml-auto">Cetak SPK</Button>
+              <Button type="submit" className="bg-[#0050C8] hover:bg-[#003a9b]">Cetak Nota</Button>
             </div>
           </div>
-
-          {/* Right Side - Order Summary */}
-          <div className="col-span-4 bg-gray-50 p-4 rounded-lg flex flex-col h-full">
-            <h3 className="text-lg font-semibold mb-4">Daftar Order</h3>
-            
-            <div className="space-y-2 mb-4 flex-1 overflow-y-auto">
-              <div className="grid grid-cols-6 gap-1 text-xs font-semibold border-b pb-2">
-                <span>No</span>
-                <span>Item</span>
-                <span>Qty</span>
-                <span>Sub Total</span>
-                <span>Edit</span>
-                <span>Del</span>
-              </div>
-              {orderList.map((item, index) => (
-                <div 
-                  key={item.id} 
-                  className="grid grid-cols-6 gap-1 text-xs py-1 border-b cursor-pointer hover:bg-gray-100 rounded px-1"
-                  onClick={() => selectOrderItem(item)}
-                >
-                  <span>{index + 1}</span>
-                  <span className="truncate" title={item.item}>{item.item}</span>
-                  <span>{item.quantity}</span>
-                  <span className="text-green-600 font-semibold text-[10px]">{formatCurrency(item.subTotal)}</span>
-                  <Button 
-                    type="button" 
-                    size="sm" 
-                    variant="ghost" 
-                    className="h-6 w-6 p-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      editOrderItem(item);
-                    }}
-                  >
-                    <Edit className="h-3 w-3" />
-                  </Button>
-                  <Button 
-                    type="button" 
-                    size="sm" 
-                    variant="ghost" 
-                    className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteFromOrderList(item.id);
-                    }}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-
-            <div className="space-y-3 border-t pt-3 mt-auto">
-              <div className="flex justify-between items-center">
-                <span className="font-semibold">TOTAL</span>
-                <span className="text-xl font-bold text-[#0050C8]">{formatCurrency(totalPrice)}</span>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label>Diskon</Label>
-                  <div className="flex">
-                    <Input 
-                      value={formData.discount}
-                      onChange={(e) => setFormData(prev => ({ ...prev, discount: Number(e.target.value) }))}
-                      className="text-xs"
-                      type="number"
-                    />
-                    <span className="ml-1 text-xs">%</span>
-                  </div>
-                </div>
-                <div>
-                  <Label>DP</Label>
-                  <Input placeholder="Down payment" className="text-xs" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox />
-                  <Label className="text-xs">PPN</Label>
-                  <Input 
-                    value={formData.ppn}
-                    onChange={(e) => setFormData(prev => ({ ...prev, ppn: Number(e.target.value) }))}
-                    className="w-12 text-xs"
-                    type="number"
-                  />
-                  <span className="text-xs">%</span>
-                </div>
-                <div>
-                  <Label>Sisa</Label>
-                  <Input value={formatCurrency(totalPrice)} readOnly className="text-xs" />
-                </div>
-              </div>
-
-              <Button type="submit" className="w-full bg-[#0050C8] hover:bg-[#003a9b]">
-                Cetak Nota
-              </Button>
-            </div>
-          </div>
-        </form>
-
-        {/* Edit Item Modal */}
-        {editingItem && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-              <h3 className="text-lg font-semibold mb-4">Edit Item</h3>
-              <div className="space-y-3">
-                <div>
-                  <Label>Item</Label>
-                  <Input
-                    value={editingItem.item}
-                    onChange={(e) => updateEditingItem('item', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label>Bahan</Label>
-                  <Select value={editingItem.bahan} onValueChange={(value) => updateEditingItem('bahan', value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="vinyl">Vinyl</SelectItem>
-                      <SelectItem value="banner">Banner</SelectItem>
-                      <SelectItem value="sticker">Sticker</SelectItem>
-                      <SelectItem value="canvas">Canvas</SelectItem>
-                      <SelectItem value="paper">Paper</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label>Panjang (mm)</Label>
-                    <Input
-                      type="number"
-                      value={editingItem.ukuran.panjang}
-                      onChange={(e) => updateEditingItem('ukuran', { ...editingItem.ukuran, panjang: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Lebar (mm)</Label>
-                    <Input
-                      type="number"
-                      value={editingItem.ukuran.lebar}
-                      onChange={(e) => updateEditingItem('ukuran', { ...editingItem.ukuran, lebar: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label>Quantity</Label>
-                  <Input
-                    type="number"
-                    value={editingItem.quantity}
-                    onChange={(e) => updateEditingItem('quantity', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label>Finishing</Label>
-                  <Select value={editingItem.finishing} onValueChange={(value) => updateEditingItem('finishing', value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="laminating">Laminating</SelectItem>
-                      <SelectItem value="cutting">Cutting</SelectItem>
-                      <SelectItem value="mounting">Mounting</SelectItem>
-                      <SelectItem value="grommets">Grommets</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="text-right font-semibold">
-                  Subtotal: {formatCurrency(editingItem.subTotal)}
-                </div>
-              </div>
-              <div className="flex space-x-2 mt-4">
-                <Button onClick={saveEditedItem} className="bg-[#0050C8] hover:bg-[#003a9b]">
-                  Save
-                </Button>
-                <Button variant="outline" onClick={() => setEditingItem(null)}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Order Item Details Modal */}
-        {selectedOrderItem && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-              <h3 className="text-lg font-semibold mb-4">Order Item Details</h3>
-              <div className="space-y-3">
-                <div>
-                  <Label>Item</Label>
-                  <div className="p-2 bg-gray-100 rounded">{selectedOrderItem.item}</div>
-                </div>
-                <div>
-                  <Label>Bahan</Label>
-                  <div className="p-2 bg-gray-100 rounded">{selectedOrderItem.bahan}</div>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label>Panjang (mm)</Label>
-                    <div className="p-2 bg-gray-100 rounded">{selectedOrderItem.ukuran.panjang}</div>
-                  </div>
-                  <div>
-                    <Label>Lebar (mm)</Label>
-                    <div className="p-2 bg-gray-100 rounded">{selectedOrderItem.ukuran.lebar}</div>
-                  </div>
-                </div>
-                <div>
-                  <Label>Quantity</Label>
-                  <div className="p-2 bg-gray-100 rounded">{selectedOrderItem.quantity}</div>
-                </div>
-                <div>
-                  <Label>Finishing</Label>
-                  <div className="p-2 bg-gray-100 rounded">{selectedOrderItem.finishing}</div>
-                </div>
-                <div className="text-right font-semibold text-green-600">
-                  Subtotal: {formatCurrency(selectedOrderItem.subTotal)}
-                </div>
-              </div>
-              <div className="flex space-x-2 mt-4">
-                <Button 
-                  onClick={() => {
-                    setSelectedOrderItem(null);
-                    editOrderItem(selectedOrderItem);
-                  }} 
-                  className="bg-[#0050C8] hover:bg-[#003a9b]"
-                >
-                  Edit
-                </Button>
-                <Button 
-                  variant="destructive" 
-                  onClick={() => {
-                    deleteFromOrderList(selectedOrderItem.id);
-                    setSelectedOrderItem(null);
-                  }}
-                >
-                  Delete
-                </Button>
-                <Button variant="outline" onClick={() => setSelectedOrderItem(null)}>
-                  Close
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
       </DialogContent>
     </Dialog>
   );
