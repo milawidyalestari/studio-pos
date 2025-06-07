@@ -29,15 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { MasterDataOverlay, TableColumn, MasterDataItem } from '@/components/MasterDataOverlay';
 
 // Sample data for each module
 const sampleProducts = [
@@ -64,36 +56,54 @@ const sampleEmployees = [
   { kode: 'EMP003', nama: 'Budi Santoso', posisi: 'Operator', status: 'Inactive' },
 ];
 
-const sampleGroups = [
-  { kode: 'GRP001', nama: 'Printing Materials' },
-  { kode: 'GRP002', nama: 'Finishing Tools' },
-  { kode: 'GRP003', nama: 'Design Services' },
-];
+const [sampleGroups, setSampleGroups] = useState([
+  { id: '1', kode: 'GRP001', nama: 'Printing Materials' },
+  { id: '2', kode: 'GRP002', nama: 'Finishing Tools' },
+  { id: '3', kode: 'GRP003', nama: 'Design Services' },
+]);
 
-const sampleCategories = [
-  { kode: 'CAT001', kelompok: 'Printing Materials', kategori: 'Vinyl' },
-  { kode: 'CAT002', kelompok: 'Printing Materials', kategori: 'Banner' },
-  { kode: 'CAT003', kelompok: 'Finishing Tools', kategori: 'Laminating' },
-];
+const [sampleCategories, setSampleCategories] = useState([
+  { id: '1', kode: 'CAT001', kelompok: 'Printing Materials', kategori: 'Vinyl' },
+  { id: '2', kode: 'CAT002', kelompok: 'Printing Materials', kategori: 'Banner' },
+  { id: '3', kode: 'CAT003', kelompok: 'Finishing Tools', kategori: 'Laminating' },
+]);
 
-const sampleUnits = [
-  { kode: 'UNIT001', satuan: 'Roll' },
-  { kode: 'UNIT002', satuan: 'Pack' },
-  { kode: 'UNIT003', satuan: 'Meter' },
-];
+const [sampleUnits, setSampleUnits] = useState([
+  { id: '1', kode: 'UNIT001', satuan: 'Roll' },
+  { id: '2', kode: 'UNIT002', satuan: 'Pack' },
+  { id: '3', kode: 'UNIT003', satuan: 'Meter' },
+]);
 
-const samplePaymentTypes = [
-  { tipe: 'Digital', jenisPembayaran: 'QRIS' },
-  { tipe: 'Digital', jenisPembayaran: 'E-wallet' },
-  { tipe: 'Card', jenisPembayaran: 'Debit Card' },
-];
+const [samplePaymentTypes, setSamplePaymentTypes] = useState([
+  { id: '1', kode: 'PAY001', tipe: 'Digital', jenisPembayaran: 'QRIS' },
+  { id: '2', kode: 'PAY002', tipe: 'Digital', jenisPembayaran: 'E-wallet' },
+  { id: '3', kode: 'PAY003', tipe: 'Card', jenisPembayaran: 'Debit Card' },
+]);
 
 const MasterData = () => {
   const [activeTab, setActiveTab] = useState('products');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalType, setModalType] = useState(''); // 'add', 'edit', 'view'
+  const [overlayConfig, setOverlayConfig] = useState<{
+    isOpen: boolean;
+    type: string;
+    title: string;
+    columns: TableColumn[];
+    data: MasterDataItem[];
+    formFields: Array<{
+      key: string;
+      label: string;
+      type: 'text' | 'select';
+      options?: Array<{ value: string; label: string }>;
+      required?: boolean;
+    }>;
+  }>({
+    isOpen: false,
+    type: '',
+    title: '',
+    columns: [],
+    data: [],
+    formFields: []
+  });
 
   const formatCurrency = (amount: number) => {
     return `IDR ${amount.toLocaleString('id-ID')}`;
@@ -114,10 +124,148 @@ const MasterData = () => {
     return <Badge className={colors[level] || colors.Regular}>{level}</Badge>;
   };
 
+  const handleOverlayOpen = (type: string) => {
+    let config;
+    
+    switch (type) {
+      case 'groups':
+        config = {
+          isOpen: true,
+          type: 'groups',
+          title: 'Group Data Management',
+          columns: [
+            { key: 'kode', label: 'Code' },
+            { key: 'nama', label: 'Name' }
+          ],
+          data: sampleGroups,
+          formFields: [
+            { key: 'kode', label: 'Code', type: 'text' as const, required: true },
+            { key: 'nama', label: 'Name', type: 'text' as const, required: true }
+          ]
+        };
+        break;
+      case 'categories':
+        config = {
+          isOpen: true,
+          type: 'categories',
+          title: 'Category Data Management',
+          columns: [
+            { key: 'kode', label: 'Code' },
+            { key: 'kelompok', label: 'Group' },
+            { key: 'kategori', label: 'Category' }
+          ],
+          data: sampleCategories,
+          formFields: [
+            { key: 'kode', label: 'Code', type: 'text' as const, required: true },
+            { key: 'kelompok', label: 'Group', type: 'select' as const, required: true, options: sampleGroups.map(g => ({ value: g.nama, label: g.nama })) },
+            { key: 'kategori', label: 'Category', type: 'text' as const, required: true }
+          ]
+        };
+        break;
+      case 'units':
+        config = {
+          isOpen: true,
+          type: 'units',
+          title: 'Unit Data Management',
+          columns: [
+            { key: 'kode', label: 'Code' },
+            { key: 'satuan', label: 'Unit' }
+          ],
+          data: sampleUnits,
+          formFields: [
+            { key: 'kode', label: 'Code', type: 'text' as const, required: true },
+            { key: 'satuan', label: 'Unit', type: 'text' as const, required: true }
+          ]
+        };
+        break;
+      case 'payments':
+        config = {
+          isOpen: true,
+          type: 'payments',
+          title: 'Non-Cash Payment Types',
+          columns: [
+            { key: 'kode', label: 'Code' },
+            { key: 'tipe', label: 'Type' },
+            { key: 'jenisPembayaran', label: 'Payment Method' }
+          ],
+          data: samplePaymentTypes,
+          formFields: [
+            { key: 'kode', label: 'Code', type: 'text' as const, required: true },
+            { key: 'tipe', label: 'Type', type: 'select' as const, required: true, options: [
+              { value: 'Digital', label: 'Digital' },
+              { value: 'Card', label: 'Card' }
+            ]},
+            { key: 'jenisPembayaran', label: 'Payment Method', type: 'text' as const, required: true }
+          ]
+        };
+        break;
+      default:
+        return;
+    }
+    
+    setOverlayConfig(config);
+  };
+
+  const handleOverlayClose = () => {
+    setOverlayConfig(prev => ({ ...prev, isOpen: false }));
+  };
+
+  const handleAdd = (item: MasterDataItem) => {
+    const newItem = { ...item, id: Date.now().toString() };
+    
+    switch (overlayConfig.type) {
+      case 'groups':
+        setSampleGroups(prev => [...prev, newItem]);
+        break;
+      case 'categories':
+        setSampleCategories(prev => [...prev, newItem]);
+        break;
+      case 'units':
+        setSampleUnits(prev => [...prev, newItem]);
+        break;
+      case 'payments':
+        setSamplePaymentTypes(prev => [...prev, newItem]);
+        break;
+    }
+  };
+
+  const handleEdit = (item: MasterDataItem) => {
+    switch (overlayConfig.type) {
+      case 'groups':
+        setSampleGroups(prev => prev.map(g => g.id === item.id ? item : g));
+        break;
+      case 'categories':
+        setSampleCategories(prev => prev.map(c => c.id === item.id ? item : c));
+        break;
+      case 'units':
+        setSampleUnits(prev => prev.map(u => u.id === item.id ? item : u));
+        break;
+      case 'payments':
+        setSamplePaymentTypes(prev => prev.map(p => p.id === item.id ? item : p));
+        break;
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    switch (overlayConfig.type) {
+      case 'groups':
+        setSampleGroups(prev => prev.filter(g => g.id !== id));
+        break;
+      case 'categories':
+        setSampleCategories(prev => prev.filter(c => c.id !== id));
+        break;
+      case 'units':
+        setSampleUnits(prev => prev.filter(u => u.id !== id));
+        break;
+      case 'payments':
+        setSamplePaymentTypes(prev => prev.filter(p => p.id !== id));
+        break;
+    }
+  };
+
   const handleAction = (action: string, item?: any) => {
-    setModalType(action);
-    setSelectedItem(item || null);
-    setIsModalOpen(true);
+    // Handle other actions like view, edit, delete for main tables
+    console.log('Action:', action, 'Item:', item);
   };
 
   const ActionButtons = ({ item, showView = true }: { item: any, showView?: boolean }) => (
@@ -202,18 +350,6 @@ const MasterData = () => {
     </div>
   );
 
-  // Modal for overlay modules
-  const OverlayModal = ({ title, children }: { title: string, children: React.ReactNode }) => (
-    <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-        </DialogHeader>
-        {children}
-      </DialogContent>
-    </Dialog>
-  );
-
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -261,6 +397,7 @@ const MasterData = () => {
               <SearchAndFilter />
             </CardHeader>
             <CardContent>
+              
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b">
@@ -298,7 +435,7 @@ const MasterData = () => {
 
           {/* Overlay Modules for Products */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleAction('groups')}>
+            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleOverlayOpen('groups')}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <Layers className="h-8 w-8 text-[#0050C8]" />
@@ -310,7 +447,7 @@ const MasterData = () => {
               </CardContent>
             </Card>
 
-            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleAction('categories')}>
+            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleOverlayOpen('categories')}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <Tag className="h-8 w-8 text-[#0050C8]" />
@@ -322,7 +459,7 @@ const MasterData = () => {
               </CardContent>
             </Card>
 
-            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleAction('units')}>
+            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleOverlayOpen('units')}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <Scale className="h-8 w-8 text-[#0050C8]" />
@@ -334,7 +471,7 @@ const MasterData = () => {
               </CardContent>
             </Card>
 
-            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleAction('payments')}>
+            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleOverlayOpen('payments')}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <CreditCard className="h-8 w-8 text-[#0050C8]" />
@@ -348,7 +485,7 @@ const MasterData = () => {
           </div>
         </TabsContent>
 
-        {/* Suppliers Tab */}
+        
         <TabsContent value="suppliers" className="space-y-4">
           <Card>
             <CardHeader>
@@ -392,7 +529,6 @@ const MasterData = () => {
           </Card>
         </TabsContent>
 
-        {/* Customers Tab */}
         <TabsContent value="customers" className="space-y-4">
           <Card>
             <CardHeader>
@@ -434,7 +570,6 @@ const MasterData = () => {
           </Card>
         </TabsContent>
 
-        {/* Employees Tab */}
         <TabsContent value="employees" className="space-y-4">
           <Card>
             <CardHeader>
@@ -477,60 +612,18 @@ const MasterData = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Modal for overlay modules */}
-      {isModalOpen && (
-        <OverlayModal title={`Manage ${modalType}`}>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="code">Kode</Label>
-              <Input id="code" placeholder="Enter code" />
-            </div>
-            <div>
-              <Label htmlFor="name">Nama</Label>
-              <Input id="name" placeholder="Enter name" />
-            </div>
-            {modalType === 'categories' && (
-              <div>
-                <Label htmlFor="group">Kelompok</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select group" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sampleGroups.map((group) => (
-                      <SelectItem key={group.kode} value={group.kode}>
-                        {group.nama}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            {modalType === 'payments' && (
-              <div>
-                <Label htmlFor="type">Tipe</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="digital">Digital</SelectItem>
-                    <SelectItem value="card">Card</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button variant="outline" onClick={() => setIsModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button className="bg-[#0050C8] hover:bg-[#003a9b]">
-                Save
-              </Button>
-            </div>
-          </div>
-        </OverlayModal>
-      )}
+      {/* Master Data Overlay */}
+      <MasterDataOverlay
+        isOpen={overlayConfig.isOpen}
+        onClose={handleOverlayClose}
+        title={overlayConfig.title}
+        columns={overlayConfig.columns}
+        data={overlayConfig.data}
+        formFields={overlayConfig.formFields}
+        onAdd={handleAdd}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+      />
     </div>
   );
 };
