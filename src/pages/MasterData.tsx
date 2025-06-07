@@ -56,33 +56,35 @@ const sampleEmployees = [
   { kode: 'EMP003', nama: 'Budi Santoso', posisi: 'Operator', status: 'Inactive' },
 ];
 
-const [sampleGroups, setSampleGroups] = useState([
-  { id: '1', kode: 'GRP001', nama: 'Printing Materials' },
-  { id: '2', kode: 'GRP002', nama: 'Finishing Tools' },
-  { id: '3', kode: 'GRP003', nama: 'Design Services' },
-]);
-
-const [sampleCategories, setSampleCategories] = useState([
-  { id: '1', kode: 'CAT001', kelompok: 'Printing Materials', kategori: 'Vinyl' },
-  { id: '2', kode: 'CAT002', kelompok: 'Printing Materials', kategori: 'Banner' },
-  { id: '3', kode: 'CAT003', kelompok: 'Finishing Tools', kategori: 'Laminating' },
-]);
-
-const [sampleUnits, setSampleUnits] = useState([
-  { id: '1', kode: 'UNIT001', satuan: 'Roll' },
-  { id: '2', kode: 'UNIT002', satuan: 'Pack' },
-  { id: '3', kode: 'UNIT003', satuan: 'Meter' },
-]);
-
-const [samplePaymentTypes, setSamplePaymentTypes] = useState([
-  { id: '1', kode: 'PAY001', tipe: 'Digital', jenisPembayaran: 'QRIS' },
-  { id: '2', kode: 'PAY002', tipe: 'Digital', jenisPembayaran: 'E-wallet' },
-  { id: '3', kode: 'PAY003', tipe: 'Card', jenisPembayaran: 'Debit Card' },
-]);
-
 const MasterData = () => {
   const [activeTab, setActiveTab] = useState('products');
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Move useState calls inside the component
+  const [sampleGroups, setSampleGroups] = useState([
+    { id: '1', kode: 'GRP001', nama: 'Printing Materials' },
+    { id: '2', kode: 'GRP002', nama: 'Finishing Tools' },
+    { id: '3', kode: 'GRP003', nama: 'Design Services' },
+  ]);
+
+  const [sampleCategories, setSampleCategories] = useState([
+    { id: '1', kode: 'CAT001', kelompok: 'Printing Materials', kategori: 'Vinyl' },
+    { id: '2', kode: 'CAT002', kelompok: 'Printing Materials', kategori: 'Banner' },
+    { id: '3', kode: 'CAT003', kelompok: 'Finishing Tools', kategori: 'Laminating' },
+  ]);
+
+  const [sampleUnits, setSampleUnits] = useState([
+    { id: '1', kode: 'UNIT001', satuan: 'Roll' },
+    { id: '2', kode: 'UNIT002', satuan: 'Pack' },
+    { id: '3', kode: 'UNIT003', satuan: 'Meter' },
+  ]);
+
+  const [samplePaymentTypes, setSamplePaymentTypes] = useState([
+    { id: '1', kode: 'PAY001', tipe: 'Digital', jenisPembayaran: 'QRIS' },
+    { id: '2', kode: 'PAY002', tipe: 'Digital', jenisPembayaran: 'E-wallet' },
+    { id: '3', kode: 'PAY003', tipe: 'Card', jenisPembayaran: 'Debit Card' },
+  ]);
+  
   const [overlayConfig, setOverlayConfig] = useState<{
     isOpen: boolean;
     type: string;
@@ -215,16 +217,16 @@ const MasterData = () => {
     
     switch (overlayConfig.type) {
       case 'groups':
-        setSampleGroups(prev => [...prev, newItem]);
+        setSampleGroups(prev => [...prev, newItem as { id: string; kode: string; nama: string; }]);
         break;
       case 'categories':
-        setSampleCategories(prev => [...prev, newItem]);
+        setSampleCategories(prev => [...prev, newItem as { id: string; kode: string; kelompok: string; kategori: string; }]);
         break;
       case 'units':
-        setSampleUnits(prev => [...prev, newItem]);
+        setSampleUnits(prev => [...prev, newItem as { id: string; kode: string; satuan: string; }]);
         break;
       case 'payments':
-        setSamplePaymentTypes(prev => [...prev, newItem]);
+        setSamplePaymentTypes(prev => [...prev, newItem as { id: string; kode: string; tipe: string; jenisPembayaran: string; }]);
         break;
     }
   };
@@ -232,16 +234,16 @@ const MasterData = () => {
   const handleEdit = (item: MasterDataItem) => {
     switch (overlayConfig.type) {
       case 'groups':
-        setSampleGroups(prev => prev.map(g => g.id === item.id ? item : g));
+        setSampleGroups(prev => prev.map(g => g.id === item.id ? item as { id: string; kode: string; nama: string; } : g));
         break;
       case 'categories':
-        setSampleCategories(prev => prev.map(c => c.id === item.id ? item : c));
+        setSampleCategories(prev => prev.map(c => c.id === item.id ? item as { id: string; kode: string; kelompok: string; kategori: string; } : c));
         break;
       case 'units':
-        setSampleUnits(prev => prev.map(u => u.id === item.id ? item : u));
+        setSampleUnits(prev => prev.map(u => u.id === item.id ? item as { id: string; kode: string; satuan: string; } : u));
         break;
       case 'payments':
-        setSamplePaymentTypes(prev => prev.map(p => p.id === item.id ? item : p));
+        setSamplePaymentTypes(prev => prev.map(p => p.id === item.id ? item as { id: string; kode: string; tipe: string; jenisPembayaran: string; } : p));
         break;
     }
   };
