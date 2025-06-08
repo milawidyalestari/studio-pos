@@ -10,7 +10,9 @@ import {
   Database, 
   Settings, 
   LogOut,
-  Menu
+  Menu,
+  Calculator,
+  Truck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -27,7 +29,9 @@ const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
     { path: '/', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/orderan', label: 'Orderan', icon: FileText },
     { path: '/transaction', label: 'Transaction', icon: Receipt },
+    { path: '/cashier', label: 'Cashier', icon: Calculator },
     { path: '/inventory', label: 'Inventory', icon: Package },
+    { path: '/suppliers', label: 'Suppliers', icon: Truck },
     { path: '/report', label: 'Report', icon: BarChart3 },
     { path: '/master-data', label: 'Master Data', icon: Database },
     { path: '/settings', label: 'Settings', icon: Settings },
