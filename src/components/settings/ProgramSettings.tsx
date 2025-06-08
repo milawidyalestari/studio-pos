@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
@@ -25,6 +24,24 @@ export const ProgramSettings = () => {
   const [website, setWebsite] = useState('www.smartminimarket.com');
   const [background, setBackground] = useState('C:\\Program Files (x86)\\Software Percetakan\\_image\\background.jpg');
   const [logo, setLogo] = useState('C:\\Program Files (x86)\\Software Percetakan\\_image\\logo.jpg');
+
+  // Transactions state
+  const [enableUserLogin, setEnableUserLogin] = useState(true);
+  const [updateMasterPrice, setUpdateMasterPrice] = useState(true);
+  const [allowEditSellingPrice, setAllowEditSellingPrice] = useState(false);
+  const [allowApplyDiscounts, setAllowApplyDiscounts] = useState(true);
+  const [linkAllTransactions, setLinkAllTransactions] = useState(true);
+  const [allowNegativeStock, setAllowNegativeStock] = useState(false);
+  const [showAllDataMaster, setShowAllDataMaster] = useState(true);
+  const [requireAdminAuth, setRequireAdminAuth] = useState(true);
+  const [enableProductImages, setEnableProductImages] = useState(false);
+  const [imageUploadLocation, setImageUploadLocation] = useState('C:\\Program Files (x86)\\Software Percetakan\\_foto\\');
+  const [enablePPN, setEnablePPN] = useState(true);
+  const [ppnRate, setPpnRate] = useState('10');
+  const [nominalRounding, setNominalRounding] = useState('0');
+  const [minimumDimensionRounding, setMinimumDimensionRounding] = useState('0');
+  const [monitorStatusOrder, setMonitorStatusOrder] = useState('No Order terlama');
+  const [checkMembershipActive, setCheckMembershipActive] = useState(false);
 
   // Devices state
   const [headerFaktur1, setHeaderFaktur1] = useState('Smart Shoping for Smart Buyer');
@@ -200,8 +217,166 @@ export const ProgramSettings = () => {
         </TabsContent>
 
         <TabsContent value="transactions" className="space-y-4">
-          <div className="text-center text-muted-foreground py-8">
-            <p>Transaction configuration options will be implemented here.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="enable-user-login"
+                  checked={enableUserLogin}
+                  onCheckedChange={(checked) => setEnableUserLogin(checked === true)}
+                />
+                <Label htmlFor="enable-user-login">Aktifkan User Login</Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="update-master-price"
+                  checked={updateMasterPrice}
+                  onCheckedChange={(checked) => setUpdateMasterPrice(checked === true)}
+                />
+                <Label htmlFor="update-master-price">Update Harga Master saat Transaksi Pembelian</Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="allow-edit-selling-price"
+                  checked={allowEditSellingPrice}
+                  onCheckedChange={(checked) => setAllowEditSellingPrice(checked === true)}
+                />
+                <Label htmlFor="allow-edit-selling-price">Izinkan user bisa edit harga jual</Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="allow-apply-discounts"
+                  checked={allowApplyDiscounts}
+                  onCheckedChange={(checked) => setAllowApplyDiscounts(checked === true)}
+                />
+                <Label htmlFor="allow-apply-discounts">Izinkan user bisa edit diskon penjualan</Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="link-all-transactions"
+                  checked={linkAllTransactions}
+                  onCheckedChange={(checked) => setLinkAllTransactions(checked === true)}
+                />
+                <Label htmlFor="link-all-transactions">Hubungkan Semua Transaksi dengan Transaksi Kas</Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="allow-negative-stock"
+                  checked={allowNegativeStock}
+                  onCheckedChange={(checked) => setAllowNegativeStock(checked === true)}
+                />
+                <Label htmlFor="allow-negative-stock">Izinkan stok minus saat penjualan</Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="show-all-data-master"
+                  checked={showAllDataMaster}
+                  onCheckedChange={(checked) => setShowAllDataMaster(checked === true)}
+                />
+                <Label htmlFor="show-all-data-master">Tampilkan Semua Data ketika membuka Master Data</Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="require-admin-auth"
+                  checked={requireAdminAuth}
+                  onCheckedChange={(checked) => setRequireAdminAuth(checked === true)}
+                />
+                <Label htmlFor="require-admin-auth">Aktifkan Otentikasi Admin untuk Edit/Hapus Transaksi</Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="enable-product-images"
+                  checked={enableProductImages}
+                  onCheckedChange={(checked) => setEnableProductImages(checked === true)}
+                />
+                <Label htmlFor="enable-product-images">Aktifkan Foto/Gambar Barang</Label>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="image-upload-location">Lokasi Upload Gambar</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="image-upload-location"
+                    value={imageUploadLocation}
+                    onChange={(e) => setImageUploadLocation(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button variant="outline" size="sm">...</Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="enable-ppn"
+                  checked={enablePPN}
+                  onCheckedChange={(checked) => setEnablePPN(checked === true)}
+                />
+                <Label htmlFor="enable-ppn">Aktifkan PPN</Label>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="ppn-rate">PPN</Label>
+                <Input
+                  id="ppn-rate"
+                  value={ppnRate}
+                  onChange={(e) => setPpnRate(e.target.value)}
+                  className="w-20"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="nominal-rounding">Pembulatan Nominal</Label>
+                <Input
+                  id="nominal-rounding"
+                  value={nominalRounding}
+                  onChange={(e) => setNominalRounding(e.target.value)}
+                  className="w-20"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="minimum-dimension-rounding">Pembulatan Dimensi Minimal</Label>
+                <Input
+                  id="minimum-dimension-rounding"
+                  value={minimumDimensionRounding}
+                  onChange={(e) => setMinimumDimensionRounding(e.target.value)}
+                  className="w-20"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="monitor-status-order">Urutan Status Monitor</Label>
+                <Select value={monitorStatusOrder} onValueChange={setMonitorStatusOrder}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="No Order terlama">No Order terlama</SelectItem>
+                    <SelectItem value="No Order terbaru">No Order terbaru</SelectItem>
+                    <SelectItem value="Status prioritas">Status prioritas</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="check-membership-active"
+                  checked={checkMembershipActive}
+                  onCheckedChange={(checked) => setCheckMembershipActive(checked === true)}
+                />
+                <Label htmlFor="check-membership-active">Cek Masa Aktif Member</Label>
+              </div>
+            </div>
           </div>
         </TabsContent>
 
@@ -307,7 +482,7 @@ export const ProgramSettings = () => {
                 <Checkbox
                   id="cash-drawer"
                   checked={useCashDrawer}
-                  onCheckedChange={setUseCashDrawer}
+                  onCheckedChange={(checked) => setUseCashDrawer(checked === true)}
                 />
                 <Label htmlFor="cash-drawer">Pakai Cash Drawer</Label>
               </div>
