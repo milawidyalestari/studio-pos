@@ -1,169 +1,346 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Receipt, Package, TrendingUp, Calendar, Users } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { FileText, Receipt, Package, TrendingUp, Calendar as CalendarIcon, Users, MessageCircle, Bell, Filter } from 'lucide-react';
+import { format, isSameDay } from 'date-fns';
 
 const Dashboard = () => {
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [selectedDeadline, setSelectedDeadline] = useState<string>('all');
+  const [showInbox, setShowInbox] = useState(false);
+
   const stats = [
     {
-      title: 'Total Orders',
-      value: '125',
-      change: '+12%',
-      icon: FileText,
+      title: 'Total Pendapatan',
+      value: 'IDR 3.689.400',
+      icon: TrendingUp,
       color: 'text-blue-600'
     },
     {
-      title: 'Pending Orders',
-      value: '23',
-      change: '+5%',
-      icon: Calendar,
-      color: 'text-yellow-600'
-    },
-    {
-      title: 'Completed Today',
-      value: '8',
-      change: '+20%',
+      title: 'Total Transaksi',
+      value: '29',
       icon: Receipt,
       color: 'text-green-600'
     },
     {
-      title: 'Revenue',
-      value: 'IDR 2,450,000',
-      change: '+15%',
-      icon: TrendingUp,
-      color: 'text-purple-600'
+      title: 'Belum Diproses',
+      value: '14',
+      icon: Package,
+      color: 'text-orange-600'
     }
   ];
 
-  const recentOrders = [
-    { id: '#009461', customer: 'John Doe', items: 'Luster Banner', status: 'pending', total: 'IDR 125,000' },
-    { id: '#009462', customer: 'Jane Smith', items: 'HVS A3', status: 'in-progress', total: 'IDR 15,000' },
-    { id: '#009463', customer: 'Bob Wilson', items: 'Banner', status: 'ready', total: 'IDR 20,000' },
-    { id: '#009464', customer: 'Alice Brown', items: 'Business Cards', status: 'done', total: 'IDR 50,000' },
+  const activeOrders = [
+    {
+      id: '1',
+      customer: 'Pak Tut Lanji',
+      tanggal: 'June 26, 2025',
+      deadline: 'June 26, 2025',
+      status: 'Desain',
+      total: 'IDR 35.000'
+    },
+    {
+      id: '2',
+      customer: 'Sri Asri',
+      tanggal: 'June 26, 2025',
+      deadline: 'June 26, 2025',
+      status: 'Konfirmasi',
+      total: 'IDR 25.000'
+    },
+    {
+      id: '3',
+      customer: 'Choirull',
+      tanggal: 'June 26, 2025',
+      deadline: 'June 27, 2025',
+      status: 'Cek File',
+      total: 'IDR 20.000'
+    },
+    {
+      id: '4',
+      customer: 'Matteo',
+      tanggal: 'June 26, 2025',
+      deadline: 'June 28, 2025',
+      status: 'Cek File',
+      total: 'IDR 75.000'
+    },
+    {
+      id: '5',
+      customer: 'Srimulyadi',
+      tanggal: 'June 26, 2025',
+      deadline: 'June 29, 2025',
+      status: 'Desain',
+      total: 'IDR 105.000'
+    },
+    {
+      id: '6',
+      customer: 'Unggul Madani',
+      tanggal: 'June 26, 2025',
+      deadline: 'June 29, 2025',
+      status: 'Desain',
+      total: 'IDR 87.000'
+    }
+  ];
+
+  const inboxMessages = [
+    {
+      id: '1',
+      type: 'Requested Design',
+      customer: 'Kom 3',
+      time: 'Jun 26 • Pak Tut Lanji',
+      message: 'Spanduk Me Kolor',
+      unread: true
+    },
+    {
+      id: '2',
+      type: 'Requested File',
+      customer: 'Kom 1',
+      time: 'Jun 26 • Choirull',
+      message: 'Cek File Premium',
+      unread: true
+    },
+    {
+      id: '3',
+      type: 'Requested Send Confirmation',
+      customer: 'Kom 2',
+      time: 'Jun 26 • Sri Asri',
+      message: 'File Happy Wedding...',
+      unread: true
+    },
+    {
+      id: '4',
+      type: 'Requested File',
+      customer: 'Kom 2',
+      time: 'Jun 26 • Matteo',
+      message: 'Spanduk Cafe Teduh',
+      unread: false
+    }
   ];
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'in-progress': return 'bg-blue-100 text-blue-800';
-      case 'ready': return 'bg-green-100 text-green-800';
-      case 'done': return 'bg-gray-100 text-gray-800';
+    switch (status.toLowerCase()) {
+      case 'desain': return 'bg-yellow-100 text-yellow-800';
+      case 'konfirmasi': return 'bg-blue-100 text-blue-800';
+      case 'cek file': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
 
+  const filteredOrders = activeOrders.filter(order => {
+    if (selectedDate) {
+      const orderDate = new Date(order.deadline);
+      const isDateMatch = isSameDay(orderDate, selectedDate);
+      if (!isDateMatch) return false;
+    }
+    
+    if (selectedDeadline !== 'all') {
+      const today = new Date();
+      const orderDeadline = new Date(order.deadline);
+      
+      switch (selectedDeadline) {
+        case 'today':
+          return isSameDay(orderDeadline, today);
+        case 'tomorrow':
+          const tomorrow = new Date(today);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          return isSameDay(orderDeadline, tomorrow);
+        case 'overdue':
+          return orderDeadline < today;
+        default:
+          return true;
+      }
+    }
+    
+    return true;
+  });
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 h-screen overflow-hidden">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600">Welcome back! Here's your business overview.</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600">Welcome back! Here's your business overview.</p>
+        </div>
+        <div className="flex items-center space-x-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowInbox(!showInbox)}
+          >
+            <MessageCircle className="h-4 w-4 mr-2" />
+            Chat
+          </Button>
+        </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {stats.map((stat, index) => {
           const Icon = stat.icon;
           return (
             <Card key={index}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">
-                  {stat.title}
-                </CardTitle>
-                <Icon className={`h-4 w-4 ${stat.color}`} />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
-                <p className="text-xs text-green-600 font-medium">
-                  {stat.change} from last month
-                </p>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">{stat.title}</p>
+                    <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                  </div>
+                  <Icon className={`h-8 w-8 ${stat.color}`} />
+                </div>
               </CardContent>
             </Card>
           );
         })}
       </div>
 
-      {/* Recent Orders and Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Orders */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <FileText className="h-5 w-5 mr-2 text-[#0050C8]" />
-              Recent Orders
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentOrders.map((order) => (
-                <div key={order.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3">
-                      <span className="font-medium text-gray-900">{order.id}</span>
-                      <Badge className={getStatusColor(order.status)}>
-                        {order.status}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">{order.customer} - {order.items}</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="font-semibold text-[#0050C8]">{order.total}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      {/* Main Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 min-h-0">
+        {/* Calendar and Inbox */}
+        <div className="lg:col-span-1 space-y-6">
+          {/* Calendar */}
+          <Card className="h-fit">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center">
+                <CalendarIcon className="h-5 w-5 mr-2 text-[#0050C8]" />
+                {format(new Date(), 'MMMM yyyy')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={setSelectedDate}
+                className="w-full"
+              />
+            </CardContent>
+          </Card>
 
-        {/* Quick Actions */}
-        <Card>
+          {/* Inbox */}
+          <Card className="flex-1 min-h-0">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center justify-between">
+                <div className="flex items-center">
+                  <Bell className="h-5 w-5 mr-2 text-[#0050C8]" />
+                  Inbox
+                </div>
+                <Button variant="ghost" size="sm">
+                  <Filter className="h-4 w-4" />
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 pb-0">
+              <ScrollArea className="h-96">
+                <div className="space-y-3 pr-4">
+                  {inboxMessages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`p-3 border rounded-lg hover:bg-gray-50 cursor-pointer ${
+                        message.unread ? 'bg-blue-50 border-blue-200' : 'bg-white'
+                      }`}
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className={`w-2 h-2 rounded-full mt-2 ${
+                          message.unread ? 'bg-blue-500' : 'bg-gray-300'
+                        }`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {message.customer} {message.type}
+                          </p>
+                          <p className="text-xs text-gray-500 mb-1">{message.time}</p>
+                          <p className="text-sm text-gray-600 truncate">{message.message}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Active Orders */}
+        <Card className="lg:col-span-3 flex flex-col min-h-0">
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <TrendingUp className="h-5 w-5 mr-2 text-[#0050C8]" />
-              Quick Actions
-            </CardTitle>
+            <div className="flex justify-between items-center">
+              <CardTitle className="flex items-center">
+                <FileText className="h-5 w-5 mr-2 text-[#0050C8]" />
+                Orderan Aktif
+              </CardTitle>
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-600">Deadline:</span>
+                <div className="flex space-x-1">
+                  <Button
+                    variant={selectedDeadline === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedDeadline('all')}
+                    className={selectedDeadline === 'all' ? 'bg-[#0050C8] hover:bg-[#003a9b]' : ''}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    variant={selectedDeadline === 'today' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedDeadline('today')}
+                    className={selectedDeadline === 'today' ? 'bg-[#0050C8] hover:bg-[#003a9b]' : ''}
+                  >
+                    Today
+                  </Button>
+                  <Button
+                    variant={selectedDeadline === 'tomorrow' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedDeadline('tomorrow')}
+                    className={selectedDeadline === 'tomorrow' ? 'bg-[#0050C8] hover:bg-[#003a9b]' : ''}
+                  >
+                    Tomorrow
+                  </Button>
+                  <Button
+                    variant={selectedDeadline === 'overdue' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedDeadline('overdue')}
+                    className={selectedDeadline === 'overdue' ? 'bg-[#0050C8] hover:bg-[#003a9b]' : ''}
+                  >
+                    Overdue
+                  </Button>
+                </div>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <button className="w-full p-3 text-left border rounded-lg hover:bg-gray-50 transition-colors">
-              <div className="flex items-center">
-                <FileText className="h-5 w-5 mr-3 text-[#0050C8]" />
-                <div>
-                  <p className="font-medium">New Order</p>
-                  <p className="text-sm text-gray-600">Create customer request</p>
-                </div>
-              </div>
-            </button>
-            
-            <button className="w-full p-3 text-left border rounded-lg hover:bg-gray-50 transition-colors">
-              <div className="flex items-center">
-                <Package className="h-5 w-5 mr-3 text-[#0050C8]" />
-                <div>
-                  <p className="font-medium">Check Inventory</p>
-                  <p className="text-sm text-gray-600">View stock levels</p>
-                </div>
-              </div>
-            </button>
-            
-            <button className="w-full p-3 text-left border rounded-lg hover:bg-gray-50 transition-colors">
-              <div className="flex items-center">
-                <Users className="h-5 w-5 mr-3 text-[#0050C8]" />
-                <div>
-                  <p className="font-medium">Customer List</p>
-                  <p className="text-sm text-gray-600">Manage customers</p>
-                </div>
-              </div>
-            </button>
-            
-            <button className="w-full p-3 text-left border rounded-lg hover:bg-gray-50 transition-colors">
-              <div className="flex items-center">
-                <Receipt className="h-5 w-5 mr-3 text-[#0050C8]" />
-                <div>
-                  <p className="font-medium">Print Reports</p>
-                  <p className="text-sm text-gray-600">Generate daily reports</p>
-                </div>
-              </div>
-            </button>
+          <CardContent className="flex-1 min-h-0 pt-0">
+            <ScrollArea className="h-full">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Tanggal</TableHead>
+                    <TableHead>Deadline</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Jumlah Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredOrders.map((order) => (
+                    <TableRow key={order.id} className="hover:bg-gray-50">
+                      <TableCell className="font-medium">{order.customer}</TableCell>
+                      <TableCell>{order.tanggal}</TableCell>
+                      <TableCell>{order.deadline}</TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(order.status)}>
+                          {order.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-semibold text-[#0050C8]">
+                        {order.total}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
           </CardContent>
         </Card>
       </div>
