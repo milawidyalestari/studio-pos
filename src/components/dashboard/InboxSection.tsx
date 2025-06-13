@@ -52,7 +52,7 @@ const InboxSection = () => {
 
   return (
     <>
-      <CardHeader className="pb-3 pt-4">
+      <CardHeader className="pb-3 pt-4 px-4">
         <CardTitle className="text-lg flex items-center justify-between">
           <div className="flex items-center">
             <Bell className="h-5 w-5 mr-2 text-[#0050C8]" />
@@ -63,9 +63,9 @@ const InboxSection = () => {
           </Button>
         </CardTitle>
       </CardHeader>
-      <CardContent className="pt-0 pb-0 flex-1 min-h-0">
+      <CardContent className="pt-0 pb-0 flex-1 min-h-0 px-4">
         <ScrollArea className="h-full">
-          <div className="space-y-3 pr-4">
+          <div className="space-y-3 pr-2">
             {inboxMessages.map((message) => (
               <div
                 key={message.id}
