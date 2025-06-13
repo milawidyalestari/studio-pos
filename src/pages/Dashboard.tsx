@@ -1,11 +1,8 @@
 
 import React, { useState } from 'react';
-import { Card, Separator } from '@/components/ui/separator';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import DashboardStats from '@/components/dashboard/DashboardStats';
-import ActiveOrdersTable from '@/components/dashboard/ActiveOrdersTable';
-import CalendarSection from '@/components/dashboard/CalendarSection';
-import InboxSection from '@/components/dashboard/InboxSection';
+import DashboardContent from '@/components/dashboard/DashboardContent';
 
 const Dashboard = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -21,29 +18,12 @@ const Dashboard = () => {
       <DashboardStats />
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 min-h-0">
-        {/* Active Orders */}
-        <ActiveOrdersTable
-          selectedDate={selectedDate}
-          selectedDeadline={selectedDeadline}
-          onDeadlineFilterChange={setSelectedDeadline}
-        />
-
-        {/* Merged Calendar and Inbox */}
-        <Card className="lg:col-span-1 flex flex-col min-h-0">
-          {/* Calendar Section */}
-          <CalendarSection
-            selectedDate={selectedDate}
-            onDateSelect={setSelectedDate}
-          />
-
-          {/* Single Line Divider */}
-          <Separator className="mx-6" />
-
-          {/* Inbox Section */}
-          <InboxSection />
-        </Card>
-      </div>
+      <DashboardContent
+        selectedDate={selectedDate}
+        selectedDeadline={selectedDeadline}
+        onDateSelect={setSelectedDate}
+        onDeadlineFilterChange={setSelectedDeadline}
+      />
     </div>
   );
 };
