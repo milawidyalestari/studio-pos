@@ -1,10 +1,10 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { FileText, Receipt, Package, TrendingUp, Calendar as CalendarIcon, Users, MessageCircle, Bell, Filter } from 'lucide-react';
 import { format, isSameDay } from 'date-fns';
@@ -200,69 +200,6 @@ const Dashboard = () => {
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 min-h-0">
-        {/* Calendar and Inbox */}
-        <div className="lg:col-span-1 space-y-6">
-          {/* Calendar */}
-          <Card className="h-fit">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center">
-                <CalendarIcon className="h-5 w-5 mr-2 text-[#0050C8]" />
-                {format(new Date(), 'MMMM yyyy')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={setSelectedDate}
-                className="w-full"
-              />
-            </CardContent>
-          </Card>
-
-          {/* Inbox */}
-          <Card className="flex-1 min-h-0">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center justify-between">
-                <div className="flex items-center">
-                  <Bell className="h-5 w-5 mr-2 text-[#0050C8]" />
-                  Inbox
-                </div>
-                <Button variant="ghost" size="sm">
-                  <Filter className="h-4 w-4" />
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0 pb-0">
-              <ScrollArea className="h-96">
-                <div className="space-y-3 pr-4">
-                  {inboxMessages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`p-3 border rounded-lg hover:bg-gray-50 cursor-pointer ${
-                        message.unread ? 'bg-blue-50 border-blue-200' : 'bg-white'
-                      }`}
-                    >
-                      <div className="flex items-start space-x-3">
-                        <div className={`w-2 h-2 rounded-full mt-2 ${
-                          message.unread ? 'bg-blue-500' : 'bg-gray-300'
-                        }`} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
-                            {message.customer} {message.type}
-                          </p>
-                          <p className="text-xs text-gray-500 mb-1">{message.time}</p>
-                          <p className="text-sm text-gray-600 truncate">{message.message}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </div>
-
         {/* Active Orders */}
         <Card className="lg:col-span-3 flex flex-col min-h-0">
           <CardHeader>
@@ -340,6 +277,68 @@ const Dashboard = () => {
                   ))}
                 </TableBody>
               </Table>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
+        {/* Merged Calendar and Inbox */}
+        <Card className="lg:col-span-1 flex flex-col min-h-0">
+          {/* Calendar Section */}
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center">
+              <CalendarIcon className="h-5 w-5 mr-2 text-[#0050C8]" />
+              {format(new Date(), 'MMMM yyyy')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 pb-4">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={setSelectedDate}
+              className="w-full"
+            />
+          </CardContent>
+
+          {/* Single Line Divider */}
+          <Separator className="mx-6" />
+
+          {/* Inbox Section */}
+          <CardHeader className="pb-3 pt-4">
+            <CardTitle className="text-lg flex items-center justify-between">
+              <div className="flex items-center">
+                <Bell className="h-5 w-5 mr-2 text-[#0050C8]" />
+                Inbox
+              </div>
+              <Button variant="ghost" size="sm">
+                <Filter className="h-4 w-4" />
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 pb-0 flex-1 min-h-0">
+            <ScrollArea className="h-full">
+              <div className="space-y-3 pr-4">
+                {inboxMessages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`p-3 border rounded-lg hover:bg-gray-50 cursor-pointer ${
+                      message.unread ? 'bg-blue-50 border-blue-200' : 'bg-white'
+                    }`}
+                  >
+                    <div className="flex items-start space-x-3">
+                      <div className={`w-2 h-2 rounded-full mt-2 ${
+                        message.unread ? 'bg-blue-500' : 'bg-gray-300'
+                      }`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {message.customer} {message.type}
+                        </p>
+                        <p className="text-xs text-gray-500 mb-1">{message.time}</p>
+                        <p className="text-sm text-gray-600 truncate">{message.message}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </ScrollArea>
           </CardContent>
         </Card>
