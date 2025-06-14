@@ -11,6 +11,7 @@ import OrderListSection from './order/OrderListSection';
 import ServiceCostSection from './order/ServiceCostSection';
 import PriceSummarySection from './order/PriceSummarySection';
 import OrderActionButtons from './order/OrderActionButtons';
+import { Order } from '@/types';
 
 interface OrderItem {
   id: string;
@@ -26,9 +27,10 @@ interface RequestOrderModalProps {
   open: boolean;
   onClose: () => void;
   onSubmit: (orderData: any) => void;
+  editingOrder?: Order | null;
 }
 
-const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) => {
+const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrderModalProps) => {
   const { toast } = useToast();
   const { createOrder, isCreatingOrder } = useOrders();
   
@@ -294,11 +296,57 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
     handlePrintReceipt();
   };
 
+  // Pre-fill form with editing order data
+  useEffect(() => {
+    if (editingOrder && open) {
+      setFormData({
+        orderNumber: editingOrder.orderNumber,
+        customer: editingOrder.customer,
+        tanggal: new Date(editingOrder.date).toISOString().split('T')[0],
+        waktu: new Date().toTimeString().slice(0, 5),
+        estimasi: editingOrder.estimatedDate,
+        estimasiWaktu: '',
+        outdoor: false,
+        laserPrinting: false,
+        mugNota: false,
+        jasaDesain: '',
+        biayaLain: '',
+        subTotal: '',
+        discount: 0,
+        ppn: 10,
+        paymentType: '',
+        bank: '',
+        admin: '',
+        desainer: editingOrder.designer?.name || '',
+        komputer: '',
+        notes: ''
+      });
+      
+      // Set order items if available
+      const mockItems = editingOrder.items.map((item, index) => ({
+        id: (index + 1).toString().padStart(3, '0'),
+        bahan: 'vinyl',
+        item: item,
+        ukuran: { panjang: '1000', lebar: '500' },
+        quantity: '1',
+        finishing: 'laminating',
+        subTotal: 50000
+      }));
+      
+      setOrderList(mockItems);
+    } else if (!editingOrder && open) {
+      // Reset form for new order
+      resetForm();
+    }
+  }, [editingOrder, open]);
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-7xl h-[95vh] max-h-[95vh] p-0 flex flex-col">
         <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
-          <DialogTitle className="text-xl font-bold">Request Order {formData.orderNumber}</DialogTitle>
+          <DialogTitle className="text-xl font-bold">
+            {editingOrder ? `Edit Order ${formData.orderNumber}` : `Request Order ${formData.orderNumber}`}
+          </DialogTitle>
         </DialogHeader>
         
         <div className="flex-1 overflow-hidden">
