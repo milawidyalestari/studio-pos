@@ -27,6 +27,22 @@ interface Order {
   };
 }
 
+// Map old status to new status - moved before component to avoid hoisting issues
+function getNewStatus(oldStatus: string): Order['status'] {
+  switch (oldStatus) {
+    case 'pending':
+      return 'desain';
+    case 'in-progress':
+      return 'cek-file';
+    case 'ready':
+      return 'export';
+    case 'done':
+      return 'done';
+    default:
+      return 'desain';
+  }
+}
+
 const Orderan = () => {
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -51,22 +67,6 @@ const Orderan = () => {
       assignedBy: 'Orbit'
     } : undefined
   })) || [];
-
-  // Map old status to new status
-  const getNewStatus = (oldStatus: string): Order['status'] => {
-    switch (oldStatus) {
-      case 'pending':
-        return 'desain';
-      case 'in-progress':
-        return 'cek-file';
-      case 'ready':
-        return 'export';
-      case 'done':
-        return 'done';
-      default:
-        return 'desain';
-    }
-  };
 
   const handleOrderModalSubmit = (orderData: any) => {
     // The order is automatically saved through the RequestOrderModal using useOrders hook
