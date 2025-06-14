@@ -14,23 +14,23 @@ const Dashboard = () => {
   const [showInbox, setShowInbox] = useState(false);
 
   return (
-    <div className="p-6 h-screen flex flex-col overflow-hidden max-w-[1240px] mx-auto">
+    <div className="p-6 h-screen flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex-shrink-0">
         <DashboardHeader showInbox={showInbox} onToggleInbox={() => setShowInbox(!showInbox)} />
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-[900px_300px] gap-4 flex-1 min-h-0 mt-2">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-2 flex-1 min-h-0 mt-2">
         {/* Left Section: Stats and Active Orders */}
-        <div className="flex flex-col space-y-4 min-h-0">
-          {/* Stats Grid - Top Aligned */}
+        <div className="lg:col-span-3 flex flex-col space-y-4 min-h-0">
+          {/* Stats Grid */}
           <div className="flex-shrink-0">
             <DashboardStats />
           </div>
           
-          {/* Active Orders Table - Fills remaining space */}
-          <div className="flex-1 min-h-0 overflow-auto">
+          {/* Active Orders Table */}
+          <div className="flex-1 min-h-0">
             <ActiveOrdersTable
               selectedDate={selectedDate}
               selectedDeadline={selectedDeadline}
@@ -40,8 +40,8 @@ const Dashboard = () => {
         </div>
 
         {/* Right Section: Calendar and Inbox */}
-        <Card className="flex flex-col min-h-0 h-full">
-          {/* Calendar Section - Top Aligned */}
+        <Card className="lg:col-span-1 flex flex-col min-h-0">
+          {/* Calendar Section */}
           <div className="flex-shrink-0">
             <CalendarSection
               selectedDate={selectedDate}
@@ -52,8 +52,8 @@ const Dashboard = () => {
           {/* Single Line Divider */}
           <Separator className="flex-shrink-0" />
 
-          {/* Inbox Section - Grows to fill */}
-          <div className="flex-1 min-h-0 overflow-auto">
+          {/* Inbox Section */}
+          <div className="flex-1 min-h-0">
             <InboxSection />
           </div>
         </Card>
