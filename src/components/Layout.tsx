@@ -15,7 +15,7 @@ const Layout = ({ children }: LayoutProps) => {
         collapsed={sidebarCollapsed} 
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} 
       />
-      <main className="flex-1 overflow-auto pr-[30px]">
+      <main className="flex-1 overflow-auto pr-[10px]">
         {children}
       </main>
     </div>
