@@ -42,7 +42,7 @@ const CustomerModal = ({ open, onClose, onCustomerCreated }: CustomerModalProps)
     };
 
     try {
-      createCustomer(customerData);
+      await createCustomer(customerData);
       if (onCustomerCreated) {
         onCustomerCreated(customerData);
       }

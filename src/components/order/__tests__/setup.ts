@@ -1,25 +1,22 @@
 
-import React from 'react';
-import { expect, afterEach, vi } from 'vitest';
-import { cleanup } from '@testing-library/react';
-import * as matchers from '@testing-library/jest-dom/matchers';
+import '@testing-library/jest-dom';
 
-// Extend Vitest's expect with jest-dom matchers
-expect.extend(matchers);
+// Mock Supabase client
+export const mockSupabase = {
+  from: jest.fn(() => ({
+    select: jest.fn(() => ({
+      order: jest.fn(() => Promise.resolve({ data: [], error: null }))
+    })),
+    insert: jest.fn(() => Promise.resolve({ data: null, error: null })),
+    update: jest.fn(() => Promise.resolve({ data: null, error: null })),
+    delete: jest.fn(() => Promise.resolve({ data: null, error: null }))
+  }))
+};
 
-// Cleanup after each test case
-afterEach(() => {
-  cleanup();
-});
+// Mock useToast hook
+export const mockToast = jest.fn();
 
-// Mock the formatCurrency function
-vi.mock('@/services/masterData', () => ({
-  formatCurrency: (amount: number) => `Rp ${amount.toLocaleString('id-ID')}`
-}));
-
-// Mock lucide-react icons
-vi.mock('lucide-react', () => ({
-  Edit: () => React.createElement('svg', { 'data-testid': 'edit' }),
-  Trash2: () => React.createElement('svg', { 'data-testid': 'trash-2' }),
-  Plus: () => React.createElement('svg', { 'data-testid': 'plus' })
-}));
+// Mock React Query
+export const mockQueryClient = {
+  invalidateQueries: jest.fn()
+};

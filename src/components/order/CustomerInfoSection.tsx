@@ -37,10 +37,10 @@ const CustomerInfoSection = ({ formData, onFormDataChange }: CustomerInfoSection
   };
 
   const handleCustomerCreated = (newCustomer: any) => {
-    // The customer list will be automatically updated via React Query
-    // We can immediately select the new customer
+    // Refresh will happen automatically via React Query
+    // We can set the new customer as selected once the query refreshes
     onFormDataChange('customer', newCustomer.nama);
-    onFormDataChange('customerId', newCustomer.id);
+    // Note: The customerId will be set once the customer list refreshes
   };
 
   return (
