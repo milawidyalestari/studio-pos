@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { isSameDay } from 'date-fns';
@@ -105,12 +104,14 @@ const ActiveOrdersTable: React.FC<ActiveOrdersTableProps> = ({
   });
 
   return (
-    <Card className="flex flex-col min-h-0 h-full">
-      <OrdersTableHeader
-        selectedDeadline={selectedDeadline}
-        onDeadlineFilterChange={onDeadlineFilterChange}
-      />
-      <CardContent className="flex-1 min-h-0 pt-0">
+    <Card className="flex flex-col h-full min-h-0">
+      <div className="flex-shrink-0">
+        <OrdersTableHeader
+          selectedDeadline={selectedDeadline}
+          onDeadlineFilterChange={onDeadlineFilterChange}
+        />
+      </div>
+      <CardContent className="flex-1 min-h-0 pt-0 pb-6">
         <OrdersTableContent orders={filteredOrders} />
       </CardContent>
     </Card>
