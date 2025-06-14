@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -117,7 +116,7 @@ const ActiveOrdersTable: React.FC<ActiveOrdersTableProps> = ({
   });
 
   return (
-    <Card className="lg:col-span-3 flex flex-col min-h-0">
+    <Card className="flex flex-col h-full">
       <CardHeader>
         <div className="flex justify-between items-center">
           <CardTitle className="flex items-center">
