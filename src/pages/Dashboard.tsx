@@ -1,8 +1,12 @@
 
 import React, { useState } from 'react';
+import { Card } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import DashboardStats from '@/components/dashboard/DashboardStats';
-import DashboardContent from '@/components/dashboard/DashboardContent';
+import ActiveOrdersTable from '@/components/dashboard/ActiveOrdersTable';
+import CalendarSection from '@/components/dashboard/CalendarSection';
+import InboxSection from '@/components/dashboard/InboxSection';
 
 const Dashboard = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -14,16 +18,37 @@ const Dashboard = () => {
       {/* Header */}
       <DashboardHeader showInbox={showInbox} onToggleInbox={() => setShowInbox(!showInbox)} />
 
-      {/* Stats Grid */}
-      <DashboardStats />
+      {/* Top Row: Stats and Calendar/Inbox */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Stats Grid */}
+        <div className="lg:col-span-3">
+          <DashboardStats />
+        </div>
 
-      {/* Main Content */}
-      <DashboardContent
-        selectedDate={selectedDate}
-        selectedDeadline={selectedDeadline}
-        onDateSelect={setSelectedDate}
-        onDeadlineFilterChange={setSelectedDeadline}
-      />
+        {/* Calendar and Inbox */}
+        <Card className="lg:col-span-1 flex flex-col">
+          {/* Calendar Section */}
+          <CalendarSection
+            selectedDate={selectedDate}
+            onDateSelect={setSelectedDate}
+          />
+
+          {/* Single Line Divider */}
+          <Separator className="mx-6" />
+
+          {/* Inbox Section */}
+          <InboxSection />
+        </Card>
+      </div>
+
+      {/* Active Orders Table - Full Width */}
+      <div className="flex-1 min-h-0">
+        <ActiveOrdersTable
+          selectedDate={selectedDate}
+          selectedDeadline={selectedDeadline}
+          onDeadlineFilterChange={setSelectedDeadline}
+        />
+      </div>
     </div>
   );
 };
