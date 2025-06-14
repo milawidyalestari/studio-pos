@@ -42,9 +42,9 @@ interface KanbanBoardProps {
 }
 
 const DEFAULT_COLUMNS: KanbanColumn[] = [
-  { id: 'pending', title: 'Pending', status: 'pending', color: 'bg-yellow-100 border-yellow-200' },
-  { id: 'in-progress', title: 'In Progress', status: 'in-progress', color: 'bg-blue-100 border-blue-200' },
-  { id: 'ready', title: 'Ready', status: 'ready', color: 'bg-green-100 border-green-200' },
+  { id: 'pending', title: 'Pending', status: 'pending', color: 'bg-yellow-50 border-yellow-200' },
+  { id: 'in-progress', title: 'In Progress', status: 'in-progress', color: 'bg-blue-50 border-blue-200' },
+  { id: 'ready', title: 'Ready', status: 'ready', color: 'bg-green-50 border-green-200' },
 ];
 
 const KanbanBoard = ({ 
@@ -95,7 +95,7 @@ const KanbanBoard = ({
       id: newColumnTitle.toLowerCase().replace(/\s+/g, '-'),
       title: newColumnTitle,
       status: newColumnTitle.toLowerCase().replace(/\s+/g, '-'),
-      color: 'bg-gray-100 border-gray-200'
+      // Don't set any background color for new columns
     };
     
     setColumns([...columns, newColumn]);
@@ -132,7 +132,7 @@ const KanbanBoard = ({
             return (
               <div 
                 key={column.id} 
-                className={`flex-shrink-0 w-80 rounded-lg p-4 border-2 ${column.color || 'bg-gray-50 border-gray-200'}`}
+                className={`flex-shrink-0 w-80 rounded-lg p-4 border-2 ${column.color || 'bg-white border-gray-200'}`}
               >
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-gray-900">{column.title}</h3>
