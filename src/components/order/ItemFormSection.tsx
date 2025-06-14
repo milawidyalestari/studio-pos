@@ -22,6 +22,7 @@ interface ItemFormSectionProps {
   onSave: () => void;
   onAddItem: () => void;
   isSaving: boolean;
+  nextItemId: string; // Add this prop for the next sequential ID
 }
 
 const ItemFormSection = ({
@@ -31,7 +32,8 @@ const ItemFormSection = ({
   editingItemId,
   onSave,
   onAddItem,
-  isSaving
+  isSaving,
+  nextItemId
 }: ItemFormSectionProps) => {
   return (
     <div className="border rounded-lg p-4 mb-6">
@@ -42,10 +44,11 @@ const ItemFormSection = ({
           <Label htmlFor="idItem" className="text-sm font-medium">ID Item</Label>
           <Input
             id="idItem"
-            value={currentItem.id}
+            value={editingItemId ? currentItem.id : nextItemId}
             onChange={(e) => updateCurrentItem('id', e.target.value)}
             placeholder="ID Item"
-            className="mt-1"
+            className="mt-1 bg-gray-50"
+            readOnly={!editingItemId} // Make read-only when adding new items
           />
         </div>
         <div>

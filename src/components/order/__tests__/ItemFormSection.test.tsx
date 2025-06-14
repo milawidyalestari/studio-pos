@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -35,14 +36,69 @@ describe('ItemFormSection', () => {
         onSave={mockOnSave}
         onAddItem={mockOnAddItem}
         isSaving={false}
+        nextItemId="001"
       />
     );
 
-    expect(screen.getByDisplayValue('item-1')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('001')).toBeInTheDocument(); // Shows nextItemId when not editing
     expect(screen.getByDisplayValue('Test Banner')).toBeInTheDocument();
     expect(screen.getByDisplayValue('100')).toBeInTheDocument();
     expect(screen.getByDisplayValue('50')).toBeInTheDocument();
     expect(screen.getByDisplayValue('2')).toBeInTheDocument();
+  });
+
+  it('shows current item ID when editing', () => {
+    render(
+      <ItemFormSection
+        currentItem={mockCurrentItem}
+        updateCurrentItem={mockUpdateCurrentItem}
+        resetCurrentItem={mockResetCurrentItem}
+        editingItemId="item-1"
+        onSave={mockOnSave}
+        onAddItem={mockOnAddItem}
+        isSaving={false}
+        nextItemId="001"
+      />
+    );
+
+    expect(screen.getByDisplayValue('item-1')).toBeInTheDocument(); // Shows current item ID when editing
+  });
+
+  it('ID field is read-only when adding new items', () => {
+    render(
+      <ItemFormSection
+        currentItem={mockCurrentItem}
+        updateCurrentItem={mockUpdateCurrentItem}
+        resetCurrentItem={mockResetCurrentItem}
+        editingItemId={null}
+        onSave={mockOnSave}
+        onAddItem={mockOnAddItem}
+        isSaving={false}
+        nextItemId="001"
+      />
+    );
+
+    const idInput = screen.getByDisplayValue('001');
+    expect(idInput).toHaveClass('bg-gray-50');
+    expect(idInput).toHaveAttribute('readOnly');
+  });
+
+  it('ID field is editable when editing existing items', () => {
+    render(
+      <ItemFormSection
+        currentItem={mockCurrentItem}
+        updateCurrentItem={mockUpdateCurrentItem}
+        resetCurrentItem={mockResetCurrentItem}
+        editingItemId="item-1"
+        onSave={mockOnSave}
+        onAddItem={mockOnAddItem}
+        isSaving={false}
+        nextItemId="001"
+      />
+    );
+
+    const idInput = screen.getByDisplayValue('item-1');
+    expect(idInput).not.toHaveAttribute('readOnly');
   });
 
   it('calls updateCurrentItem when input values change', () => {
@@ -55,6 +111,7 @@ describe('ItemFormSection', () => {
         onSave={mockOnSave}
         onAddItem={mockOnAddItem}
         isSaving={false}
+        nextItemId="001"
       />
     );
 
@@ -74,6 +131,7 @@ describe('ItemFormSection', () => {
         onSave={mockOnSave}
         onAddItem={mockOnAddItem}
         isSaving={false}
+        nextItemId="001"
       />
     );
 
@@ -93,6 +151,7 @@ describe('ItemFormSection', () => {
         onSave={mockOnSave}
         onAddItem={mockOnAddItem}
         isSaving={false}
+        nextItemId="001"
       />
     );
 
@@ -110,6 +169,7 @@ describe('ItemFormSection', () => {
         onSave={mockOnSave}
         onAddItem={mockOnAddItem}
         isSaving={false}
+        nextItemId="001"
       />
     );
 
@@ -127,6 +187,7 @@ describe('ItemFormSection', () => {
         onSave={mockOnSave}
         onAddItem={mockOnAddItem}
         isSaving={false}
+        nextItemId="001"
       />
     );
 
@@ -146,6 +207,7 @@ describe('ItemFormSection', () => {
         onSave={mockOnSave}
         onAddItem={mockOnAddItem}
         isSaving={false}
+        nextItemId="001"
       />
     );
 
