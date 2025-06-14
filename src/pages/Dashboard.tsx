@@ -21,7 +21,7 @@ const Dashboard = () => {
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-2 flex-1 min-h-0">
         {/* Left Section: Stats and Active Orders */}
-        <div className="lg:col-span-3 flex flex-col space-y-2 min-h-0">
+        <div className="lg:col-span-3 flex flex-col space-y-4 min-h-0">
           {/* Stats Grid */}
           <DashboardStats />
           
