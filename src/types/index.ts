@@ -7,6 +7,11 @@ export interface Order {
   status: 'pending' | 'in-progress' | 'ready' | 'done';
   date: string;
   estimatedDate: string;
+  designer?: {
+    name: string;
+    avatar?: string;
+    assignedBy?: string;
+  };
 }
 
 export interface Supplier {
