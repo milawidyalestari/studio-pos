@@ -1,5 +1,6 @@
 
 /// <reference types="vitest" />
+/// <reference types="@testing-library/jest-dom" />
 
 import 'vitest';
 import type { TestingLibraryMatchers } from '@testing-library/jest-dom/matchers';

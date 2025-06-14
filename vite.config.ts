@@ -24,6 +24,8 @@ export default defineConfig(({ mode }) => ({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/components/order/__tests__/setup.ts'],
-    types: ['vitest/globals']
+    typecheck: {
+      include: ['src/**/*.{test,spec}.{ts,tsx}']
+    }
   },
 }))
