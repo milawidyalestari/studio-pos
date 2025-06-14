@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { expect, afterEach, vi } from 'vitest';
+import { expect, afterEach, beforeEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import * as matchers from '@testing-library/jest-dom/matchers';
 
@@ -11,6 +11,9 @@ expect.extend(matchers);
 afterEach(() => {
   cleanup();
 });
+
+// Make beforeEach available globally
+global.beforeEach = beforeEach;
 
 // Mock the formatCurrency function
 vi.mock('@/services/masterData', () => ({
