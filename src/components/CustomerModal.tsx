@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCustomers } from '@/hooks/useCustomers';
+import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 
 type CustomerLevel = Database['public']['Enums']['customer_level'];
@@ -28,17 +29,30 @@ const CustomerModal = ({ open, onClose, onCustomerCreated }: CustomerModalProps)
     level: 'Regular' as CustomerLevel
   });
 
-  const generateCustomerCode = () => {
-    const timestamp = Date.now().toString().slice(-6);
-    return `CUST${timestamp}`;
+  const generateCustomerCode = async () => {
+    try {
+      const { data, error } = await supabase.rpc('generate_customer_code');
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error generating customer code:', error);
+      // Fallback to timestamp-based code if the function fails
+      const timestamp = Date.now().toString().slice(-6);
+      return `CUST${timestamp}`;
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    let customerCode = formData.kode;
+    if (!customerCode) {
+      customerCode = await generateCustomerCode();
+    }
+
     const customerData = {
       ...formData,
-      kode: formData.kode || generateCustomerCode()
+      kode: customerCode
     };
 
     try {
