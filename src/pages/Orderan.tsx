@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +16,7 @@ interface Order {
   customer: string;
   items: string[];
   total: string;
-  status: 'desain' | 'cek-file' | 'konfirmasi' | 'tunggu-dp' | 'export' | 'done';
+  status: 'pending' | 'in-progress' | 'ready' | 'done';
   date: string;
   estimatedDate: string;
   designer?: {
@@ -41,7 +40,7 @@ const Orderan = () => {
     customer: order.customer_name || 'Unknown Customer',
     items: order.order_items?.map(item => item.item_name) || [],
     total: formatCurrency(order.total_amount || 0),
-    status: getNewStatus(order.status),
+    status: order.status as Order['status'],
     date: new Date(order.tanggal).toLocaleDateString(),
     estimatedDate: order.estimasi || '',
     // Add sample designer data for demonstration (every other order has a designer assigned)
@@ -52,22 +51,6 @@ const Orderan = () => {
     } : undefined
   })) || [];
 
-  // Map old status to new status
-  const getNewStatus = (oldStatus: string): Order['status'] => {
-    switch (oldStatus) {
-      case 'pending':
-        return 'desain';
-      case 'in-progress':
-        return 'cek-file';
-      case 'ready':
-        return 'export';
-      case 'done':
-        return 'done';
-      default:
-        return 'desain';
-    }
-  };
-
   const handleOrderModalSubmit = (orderData: any) => {
     // The order is automatically saved through the RequestOrderModal using useOrders hook
     // The order list will automatically refresh due to React Query invalidation
@@ -77,13 +60,6 @@ const Orderan = () => {
   const updateOrderStatus = (orderId: string, newStatus: Order['status']) => {
     // TODO: Implement status update in database
     console.log('Update order status:', orderId, newStatus);
-  };
-
-  const handleRemoveOrder = (orderId: string) => {
-    // TODO: Implement order removal in database
-    console.log('Remove order:', orderId);
-    // For now, just show a message that the order would be removed
-    alert('Order removal functionality will be implemented with database integration');
   };
 
   const handleDragEnd = (result: DropResult) => {
@@ -183,7 +159,6 @@ const Orderan = () => {
               onDragEnd={handleDragEnd} 
               onOrderClick={handleOrderClick}
               onEditOrder={handleEditOrder}
-              onRemoveOrder={handleRemoveOrder}
             />
           ) : (
             <OrderTable orders={orders} onUpdateStatus={updateOrderStatus} onOrderClick={handleOrderClick} />
@@ -226,7 +201,7 @@ const Orderan = () => {
               </div>
               <div>
                 <label className="font-semibold">Status:</label>
-                <p className="capitalize">{selectedOrder.status.replace('-', ' ')}</p>
+                <p className="capitalize">{selectedOrder.status}</p>
               </div>
               <div>
                 <label className="font-semibold">Order Date:</label>
