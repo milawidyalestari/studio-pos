@@ -1,13 +1,11 @@
-
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { formatCurrency } from '@/services/masterData';
+import { calculateItemPrice, formatCurrency } from '@/services/masterData';
 import { useToast } from '@/hooks/use-toast';
+import { generateOrderNumber } from '@/services/orderService';
 import { useOrders } from '@/hooks/useOrders';
-import { useOrderForm } from '@/hooks/useOrderForm';
-import { useOrderItems } from '@/hooks/useOrderItems';
-import { calculateOrderTotal } from '@/utils/orderCalculations';
+import { createOrGetGlobalItem } from '@/services/itemService';
 import CustomerInfoSection from './order/CustomerInfoSection';
 import ItemFormSection from './order/ItemFormSection';
 import OrderListSection from './order/OrderListSection';
@@ -15,6 +13,17 @@ import ServiceCostSection from './order/ServiceCostSection';
 import PriceSummarySection from './order/PriceSummarySection';
 import OrderActionButtons from './order/OrderActionButtons';
 import { Order } from '@/types';
+
+interface OrderItem {
+  id: string;
+  bahan: string;
+  item: string;
+  ukuran: { panjang: string; lebar: string };
+  quantity: string;
+  finishing: string;
+  subTotal: number;
+  globalItemCode?: string; // Reference to persistent global item
+}
 
 interface RequestOrderModalProps {
   open: boolean;
@@ -27,33 +36,214 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   const { toast } = useToast();
   const { createOrder, isCreatingOrder } = useOrders();
   
-  const {
-    formData,
-    hasUnsavedChanges,
-    handleFormDataChange,
-    resetForm,
-    setHasUnsavedChanges
-  } = useOrderForm();
+  const [formData, setFormData] = useState({
+    orderNumber: generateOrderNumber(),
+    customer: '',
+    tanggal: new Date().toISOString().split('T')[0],
+    waktu: new Date().toTimeString().slice(0, 5),
+    estimasi: '',
+    estimasiWaktu: '',
+    outdoor: false,
+    laserPrinting: false,
+    mugNota: false,
+    jasaDesain: '',
+    biayaLain: '',
+    subTotal: '',
+    discount: 0,
+    ppn: 10,
+    paymentType: '',
+    bank: '',
+    admin: '',
+    desainer: '',
+    komputer: '',
+    notes: ''
+  });
 
-  const {
-    currentItem,
-    orderList,
-    totalPrice,
-    editingItemId,
-    updateCurrentItem,
-    resetCurrentItem,
-    addToOrderList,
-    deleteFromOrderList,
-    editOrderItem,
-    saveEditingItem,
-    resetItems,
-    generateNextItemId
-  } = useOrderItems();
+  const [currentItem, setCurrentItem] = useState({
+    id: '',
+    bahan: '',
+    item: '',
+    ukuran: { panjang: '', lebar: '' },
+    quantity: '',
+    finishing: '',
+    globalItemCode: ''
+  });
+
+  const [orderList, setOrderList] = useState<OrderItem[]>([]);
+  const [totalPrice, setTotalPrice] = useState(0);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const total = orderList.reduce((sum, item) => sum + item.subTotal, 0);
+    setTotalPrice(total);
+  }, [orderList]);
+
+  useEffect(() => {
+    setHasUnsavedChanges(true);
+  }, [formData]);
+
+  useEffect(() => {
+    if (editingItemId) {
+      setHasUnsavedChanges(true);
+    }
+  }, [currentItem, editingItemId]);
+
+  const generateNextItemId = () => {
+    const nextNumber = orderList.length + 1;
+    return nextNumber.toString().padStart(3, '0');
+  };
+
+  const handleFormDataChange = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const updateCurrentItem = (field: string, value: any) => {
+    setCurrentItem(prev => {
+      if (field === 'ukuran') {
+        return { ...prev, [field]: value };
+      }
+      return { ...prev, [field]: value };
+    });
+  };
+
+  const resetCurrentItem = () => {
+    setCurrentItem({
+      id: '',
+      bahan: '',
+      item: '',
+      ukuran: { panjang: '', lebar: '' },
+      quantity: '',
+      finishing: '',
+      globalItemCode: ''
+    });
+    setEditingItemId(null);
+  };
+
+  const addToOrderList = async () => {
+    if (!currentItem.item || !currentItem.ukuran.panjang || !currentItem.ukuran.lebar || !currentItem.quantity) {
+      return;
+    }
+
+    const panjang = parseFloat(currentItem.ukuran.panjang) || 0;
+    const lebar = parseFloat(currentItem.ukuran.lebar) || 0;
+    const quantity = parseInt(currentItem.quantity) || 0;
+    
+    let subTotal = 0;
+    if (panjang > 0 && lebar > 0 && quantity > 0) {
+      subTotal = calculateItemPrice(panjang, lebar, quantity, currentItem.bahan, currentItem.finishing);
+    }
+
+    let globalItemCode = currentItem.globalItemCode;
+    if (!globalItemCode) {
+      try {
+        const globalItem = await createOrGetGlobalItem({
+          name: currentItem.item,
+          bahan: currentItem.bahan,
+          panjang: panjang,
+          lebar: lebar,
+          finishing: currentItem.finishing
+        });
+        
+        if (globalItem) {
+          globalItemCode = globalItem.item_code;
+          console.log('Created/found global item:', globalItemCode);
+        }
+      } catch (error) {
+        console.error('Error creating global item:', error);
+        toast({
+          title: "Warning",
+          description: "Item added but global tracking may be affected.",
+          variant: "destructive",
+        });
+      }
+    }
+
+    const itemId = generateNextItemId();
+
+    const newOrderItem: OrderItem = {
+      ...currentItem,
+      id: itemId,
+      subTotal,
+      globalItemCode
+    };
+
+    setOrderList(prev => [...prev, newOrderItem]);
+    resetCurrentItem();
+  };
+
+  const deleteFromOrderList = (itemId: string) => {
+    setOrderList(prev => {
+      const newList = prev.filter(item => item.id !== itemId);
+      return newList.map((item, index) => ({
+        ...item,
+        id: (index + 1).toString().padStart(3, '0')
+      }));
+    });
+  };
+
+  const editOrderItem = (item: OrderItem) => {
+    setCurrentItem(item);
+    setEditingItemId(item.id);
+    deleteFromOrderList(item.id);
+  };
+
+  const calculateOrderTotal = (items: OrderItem[], jasaDesain: number = 0, biayaLain: number = 0, discount: number = 0, ppn: number = 10) => {
+    const itemsTotal = items.reduce((sum, item) => sum + (item.subTotal || 0), 0);
+    const subtotal = itemsTotal + jasaDesain + biayaLain;
+    const discountAmount = (subtotal * discount) / 100;
+    const afterDiscount = subtotal - discountAmount;
+    const taxAmount = (afterDiscount * ppn) / 100;
+    const total = afterDiscount + taxAmount;
+    
+    return {
+      subtotal,
+      discountAmount,
+      taxAmount,
+      total
+    };
+  };
 
   const handleSave = async () => {
     try {
-      if (editingItemId) {
-        await saveEditingItem();
+      if (editingItemId && currentItem.item && currentItem.ukuran.panjang && currentItem.ukuran.lebar && currentItem.quantity) {
+        const panjang = parseFloat(currentItem.ukuran.panjang) || 0;
+        const lebar = parseFloat(currentItem.ukuran.lebar) || 0;
+        const quantity = parseInt(currentItem.quantity) || 0;
+        
+        let subTotal = 0;
+        if (panjang > 0 && lebar > 0 && quantity > 0) {
+          subTotal = calculateItemPrice(panjang, lebar, quantity, currentItem.bahan, currentItem.finishing);
+        }
+
+        let globalItemCode = currentItem.globalItemCode;
+        if (!globalItemCode) {
+          try {
+            const globalItem = await createOrGetGlobalItem({
+              name: currentItem.item,
+              bahan: currentItem.bahan,
+              panjang: panjang,
+              lebar: lebar,
+              finishing: currentItem.finishing
+            });
+            
+            if (globalItem) {
+              globalItemCode = globalItem.item_code;
+            }
+          } catch (error) {
+            console.error('Error creating global item:', error);
+          }
+        }
+
+        const updatedItem: OrderItem = {
+          ...currentItem,
+          id: editingItemId,
+          subTotal,
+          globalItemCode
+        };
+
+        setOrderList(prev => [...prev, updatedItem]);
+        resetCurrentItem();
       }
       
       const totals = calculateOrderTotal(
@@ -109,7 +299,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
       });
       
       setHasUnsavedChanges(false);
-      handleReset();
+      resetForm();
       onClose();
       
       console.log('Order saved and submitted successfully');
@@ -122,9 +312,33 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
     console.log('Print Receipt clicked - functionality to be implemented');
   };
 
-  const handleReset = () => {
-    resetForm();
-    resetItems();
+  const resetForm = () => {
+    setFormData({
+      orderNumber: generateOrderNumber(),
+      customer: '',
+      tanggal: new Date().toISOString().split('T')[0],
+      waktu: new Date().toTimeString().slice(0, 5),
+      estimasi: '',
+      estimasiWaktu: '',
+      outdoor: false,
+      laserPrinting: false,
+      mugNota: false,
+      jasaDesain: '',
+      biayaLain: '',
+      subTotal: '',
+      discount: 0,
+      ppn: 10,
+      paymentType: '',
+      bank: '',
+      admin: '',
+      desainer: '',
+      komputer: '',
+      notes: ''
+    });
+    setOrderList([]);
+    resetCurrentItem();
+    setTotalPrice(0);
+    setHasUnsavedChanges(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -134,31 +348,43 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
 
   useEffect(() => {
     if (editingOrder && open) {
-      handleFormDataChange('orderNumber', editingOrder.orderNumber);
-      handleFormDataChange('customer', editingOrder.customer);
-      handleFormDataChange('tanggal', new Date(editingOrder.date).toISOString().split('T')[0]);
-      handleFormDataChange('waktu', new Date().toTimeString().slice(0, 5));
-      handleFormDataChange('estimasi', editingOrder.estimatedDate);
-      handleFormDataChange('estimasiWaktu', '');
-      handleFormDataChange('outdoor', false);
-      handleFormDataChange('laserPrinting', false);
-      handleFormDataChange('mugNota', false);
-      handleFormDataChange('jasaDesain', '');
-      handleFormDataChange('biayaLain', '');
-      handleFormDataChange('subTotal', '');
-      handleFormDataChange('discount', 0);
-      handleFormDataChange('ppn', 10);
-      handleFormDataChange('paymentType', '');
-      handleFormDataChange('bank', '');
-      handleFormDataChange('admin', '');
-      handleFormDataChange('desainer', editingOrder.designer?.name || '');
-      handleFormDataChange('komputer', '');
-      handleFormDataChange('notes', '');
+      setFormData({
+        orderNumber: editingOrder.orderNumber,
+        customer: editingOrder.customer,
+        tanggal: new Date(editingOrder.date).toISOString().split('T')[0],
+        waktu: new Date().toTimeString().slice(0, 5),
+        estimasi: editingOrder.estimatedDate,
+        estimasiWaktu: '',
+        outdoor: false,
+        laserPrinting: false,
+        mugNota: false,
+        jasaDesain: '',
+        biayaLain: '',
+        subTotal: '',
+        discount: 0,
+        ppn: 10,
+        paymentType: '',
+        bank: '',
+        admin: '',
+        desainer: editingOrder.designer?.name || '',
+        komputer: '',
+        notes: ''
+      });
       
-      // Reset items for demo - in real app would load from order
-      resetItems();
+      const mockItems = editingOrder.items.map((item, index) => ({
+        id: (index + 1).toString().padStart(3, '0'),
+        bahan: 'vinyl',
+        item: item,
+        ukuran: { panjang: '1000', lebar: '500' },
+        quantity: '1',
+        finishing: 'laminating',
+        subTotal: 50000,
+        globalItemCode: `ITM-${Math.floor(Math.random() * 100000).toString().padStart(6, '0')}`
+      }));
+      
+      setOrderList(mockItems);
     } else if (!editingOrder && open) {
-      handleReset();
+      resetForm();
     }
   }, [editingOrder, open]);
 
@@ -186,7 +412,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
                       updateCurrentItem={updateCurrentItem}
                       resetCurrentItem={resetCurrentItem}
                       editingItemId={editingItemId}
-                      onSave={saveEditingItem}
+                      onSave={handleSave}
                       onAddItem={addToOrderList}
                       isSaving={isCreatingOrder}
                       nextItemId={generateNextItemId()}
@@ -220,7 +446,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
             </div>
 
             <OrderActionButtons
-              onNew={handleReset}
+              onNew={resetForm}
               onSave={handleSave}
               onSubmit={handlePrintReceipt}
               isSaving={isCreatingOrder}
