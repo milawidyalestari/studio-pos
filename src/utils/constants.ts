@@ -17,9 +17,11 @@ export const ROUTES = {
 } as const;
 
 export const ORDER_STATUS = {
-  PENDING: 'pending',
-  IN_PROGRESS: 'in-progress',
-  READY: 'ready',
+  DESAIN: 'desain',
+  CEK_FILE: 'cek-file',
+  KONFIRMASI: 'konfirmasi',
+  TUNGGU_DP: 'tunggu-dp',
+  EXPORT: 'export',
   DONE: 'done',
 } as const;
 
