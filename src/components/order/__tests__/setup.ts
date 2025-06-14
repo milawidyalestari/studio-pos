@@ -1,5 +1,6 @@
 
-import { expect, afterEach } from 'vitest';
+import React from 'react';
+import { expect, afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import * as matchers from '@testing-library/jest-dom/matchers';
 
@@ -18,7 +19,7 @@ vi.mock('@/services/masterData', () => ({
 
 // Mock lucide-react icons
 vi.mock('lucide-react', () => ({
-  Edit: () => <svg data-testid="edit" />,
-  Trash2: () => <svg data-testid="trash-2" />,
-  Plus: () => <svg data-testid="plus" />
+  Edit: () => React.createElement('svg', { 'data-testid': 'edit' }),
+  Trash2: () => React.createElement('svg', { 'data-testid': 'trash-2' }),
+  Plus: () => React.createElement('svg', { 'data-testid': 'plus' })
 }));
