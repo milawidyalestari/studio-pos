@@ -4,16 +4,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Edit, Trash2 } from 'lucide-react';
 import { formatCurrency } from '@/services/masterData';
-
-interface OrderItem {
-  id: string;
-  bahan: string;
-  item: string;
-  ukuran: { panjang: string; lebar: string };
-  quantity: string;
-  finishing: string;
-  subTotal: number;
-}
+import { OrderItem } from '@/types/order';
 
 interface OrderListSectionProps {
   orderList: OrderItem[];
