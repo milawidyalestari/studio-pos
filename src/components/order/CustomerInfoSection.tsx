@@ -88,12 +88,12 @@ const CustomerInfoSection = ({ formData, onFormDataChange }: CustomerInfoSection
           />
         </div>
         <div>
-          <Label htmlFor="estimasi" className="text-sm font-medium">Estimate</Label>
+          <Label htmlFor="estimasi" className="text-sm font-medium">Estimate Date</Label>
           <Input
             id="estimasi"
+            type="date"
             value={formData.estimasi}
             onChange={(e) => onFormDataChange('estimasi', e.target.value)}
-            placeholder="Days"
             className="mt-1"
           />
         </div>
