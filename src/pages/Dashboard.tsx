@@ -14,14 +14,14 @@ const Dashboard = () => {
   const [showInbox, setShowInbox] = useState(false);
 
   return (
-    <div className="p-6 space-y-6 h-screen overflow-hidden">
+    <div className="p-6 space-y-4 h-screen overflow-hidden">
       {/* Header */}
       <DashboardHeader showInbox={showInbox} onToggleInbox={() => setShowInbox(!showInbox)} />
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1 min-h-0">
         {/* Left Section: Stats and Active Orders */}
-        <div className="lg:col-span-3 flex flex-col space-y-6 min-h-0">
+        <div className="lg:col-span-3 flex flex-col space-y-4 min-h-0">
           {/* Stats Grid */}
           <DashboardStats />
           
