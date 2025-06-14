@@ -20,6 +20,11 @@ interface Order {
   status: 'pending' | 'in-progress' | 'ready' | 'done';
   date: string;
   estimatedDate: string;
+  designer?: {
+    name: string;
+    avatar?: string;
+    assignedBy?: string;
+  };
 }
 
 const Orderan = () => {
@@ -29,7 +34,7 @@ const Orderan = () => {
   const { orders: dbOrders, isLoading } = useOrders();
   
   // Transform database orders to match UI format
-  const orders: Order[] = dbOrders?.map(order => ({
+  const orders: Order[] = dbOrders?.map((order, index) => ({
     id: order.id,
     orderNumber: order.order_number,
     customer: order.customer_name || 'Unknown Customer',
@@ -37,7 +42,13 @@ const Orderan = () => {
     total: formatCurrency(order.total_amount || 0),
     status: order.status as Order['status'],
     date: new Date(order.tanggal).toLocaleDateString(),
-    estimatedDate: order.estimasi || ''
+    estimatedDate: order.estimasi || '',
+    // Add sample designer data for demonstration (every other order has a designer assigned)
+    designer: index % 2 === 0 ? {
+      name: index % 4 === 0 ? 'Alex Chen' : 'Sarah Wilson',
+      avatar: index % 4 === 0 ? '/lovable-uploads/04d2c4d6-1119-4b62-9672-b1f8bd3f7143.png' : undefined,
+      assignedBy: 'Orbit'
+    } : undefined
   })) || [];
 
   const handleOrderModalSubmit = (orderData: any) => {
