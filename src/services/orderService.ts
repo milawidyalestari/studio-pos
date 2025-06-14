@@ -29,6 +29,8 @@ export const calculateOrderTotal = (items: any[], jasaDesain: number = 0, biayaL
 
 export const saveOrderToDatabase = async (orderData: any) => {
   try {
+    console.log('Starting order save process with data:', orderData);
+    
     const { items, ...orderFields } = orderData;
     
     // Calculate totals
@@ -39,6 +41,8 @@ export const saveOrderToDatabase = async (orderData: any) => {
       orderFields.discount || 0,
       orderFields.ppn || 10
     );
+
+    console.log('Calculated totals:', totals);
 
     // Prepare order data - match the actual database schema
     const order = {
@@ -57,14 +61,16 @@ export const saveOrderToDatabase = async (orderData: any) => {
       discount: orderFields.discount || 0,
       ppn: orderFields.ppn || 10,
       total_amount: totals.total,
-      payment_type: orderFields.paymentType as any || null,
+      payment_type: orderFields.paymentType || null,
       bank: orderFields.bank || null,
-      admin_id: null, // Changed from 'admin' to 'admin_id'
-      desainer_id: null, // Changed from 'desainer' to 'desainer_id'
+      admin_id: null,
+      desainer_id: null,
       komputer: orderFields.komputer || null,
       notes: orderFields.notes || null,
       status: 'pending' as const
     };
+
+    console.log('Prepared order data for database:', order);
 
     // Save order
     const { data: savedOrder, error: orderError } = await supabase
@@ -73,10 +79,17 @@ export const saveOrderToDatabase = async (orderData: any) => {
       .select()
       .single();
 
-    if (orderError) throw orderError;
+    if (orderError) {
+      console.error('Error saving order:', orderError);
+      throw orderError;
+    }
+
+    console.log('Order saved successfully:', savedOrder);
 
     // Save order items if any
     if (items && items.length > 0) {
+      console.log('Saving order items:', items);
+      
       const orderItems = items.map((item: any) => ({
         order_id: savedOrder.id,
         item_id: item.id || null,
@@ -89,11 +102,18 @@ export const saveOrderToDatabase = async (orderData: any) => {
         sub_total: item.subTotal || 0
       }));
 
+      console.log('Prepared order items for database:', orderItems);
+
       const { error: itemsError } = await supabase
         .from('order_items')
         .insert(orderItems);
 
-      if (itemsError) throw itemsError;
+      if (itemsError) {
+        console.error('Error saving order items:', itemsError);
+        throw itemsError;
+      }
+
+      console.log('Order items saved successfully');
     }
 
     return savedOrder;
