@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -37,6 +38,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   const [formData, setFormData] = useState({
     orderNumber: generateOrderNumber(),
     customer: '',
+    customerId: '',
     tanggal: new Date().toISOString().split('T')[0],
     waktu: new Date().toTimeString().slice(0, 5),
     estimasi: '',
@@ -209,6 +211,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
 
       const orderData = {
         order_number: formData.orderNumber,
+        customer_id: formData.customerId || null,
         customer_name: formData.customer,
         tanggal: formData.tanggal,
         waktu: formData.waktu || null,
@@ -266,6 +269,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
     setFormData({
       orderNumber: generateOrderNumber(),
       customer: '',
+      customerId: '',
       tanggal: new Date().toISOString().split('T')[0],
       waktu: new Date().toTimeString().slice(0, 5),
       estimasi: '',
@@ -302,6 +306,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
       setFormData({
         orderNumber: editingOrder.orderNumber,
         customer: editingOrder.customer,
+        customerId: '', // We'll need to map this properly if editing existing orders
         tanggal: new Date(editingOrder.date).toISOString().split('T')[0],
         waktu: new Date().toTimeString().slice(0, 5),
         estimasi: editingOrder.estimatedDate,
