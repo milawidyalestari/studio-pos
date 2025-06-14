@@ -35,12 +35,13 @@ export const useCustomers = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (newCustomer) => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       toast({
         title: "Customer created successfully",
-        description: "The customer has been added to the database.",
+        description: `${newCustomer.nama} has been added to the database.`,
       });
+      return newCustomer;
     },
     onError: (error) => {
       console.error('Error creating customer:', error);
@@ -55,7 +56,7 @@ export const useCustomers = () => {
   return {
     customers,
     isLoading,
-    createCustomer: createCustomerMutation.mutate,
+    createCustomer: createCustomerMutation.mutateAsync,
     isCreatingCustomer: createCustomerMutation.isPending,
   };
 };
