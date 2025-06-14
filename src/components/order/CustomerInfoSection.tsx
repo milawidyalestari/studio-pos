@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,43 +26,63 @@ interface CustomerInfoSectionProps {
 const CustomerInfoSection = ({ formData, onFormDataChange }: CustomerInfoSectionProps) => {
   const { customers, isLoading } = useCustomers();
   const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
 
   const handleCustomerSelect = (customerId: string) => {
     const selectedCustomer = customers?.find(c => c.id === customerId);
     if (selectedCustomer) {
       onFormDataChange('customerId', customerId);
       onFormDataChange('customer', selectedCustomer.nama);
+      setShowDropdown(false);
     }
   };
 
+  const handleCustomerInputChange = (value: string) => {
+    onFormDataChange('customer', value);
+    // Clear customer ID when manually typing
+    onFormDataChange('customerId', '');
+    setShowDropdown(value.length > 0);
+  };
+
   const handleCustomerCreated = (newCustomer: any) => {
-    // Refresh will happen automatically via React Query
-    // We can set the new customer as selected once the query refreshes
     onFormDataChange('customer', newCustomer.nama);
     // Note: The customerId will be set once the customer list refreshes
   };
+
+  const filteredCustomers = customers?.filter(customer => 
+    customer.nama.toLowerCase().includes(formData.customer.toLowerCase())
+  ) || [];
 
   return (
     <>
       <div className="mb-6">
         <div className="flex gap-2 mb-4">
-          <div className="flex-1">
+          <div className="flex-1 relative">
             <Label htmlFor="customer" className="text-sm font-medium">Customer</Label>
-            <Select 
-              value={formData.customerId || ''} 
-              onValueChange={handleCustomerSelect}
-            >
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder={isLoading ? "Loading customers..." : "Select customer"} />
-              </SelectTrigger>
-              <SelectContent>
-                {customers?.map((customer) => (
-                  <SelectItem key={customer.id} value={customer.id}>
+            <Input
+              id="customer"
+              value={formData.customer}
+              onChange={(e) => handleCustomerInputChange(e.target.value)}
+              onFocus={() => setShowDropdown(formData.customer.length > 0)}
+              onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+              placeholder="Enter customer name"
+              className="mt-1"
+            />
+            
+            {/* Dropdown for customer suggestions */}
+            {showDropdown && filteredCustomers.length > 0 && (
+              <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                {filteredCustomers.map((customer) => (
+                  <div
+                    key={customer.id}
+                    className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                    onMouseDown={() => handleCustomerSelect(customer.id)}
+                  >
                     {customer.nama} ({customer.kode})
-                  </SelectItem>
+                  </div>
                 ))}
-              </SelectContent>
-            </Select>
+              </div>
+            )}
           </div>
           <Button 
             type="button" 
@@ -74,6 +93,7 @@ const CustomerInfoSection = ({ formData, onFormDataChange }: CustomerInfoSection
             <Plus className="h-4 w-4" />
           </Button>
         </div>
+        
         
         <div className="flex items-center space-x-6 mb-4">
           <div className="flex items-center space-x-2">
