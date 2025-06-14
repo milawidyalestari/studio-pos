@@ -63,20 +63,29 @@ const KanbanBoard = ({
   const handleDragEnd = (result: DropResult) => {
     const { destination, source, draggableId } = result;
 
+    // If no destination or same position, do nothing
     if (!destination) return;
-    if (destination.droppableId === source.droppableId) return;
+    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
     const newStatus = destination.droppableId;
-    if (onUpdateOrderStatus) {
+    const sourceStatus = source.droppableId;
+    
+    console.log(`Moving order ${draggableId} from ${sourceStatus} to ${newStatus}`);
+    
+    // Update the order status in the system
+    if (onUpdateOrderStatus && newStatus !== sourceStatus) {
       onUpdateOrderStatus(draggableId, newStatus);
+      
+      // Show success message
+      const targetColumn = columns.find(col => col.status === newStatus);
+      toast({
+        title: "Order moved",
+        description: `Order moved to ${targetColumn?.title || newStatus}`,
+      });
     }
     
+    // Call the parent's onDragEnd handler
     onDragEnd(result);
-    
-    toast({
-      title: "Order moved",
-      description: `Order moved to ${columns.find(col => col.status === newStatus)?.title}`,
-    });
   };
 
   const handleAddColumn = () => {
