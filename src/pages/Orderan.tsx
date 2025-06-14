@@ -40,9 +40,10 @@ const Orderan = () => {
     estimatedDate: order.estimasi || ''
   })) || [];
 
-  const handleAddOrder = (orderData: any) => {
-    // The order will be added through the RequestOrderModal's database integration
-    console.log('Order added via modal:', orderData);
+  const handleOrderModalSubmit = (orderData: any) => {
+    // The order is automatically saved through the RequestOrderModal using useOrders hook
+    // The order list will automatically refresh due to React Query invalidation
+    console.log('Order submitted:', orderData);
   };
 
   const updateOrderStatus = (orderId: string, newStatus: Order['status']) => {
@@ -142,7 +143,7 @@ const Orderan = () => {
       <RequestOrderModal
         open={showRequestModal}
         onClose={() => setShowRequestModal(false)}
-        onSubmit={handleAddOrder}
+        onSubmit={handleOrderModalSubmit}
       />
 
       {/* Order Details Modal */}

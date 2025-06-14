@@ -4,7 +4,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { calculateItemPrice, formatCurrency } from '@/services/masterData';
 import { useToast } from '@/hooks/use-toast';
-import { generateOrderNumber, saveOrderToDatabase } from '@/services/orderService';
+import { generateOrderNumber } from '@/services/orderService';
+import { useOrders } from '@/hooks/useOrders';
 import CustomerInfoSection from './order/CustomerInfoSection';
 import ItemFormSection from './order/ItemFormSection';
 import OrderListSection from './order/OrderListSection';
@@ -30,6 +31,8 @@ interface RequestOrderModalProps {
 
 const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) => {
   const { toast } = useToast();
+  const { createOrder, isCreatingOrder } = useOrders();
+  
   const [formData, setFormData] = useState({
     orderNumber: generateOrderNumber(),
     customer: '',
@@ -66,7 +69,6 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
   const [totalPrice, setTotalPrice] = useState(0);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const total = orderList.reduce((sum, item) => sum + item.subTotal, 0);
@@ -142,8 +144,23 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
     deleteFromOrderList(item.id);
   };
 
+  const calculateOrderTotal = (items: OrderItem[], jasaDesain: number = 0, biayaLain: number = 0, discount: number = 0, ppn: number = 10) => {
+    const itemsTotal = items.reduce((sum, item) => sum + (item.subTotal || 0), 0);
+    const subtotal = itemsTotal + jasaDesain + biayaLain;
+    const discountAmount = (subtotal * discount) / 100;
+    const afterDiscount = subtotal - discountAmount;
+    const taxAmount = (afterDiscount * ppn) / 100;
+    const total = afterDiscount + taxAmount;
+    
+    return {
+      subtotal,
+      discountAmount,
+      taxAmount,
+      total
+    };
+  };
+
   const handleSave = async () => {
-    setIsSaving(true);
     try {
       if (editingItemId && currentItem.item && currentItem.ukuran.panjang && currentItem.ukuran.lebar && currentItem.quantity) {
         const panjang = parseFloat(currentItem.ukuran.panjang) || 0;
@@ -165,33 +182,67 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
         resetCurrentItem();
       }
       
-      const finalOrderData = {
+      // Calculate totals
+      const totals = calculateOrderTotal(
+        orderList,
+        parseFloat(formData.jasaDesain) || 0,
+        parseFloat(formData.biayaLain) || 0,
+        formData.discount || 0,
+        formData.ppn || 10
+      );
+
+      // Prepare order data for database
+      const orderData = {
+        order_number: formData.orderNumber,
+        customer_name: formData.customer,
+        tanggal: formData.tanggal,
+        waktu: formData.waktu || null,
+        estimasi: formData.estimasi || null,
+        estimasi_waktu: formData.estimasiWaktu || null,
+        outdoor: formData.outdoor || false,
+        laser_printing: formData.laserPrinting || false,
+        mug_nota: formData.mugNota || false,
+        jasa_desain: parseFloat(formData.jasaDesain) || 0,
+        biaya_lain: parseFloat(formData.biayaLain) || 0,
+        sub_total: totals.subtotal,
+        discount: formData.discount || 0,
+        ppn: formData.ppn || 10,
+        total_amount: totals.total,
+        payment_type: formData.paymentType || null,
+        bank: formData.bank || null,
+        komputer: formData.komputer || null,
+        notes: formData.notes || null,
+        status: 'pending' as const
+      };
+
+      // Prepare order items
+      const items = orderList.map((item) => ({
+        item_name: item.item,
+        bahan: item.bahan || null,
+        panjang: parseFloat(item.ukuran?.panjang) || null,
+        lebar: parseFloat(item.ukuran?.lebar) || null,
+        quantity: parseInt(item.quantity) || 0,
+        finishing: item.finishing || null,
+        sub_total: item.subTotal || 0
+      }));
+
+      // Create order using the hook
+      createOrder({ orderData, items });
+      
+      // Call the onSubmit callback
+      onSubmit({
         ...formData,
         items: orderList,
-        totalPrice: formatCurrency(totalPrice)
-      };
+        totalPrice: formatCurrency(totals.total)
+      });
       
-      await saveOrderToDatabase(finalOrderData);
-      onSubmit(finalOrderData);
       setHasUnsavedChanges(false);
       resetForm();
       onClose();
       
-      toast({
-        title: "Order saved successfully",
-        description: "The order has been saved to the database.",
-      });
-      
-      console.log('Order saved and submitted:', finalOrderData);
+      console.log('Order saved and submitted successfully');
     } catch (error) {
       console.error('Error saving order:', error);
-      toast({
-        title: "Error saving order",
-        description: "There was an error saving the order. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -257,7 +308,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
                       editingItemId={editingItemId}
                       onSave={handleSave}
                       onAddItem={addToOrderList}
-                      isSaving={isSaving}
+                      isSaving={isCreatingOrder}
                     />
                   </div>
                 </ScrollArea>
@@ -291,7 +342,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
               onNew={resetForm}
               onSave={handleSave}
               onSubmit={handlePrintReceipt}
-              isSaving={isSaving}
+              isSaving={isCreatingOrder}
               hasUnsavedChanges={hasUnsavedChanges}
             />
           </form>
