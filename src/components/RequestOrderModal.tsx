@@ -5,6 +5,7 @@ import { calculateItemPrice, formatCurrency } from '@/services/masterData';
 import { useToast } from '@/hooks/use-toast';
 import { generateOrderNumber } from '@/services/orderService';
 import { useOrders } from '@/hooks/useOrders';
+import { createOrGetGlobalItem } from '@/services/itemService';
 import CustomerInfoSection from './order/CustomerInfoSection';
 import ItemFormSection from './order/ItemFormSection';
 import OrderListSection from './order/OrderListSection';
@@ -21,6 +22,7 @@ interface OrderItem {
   quantity: string;
   finishing: string;
   subTotal: number;
+  globalItemCode?: string; // Reference to persistent global item
 }
 
 interface RequestOrderModalProps {
@@ -63,19 +65,14 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
     item: '',
     ukuran: { panjang: '', lebar: '' },
     quantity: '',
-    finishing: ''
+    finishing: '',
+    globalItemCode: ''
   });
 
   const [orderList, setOrderList] = useState<OrderItem[]>([]);
   const [totalPrice, setTotalPrice] = useState(0);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
-
-  // Generate next sequential ID based on current order list
-  const generateNextItemId = () => {
-    const nextNumber = orderList.length + 1;
-    return nextNumber.toString().padStart(3, '0'); // Format as 001, 002, etc.
-  };
 
   useEffect(() => {
     const total = orderList.reduce((sum, item) => sum + item.subTotal, 0);
@@ -91,6 +88,11 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
       setHasUnsavedChanges(true);
     }
   }, [currentItem, editingItemId]);
+
+  const generateNextItemId = () => {
+    const nextNumber = orderList.length + 1;
+    return nextNumber.toString().padStart(3, '0');
+  };
 
   const handleFormDataChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -112,12 +114,13 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
       item: '',
       ukuran: { panjang: '', lebar: '' },
       quantity: '',
-      finishing: ''
+      finishing: '',
+      globalItemCode: ''
     });
     setEditingItemId(null);
   };
 
-  const addToOrderList = () => {
+  const addToOrderList = async () => {
     if (!currentItem.item || !currentItem.ukuran.panjang || !currentItem.ukuran.lebar || !currentItem.quantity) {
       return;
     }
@@ -131,13 +134,38 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
       subTotal = calculateItemPrice(panjang, lebar, quantity, currentItem.bahan, currentItem.finishing);
     }
 
-    // Use the generated sequential ID
+    let globalItemCode = currentItem.globalItemCode;
+    if (!globalItemCode) {
+      try {
+        const globalItem = await createOrGetGlobalItem({
+          name: currentItem.item,
+          bahan: currentItem.bahan,
+          panjang: panjang,
+          lebar: lebar,
+          finishing: currentItem.finishing
+        });
+        
+        if (globalItem) {
+          globalItemCode = globalItem.item_code;
+          console.log('Created/found global item:', globalItemCode);
+        }
+      } catch (error) {
+        console.error('Error creating global item:', error);
+        toast({
+          title: "Warning",
+          description: "Item added but global tracking may be affected.",
+          variant: "destructive",
+        });
+      }
+    }
+
     const itemId = generateNextItemId();
 
     const newOrderItem: OrderItem = {
       ...currentItem,
       id: itemId,
-      subTotal
+      subTotal,
+      globalItemCode
     };
 
     setOrderList(prev => [...prev, newOrderItem]);
@@ -147,7 +175,6 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   const deleteFromOrderList = (itemId: string) => {
     setOrderList(prev => {
       const newList = prev.filter(item => item.id !== itemId);
-      // Regenerate sequential IDs after deletion
       return newList.map((item, index) => ({
         ...item,
         id: (index + 1).toString().padStart(3, '0')
@@ -189,10 +216,30 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
           subTotal = calculateItemPrice(panjang, lebar, quantity, currentItem.bahan, currentItem.finishing);
         }
 
+        let globalItemCode = currentItem.globalItemCode;
+        if (!globalItemCode) {
+          try {
+            const globalItem = await createOrGetGlobalItem({
+              name: currentItem.item,
+              bahan: currentItem.bahan,
+              panjang: panjang,
+              lebar: lebar,
+              finishing: currentItem.finishing
+            });
+            
+            if (globalItem) {
+              globalItemCode = globalItem.item_code;
+            }
+          } catch (error) {
+            console.error('Error creating global item:', error);
+          }
+        }
+
         const updatedItem: OrderItem = {
           ...currentItem,
           id: editingItemId,
-          subTotal
+          subTotal,
+          globalItemCode
         };
 
         setOrderList(prev => [...prev, updatedItem]);
@@ -207,8 +254,10 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
         formData.ppn || 10
       );
 
+      const uniqueOrderNumber = `${formData.orderNumber}-${Date.now().toString().slice(-4)}`;
+
       const orderData = {
-        order_number: formData.orderNumber,
+        order_number: uniqueOrderNumber,
         customer_name: formData.customer,
         tanggal: formData.tanggal,
         waktu: formData.waktu || null,
@@ -237,7 +286,8 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
         lebar: parseFloat(item.ukuran?.lebar) || null,
         quantity: parseInt(item.quantity) || 0,
         finishing: item.finishing || null,
-        sub_total: item.subTotal || 0
+        sub_total: item.subTotal || 0,
+        global_item_code: item.globalItemCode || null
       }));
 
       createOrder({ orderData, items });
@@ -296,7 +346,6 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
     handlePrintReceipt();
   };
 
-  // Pre-fill form with editing order data
   useEffect(() => {
     if (editingOrder && open) {
       setFormData({
@@ -322,7 +371,6 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
         notes: ''
       });
       
-      // Set order items if available
       const mockItems = editingOrder.items.map((item, index) => ({
         id: (index + 1).toString().padStart(3, '0'),
         bahan: 'vinyl',
@@ -330,12 +378,12 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
         ukuran: { panjang: '1000', lebar: '500' },
         quantity: '1',
         finishing: 'laminating',
-        subTotal: 50000
+        subTotal: 50000,
+        globalItemCode: `ITM-${Math.floor(Math.random() * 100000).toString().padStart(6, '0')}`
       }));
       
       setOrderList(mockItems);
     } else if (!editingOrder && open) {
-      // Reset form for new order
       resetForm();
     }
   }, [editingOrder, open]);
