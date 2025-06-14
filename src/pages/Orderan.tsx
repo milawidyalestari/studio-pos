@@ -8,6 +8,8 @@ import { DropResult } from 'react-beautiful-dnd';
 import RequestOrderModal from '@/components/RequestOrderModal';
 import KanbanBoard from '@/components/KanbanBoard';
 import OrderTable from '@/components/OrderTable';
+import { useOrders } from '@/hooks/useOrders';
+import { formatCurrency } from '@/services/masterData';
 
 interface Order {
   id: string;
@@ -24,57 +26,28 @@ const Orderan = () => {
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [orders, setOrders] = useState<Order[]>([
-    {
-      id: '1',
-      orderNumber: '#009461',
-      customer: 'John Doe',
-      items: ['Luster Banner', 'Business Cards'],
-      total: 'IDR 125,000',
-      status: 'pending',
-      date: '2024-06-03',
-      estimatedDate: '2024-06-05'
-    },
-    {
-      id: '2',
-      orderNumber: '#009462',
-      customer: 'Jane Smith',
-      items: ['HVS A3', 'Stickers'],
-      total: 'IDR 15,000',
-      status: 'in-progress',
-      date: '2024-06-03',
-      estimatedDate: '2024-06-04'
-    },
-    {
-      id: '3',
-      orderNumber: '#009463',
-      customer: 'Bob Wilson',
-      items: ['Banner'],
-      total: 'IDR 20,000',
-      status: 'ready',
-      date: '2024-06-02',
-      estimatedDate: '2024-06-03'
-    }
-  ]);
+  const { orders: dbOrders, isLoading } = useOrders();
+  
+  // Transform database orders to match UI format
+  const orders: Order[] = dbOrders?.map(order => ({
+    id: order.id,
+    orderNumber: order.order_number,
+    customer: order.customer_name || 'Unknown Customer',
+    items: order.order_items?.map(item => item.item_name) || [],
+    total: formatCurrency(order.total_amount || 0),
+    status: order.status as Order['status'],
+    date: new Date(order.tanggal).toLocaleDateString(),
+    estimatedDate: order.estimasi || ''
+  })) || [];
 
   const handleAddOrder = (orderData: any) => {
-    const newOrder: Order = {
-      id: Date.now().toString(),
-      orderNumber: orderData.orderNumber,
-      customer: orderData.customer,
-      items: orderData.items.map((item: any) => item.item).filter((item: string) => item),
-      total: orderData.totalPrice || 'IDR 0',
-      status: 'pending',
-      date: orderData.tanggal,
-      estimatedDate: orderData.estimasi
-    };
-    setOrders(prev => [...prev, newOrder]);
+    // The order will be added through the RequestOrderModal's database integration
+    console.log('Order added via modal:', orderData);
   };
 
   const updateOrderStatus = (orderId: string, newStatus: Order['status']) => {
-    setOrders(prev => prev.map(order => 
-      order.id === orderId ? { ...order, status: newStatus } : order
-    ));
+    // TODO: Implement status update in database
+    console.log('Update order status:', orderId, newStatus);
   };
 
   const handleDragEnd = (result: DropResult) => {
@@ -91,6 +64,16 @@ const Orderan = () => {
   const handleOrderClick = (order: Order) => {
     setSelectedOrder(order);
   };
+
+  if (isLoading) {
+    return (
+      <div className="p-6">
+        <div className="flex justify-center items-center h-64">
+          <div className="text-lg">Loading orders...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -139,10 +122,21 @@ const Orderan = () => {
       </div>
 
       {/* Content */}
-      {viewMode === 'kanban' ? (
-        <KanbanBoard orders={orders} onDragEnd={handleDragEnd} onOrderClick={handleOrderClick} />
+      {orders.length === 0 ? (
+        <div className="flex justify-center items-center h-64 bg-gray-50 rounded-lg">
+          <div className="text-center">
+            <p className="text-gray-500 text-lg mb-2">No orders found</p>
+            <p className="text-gray-400">Create your first order to get started</p>
+          </div>
+        </div>
       ) : (
-        <OrderTable orders={orders} onUpdateStatus={updateOrderStatus} onOrderClick={handleOrderClick} />
+        <>
+          {viewMode === 'kanban' ? (
+            <KanbanBoard orders={orders} onDragEnd={handleDragEnd} onOrderClick={handleOrderClick} />
+          ) : (
+            <OrderTable orders={orders} onUpdateStatus={updateOrderStatus} onOrderClick={handleOrderClick} />
+          )}
+        </>
       )}
 
       <RequestOrderModal
