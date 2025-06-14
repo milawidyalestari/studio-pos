@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +10,7 @@ import KanbanBoard from '@/components/KanbanBoard';
 import OrderTable from '@/components/OrderTable';
 import { useOrders } from '@/hooks/useOrders';
 import { formatCurrency } from '@/services/masterData';
+import { useToast } from '@/hooks/use-toast';
 
 interface Order {
   id: string;
@@ -16,7 +18,7 @@ interface Order {
   customer: string;
   items: string[];
   total: string;
-  status: 'pending' | 'in-progress' | 'ready' | 'done';
+  status: string;
   date: string;
   estimatedDate: string;
   designer?: {
@@ -31,7 +33,9 @@ const Orderan = () => {
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [archivedOrders, setArchivedOrders] = useState<string[]>([]);
   const { orders: dbOrders, isLoading } = useOrders();
+  const { toast } = useToast();
   
   // Transform database orders to match UI format
   const orders: Order[] = dbOrders?.map((order, index) => ({
@@ -40,7 +44,7 @@ const Orderan = () => {
     customer: order.customer_name || 'Unknown Customer',
     items: order.order_items?.map(item => item.item_name) || [],
     total: formatCurrency(order.total_amount || 0),
-    status: order.status as Order['status'],
+    status: order.status,
     date: new Date(order.tanggal).toLocaleDateString(),
     estimatedDate: order.estimasi || '',
     // Add sample designer data for demonstration (every other order has a designer assigned)
@@ -49,7 +53,7 @@ const Orderan = () => {
       avatar: index % 4 === 0 ? '/lovable-uploads/04d2c4d6-1119-4b62-9672-b1f8bd3f7143.png' : undefined,
       assignedBy: 'Orbit'
     } : undefined
-  })) || [];
+  })).filter(order => !archivedOrders.includes(order.id)) || [];
 
   const handleOrderModalSubmit = (orderData: any) => {
     // The order is automatically saved through the RequestOrderModal using useOrders hook
@@ -57,19 +61,22 @@ const Orderan = () => {
     console.log('Order submitted:', orderData);
   };
 
-  const updateOrderStatus = (orderId: string, newStatus: Order['status']) => {
+  const updateOrderStatus = (orderId: string, newStatus: string) => {
     // TODO: Implement status update in database
     console.log('Update order status:', orderId, newStatus);
+    toast({
+      title: "Status Updated",
+      description: `Order status changed to ${newStatus}`,
+    });
   };
 
   const handleDragEnd = (result: DropResult) => {
     const { destination, source, draggableId } = result;
 
     if (!destination) return;
-
     if (destination.droppableId === source.droppableId) return;
 
-    const newStatus = destination.droppableId as Order['status'];
+    const newStatus = destination.droppableId;
     updateOrderStatus(draggableId, newStatus);
   };
 
@@ -80,6 +87,14 @@ const Orderan = () => {
   const handleEditOrder = (order: Order) => {
     setEditingOrder(order);
     setShowRequestModal(true);
+  };
+
+  const handleArchiveOrder = (orderId: string) => {
+    setArchivedOrders(prev => [...prev, orderId]);
+    toast({
+      title: "Order Archived",
+      description: "Order has been moved to archive",
+    });
   };
 
   const handleModalClose = () => {
@@ -159,6 +174,8 @@ const Orderan = () => {
               onDragEnd={handleDragEnd} 
               onOrderClick={handleOrderClick}
               onEditOrder={handleEditOrder}
+              onArchiveOrder={handleArchiveOrder}
+              onUpdateOrderStatus={updateOrderStatus}
             />
           ) : (
             <OrderTable orders={orders} onUpdateStatus={updateOrderStatus} onOrderClick={handleOrderClick} />
