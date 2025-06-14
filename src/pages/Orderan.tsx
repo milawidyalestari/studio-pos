@@ -34,26 +34,33 @@ const Orderan = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [archivedOrders, setArchivedOrders] = useState<string[]>([]);
+  const [localOrders, setLocalOrders] = useState<Order[]>([]);
   const { orders: dbOrders, isLoading } = useOrders();
   const { toast } = useToast();
   
-  // Transform database orders to match UI format
-  const orders: Order[] = dbOrders?.map((order, index) => ({
-    id: order.id,
-    orderNumber: order.order_number,
-    customer: order.customer_name || 'Unknown Customer',
-    items: order.order_items?.map(item => item.item_name) || [],
-    total: formatCurrency(order.total_amount || 0),
-    status: order.status,
-    date: new Date(order.tanggal).toLocaleDateString(),
-    estimatedDate: order.estimasi || '',
-    // Add sample designer data for demonstration (every other order has a designer assigned)
-    designer: index % 2 === 0 ? {
-      name: index % 4 === 0 ? 'Alex Chen' : 'Sarah Wilson',
-      avatar: index % 4 === 0 ? '/lovable-uploads/04d2c4d6-1119-4b62-9672-b1f8bd3f7143.png' : undefined,
-      assignedBy: 'Orbit'
-    } : undefined
-  })).filter(order => !archivedOrders.includes(order.id)) || [];
+  // Transform database orders to match UI format and merge with local state
+  React.useEffect(() => {
+    if (dbOrders) {
+      const transformedOrders: Order[] = dbOrders.map((order, index) => ({
+        id: order.id,
+        orderNumber: order.order_number,
+        customer: order.customer_name || 'Unknown Customer',
+        items: order.order_items?.map(item => item.item_name) || [],
+        total: formatCurrency(order.total_amount || 0),
+        status: order.status,
+        date: new Date(order.tanggal).toLocaleDateString(),
+        estimatedDate: order.estimasi || '',
+        // Add sample designer data for demonstration (every other order has a designer assigned)
+        designer: index % 2 === 0 ? {
+          name: index % 4 === 0 ? 'Alex Chen' : 'Sarah Wilson',
+          avatar: index % 4 === 0 ? '/lovable-uploads/04d2c4d6-1119-4b62-9672-b1f8bd3f7143.png' : undefined,
+          assignedBy: 'Orbit'
+        } : undefined
+      })).filter(order => !archivedOrders.includes(order.id));
+      
+      setLocalOrders(transformedOrders);
+    }
+  }, [dbOrders, archivedOrders]);
 
   const handleOrderModalSubmit = (orderData: any) => {
     // The order is automatically saved through the RequestOrderModal using useOrders hook
@@ -61,23 +68,58 @@ const Orderan = () => {
     console.log('Order submitted:', orderData);
   };
 
-  const updateOrderStatus = (orderId: string, newStatus: string) => {
-    // TODO: Implement status update in database
-    console.log('Update order status:', orderId, newStatus);
-    toast({
-      title: "Status Updated",
-      description: `Order status changed to ${newStatus}`,
-    });
+  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+    console.log('Updating order status:', orderId, 'to', newStatus);
+    
+    // Update local state immediately for better UX
+    setLocalOrders(prevOrders => 
+      prevOrders.map(order => 
+        order.id === orderId 
+          ? { ...order, status: newStatus }
+          : order
+      )
+    );
+
+    // TODO: Implement actual database update
+    // For now, we'll just update the local state and show a success message
+    try {
+      // Here you would call your API to update the order status in the database
+      // await updateOrderStatusInDatabase(orderId, newStatus);
+      
+      toast({
+        title: "Status Updated",
+        description: `Order status changed to ${newStatus}`,
+      });
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      
+      // Revert local state on error
+      setLocalOrders(prevOrders => 
+        prevOrders.map(order => 
+          order.id === orderId 
+            ? { ...order, status: order.status } // revert to original status
+            : order
+        )
+      );
+      
+      toast({
+        title: "Error",
+        description: "Failed to update order status",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDragEnd = (result: DropResult) => {
     const { destination, source, draggableId } = result;
 
     if (!destination) return;
-    if (destination.droppableId === source.droppableId) return;
+    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
     const newStatus = destination.droppableId;
-    updateOrderStatus(draggableId, newStatus);
+    console.log(`Drag ended: moving order ${draggableId} to ${newStatus}`);
+    
+    // The updateOrderStatus will be called by the KanbanBoard component
   };
 
   const handleOrderClick = (order: Order) => {
@@ -159,7 +201,7 @@ const Orderan = () => {
       </div>
 
       {/* Content */}
-      {orders.length === 0 ? (
+      {localOrders.length === 0 ? (
         <div className="flex justify-center items-center h-64 bg-gray-50 rounded-lg">
           <div className="text-center">
             <p className="text-gray-500 text-lg mb-2">No orders found</p>
@@ -170,7 +212,7 @@ const Orderan = () => {
         <>
           {viewMode === 'kanban' ? (
             <KanbanBoard 
-              orders={orders} 
+              orders={localOrders} 
               onDragEnd={handleDragEnd} 
               onOrderClick={handleOrderClick}
               onEditOrder={handleEditOrder}
@@ -178,7 +220,7 @@ const Orderan = () => {
               onUpdateOrderStatus={updateOrderStatus}
             />
           ) : (
-            <OrderTable orders={orders} onUpdateStatus={updateOrderStatus} onOrderClick={handleOrderClick} />
+            <OrderTable orders={localOrders} onUpdateStatus={updateOrderStatus} onOrderClick={handleOrderClick} />
           )}
         </>
       )}
