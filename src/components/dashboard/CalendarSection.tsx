@@ -24,7 +24,7 @@ const CalendarSection: React.FC<CalendarSectionProps> = ({ selectedDate, onDateS
           mode="single"
           selected={selectedDate}
           onSelect={onDateSelect}
-          className="w-full mx-auto ml-6"
+          className="w-full mx-auto"
         />
       </CardContent>
     </>
