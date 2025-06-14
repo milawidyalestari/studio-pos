@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, Trash2, Edit } from 'lucide-react';
 import { calculateItemPrice, formatCurrency } from '@/services/masterData';
+import { useToast } from '@/hooks/use-toast';
+import { generateOrderNumber, saveOrderToDatabase } from '@/services/orderService';
 
 interface OrderItem {
   id: string;
@@ -27,8 +30,9 @@ interface RequestOrderModalProps {
 }
 
 const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) => {
+  const { toast } = useToast();
   const [formData, setFormData] = useState({
-    orderNumber: `#${String(Math.floor(Math.random() * 100000)).padStart(6, '0')}`,
+    orderNumber: generateOrderNumber(),
     customer: '',
     tanggal: new Date().toISOString().split('T')[0],
     waktu: new Date().toTimeString().slice(0, 5),
@@ -63,18 +67,17 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
   const [totalPrice, setTotalPrice] = useState(0);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const total = orderList.reduce((sum, item) => sum + item.subTotal, 0);
     setTotalPrice(total);
   }, [orderList]);
 
-  // Track changes to form data
   useEffect(() => {
     setHasUnsavedChanges(true);
   }, [formData]);
 
-  // Track changes to current item only when editing
   useEffect(() => {
     if (editingItemId) {
       setHasUnsavedChanges(true);
@@ -136,51 +139,72 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
     deleteFromOrderList(item.id);
   };
 
-  const handleSave = () => {
-    // If we're editing an item, save it back to the order list first
-    if (editingItemId && currentItem.item && currentItem.ukuran.panjang && currentItem.ukuran.lebar && currentItem.quantity) {
-      const panjang = parseFloat(currentItem.ukuran.panjang) || 0;
-      const lebar = parseFloat(currentItem.ukuran.lebar) || 0;
-      const quantity = parseInt(currentItem.quantity) || 0;
-      
-      let subTotal = 0;
-      if (panjang > 0 && lebar > 0 && quantity > 0) {
-        subTotal = calculateItemPrice(panjang, lebar, quantity, currentItem.bahan, currentItem.finishing);
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      // If we're editing an item, save it back to the order list first
+      if (editingItemId && currentItem.item && currentItem.ukuran.panjang && currentItem.ukuran.lebar && currentItem.quantity) {
+        const panjang = parseFloat(currentItem.ukuran.panjang) || 0;
+        const lebar = parseFloat(currentItem.ukuran.lebar) || 0;
+        const quantity = parseInt(currentItem.quantity) || 0;
+        
+        let subTotal = 0;
+        if (panjang > 0 && lebar > 0 && quantity > 0) {
+          subTotal = calculateItemPrice(panjang, lebar, quantity, currentItem.bahan, currentItem.finishing);
+        }
+
+        const updatedItem: OrderItem = {
+          ...currentItem,
+          id: editingItemId,
+          subTotal
+        };
+
+        setOrderList(prev => [...prev, updatedItem]);
+        resetCurrentItem();
       }
-
-      const updatedItem: OrderItem = {
-        ...currentItem,
-        id: editingItemId,
-        subTotal
+      
+      // Save the entire order to database
+      const finalOrderData = {
+        ...formData,
+        items: orderList,
+        totalPrice: formatCurrency(totalPrice)
       };
-
-      setOrderList(prev => [...prev, updatedItem]);
-      resetCurrentItem();
+      
+      await saveOrderToDatabase(finalOrderData);
+      
+      // Call the onSubmit callback
+      onSubmit(finalOrderData);
+      
+      // Mark as saved and close modal
+      setHasUnsavedChanges(false);
+      resetForm();
+      onClose();
+      
+      toast({
+        title: "Order saved successfully",
+        description: "The order has been saved to the database.",
+      });
+      
+      console.log('Order saved and submitted:', finalOrderData);
+    } catch (error) {
+      console.error('Error saving order:', error);
+      toast({
+        title: "Error saving order",
+        description: "There was an error saving the order. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
     }
-    
-    // Save the entire order
-    const finalOrderData = {
-      ...formData,
-      items: orderList,
-      totalPrice: formatCurrency(totalPrice)
-    };
-    onSubmit(finalOrderData);
-    
-    // Mark as saved and close modal
-    setHasUnsavedChanges(false);
-    resetForm();
-    onClose();
-    console.log('Order saved and submitted:', finalOrderData);
   };
 
   const handlePrintReceipt = () => {
-    // Empty logic for now - to be implemented later
     console.log('Print Receipt clicked - functionality to be implemented');
   };
 
   const resetForm = () => {
     setFormData({
-      orderNumber: `#${String(Math.floor(Math.random() * 100000)).padStart(6, '0')}`,
+      orderNumber: generateOrderNumber(),
       customer: '',
       tanggal: new Date().toISOString().split('T')[0],
       waktu: new Date().toTimeString().slice(0, 5),
@@ -421,6 +445,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
                             type="button" 
                             onClick={handleSave} 
                             className="bg-[#0050C8] hover:bg-[#003a9b]"
+                            disabled={isSaving}
                           >
                             Update Item
                           </Button>
@@ -616,10 +641,11 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
                   <Button 
                     type="button" 
                     onClick={handleSave}
+                    disabled={isSaving}
                     className={hasUnsavedChanges ? "bg-[#0050C8] hover:bg-[#003a9b] text-white" : ""}
                     variant={hasUnsavedChanges ? "default" : "outline"}
                   >
-                    Save Order
+                    {isSaving ? "Saving..." : "Save Order"}
                   </Button>
                   <Button type="button" className="bg-[#0050C8] hover:bg-[#003a9b]">Print SPK</Button>
                 </div>
