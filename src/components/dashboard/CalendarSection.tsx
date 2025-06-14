@@ -19,12 +19,12 @@ const CalendarSection: React.FC<CalendarSectionProps> = ({ selectedDate, onDateS
           {format(new Date(), 'MMMM yyyy')}
         </CardTitle>
       </CardHeader>
-      <CardContent className="pt-0 pb-4 px-2">
+      <CardContent className="pt-0 pb-4 px-4">
         <Calendar
           mode="single"
           selected={selectedDate}
           onSelect={onDateSelect}
-          className="w-full flex justify-center"
+          className="w-full mx-auto"
         />
       </CardContent>
     </>
