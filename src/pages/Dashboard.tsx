@@ -50,7 +50,7 @@ const Dashboard = () => {
           </div>
 
           {/* Single Line Divider */}
-          <Separator className="mx-6 flex-shrink-0" />
+          <Separator className="flex-shrink-0" />
 
           {/* Inbox Section */}
           <div className="flex-1 min-h-0">
