@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,6 +30,7 @@ const Orderan = () => {
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const { orders: dbOrders, isLoading } = useOrders();
   
   // Transform database orders to match UI format
@@ -75,6 +75,16 @@ const Orderan = () => {
 
   const handleOrderClick = (order: Order) => {
     setSelectedOrder(order);
+  };
+
+  const handleEditOrder = (order: Order) => {
+    setEditingOrder(order);
+    setShowRequestModal(true);
+  };
+
+  const handleModalClose = () => {
+    setShowRequestModal(false);
+    setEditingOrder(null);
   };
 
   if (isLoading) {
@@ -144,7 +154,12 @@ const Orderan = () => {
       ) : (
         <>
           {viewMode === 'kanban' ? (
-            <KanbanBoard orders={orders} onDragEnd={handleDragEnd} onOrderClick={handleOrderClick} />
+            <KanbanBoard 
+              orders={orders} 
+              onDragEnd={handleDragEnd} 
+              onOrderClick={handleOrderClick}
+              onEditOrder={handleEditOrder}
+            />
           ) : (
             <OrderTable orders={orders} onUpdateStatus={updateOrderStatus} onOrderClick={handleOrderClick} />
           )}
@@ -153,8 +168,9 @@ const Orderan = () => {
 
       <RequestOrderModal
         open={showRequestModal}
-        onClose={() => setShowRequestModal(false)}
+        onClose={handleModalClose}
         onSubmit={handleOrderModalSubmit}
+        editingOrder={editingOrder}
       />
 
       {/* Order Details Modal */}
