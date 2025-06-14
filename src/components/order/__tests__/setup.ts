@@ -23,3 +23,16 @@ vi.mock('lucide-react', () => ({
   Trash2: () => React.createElement('svg', { 'data-testid': 'trash-2' }),
   Plus: () => React.createElement('svg', { 'data-testid': 'plus' })
 }));
+
+// Extend Vitest's assertion interface with jest-dom matchers
+declare module 'vitest' {
+  interface Assertion<T = any> {
+    toBeInTheDocument(): T;
+    toHaveClass(className: string): T;
+    toHaveAttribute(attr: string, value?: string): T;
+    toBeDisabled(): T;
+    toBeChecked(): T;
+    toHaveValue(value: string | number): T;
+    toHaveDisplayValue(value: string | string[]): T;
+  }
+}
