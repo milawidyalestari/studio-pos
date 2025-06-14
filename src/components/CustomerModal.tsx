@@ -36,9 +36,7 @@ const CustomerModal = ({ open, onClose, onCustomerCreated }: CustomerModalProps)
       return data;
     } catch (error) {
       console.error('Error generating customer code:', error);
-      // Fallback to timestamp-based code if the function fails
-      const timestamp = Date.now().toString().slice(-6);
-      return `CUST${timestamp}`;
+      throw error;
     }
   };
 
@@ -96,7 +94,7 @@ const CustomerModal = ({ open, onClose, onCustomerCreated }: CustomerModalProps)
               id="kode"
               value={formData.kode}
               onChange={(e) => handleInputChange('kode', e.target.value)}
-              placeholder="Auto-generated if empty"
+              placeholder="Auto-generated if empty (reuses deleted codes)"
             />
           </div>
           
