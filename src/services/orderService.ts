@@ -12,7 +12,7 @@ export const generateOrderNumber = () => {
 };
 
 export const calculateOrderTotal = (items: any[], jasaDesain: number = 0, biayaLain: number = 0, discount: number = 0, ppn: number = 10) => {
-  const itemsTotal = items.reduce((sum, item) => sum + (item.sub_total || 0), 0);
+  const itemsTotal = items.reduce((sum, item) => sum + (item.subTotal || 0), 0);
   const subtotal = itemsTotal + jasaDesain + biayaLain;
   const discountAmount = (subtotal * discount) / 100;
   const afterDiscount = subtotal - discountAmount;
