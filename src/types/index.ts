@@ -1,11 +1,10 @@
-
 export interface Order {
   id: string;
   orderNumber: string;
   customer: string;
   items: string[];
   total: string;
-  status: 'desain' | 'cek-file' | 'konfirmasi' | 'tunggu-dp' | 'export' | 'done';
+  status: 'pending' | 'in-progress' | 'ready' | 'done';
   date: string;
   estimatedDate: string;
   designer?: {
