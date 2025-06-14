@@ -117,7 +117,7 @@ const ActiveOrdersTable: React.FC<ActiveOrdersTableProps> = ({
   });
 
   return (
-    <Card className="lg:col-span-3 flex flex-col min-h-0">
+    <Card className="flex flex-col min-h-0 h-full">
       <CardHeader>
         <div className="flex justify-between items-center">
           <CardTitle className="flex items-center">
