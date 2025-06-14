@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -70,6 +69,12 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
+  // Generate next sequential ID based on current order list
+  const generateNextItemId = () => {
+    const nextNumber = orderList.length + 1;
+    return nextNumber.toString().padStart(3, '0'); // Format as 001, 002, etc.
+  };
+
   useEffect(() => {
     const total = orderList.reduce((sum, item) => sum + item.subTotal, 0);
     setTotalPrice(total);
@@ -124,9 +129,12 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
       subTotal = calculateItemPrice(panjang, lebar, quantity, currentItem.bahan, currentItem.finishing);
     }
 
+    // Use the generated sequential ID
+    const itemId = generateNextItemId();
+
     const newOrderItem: OrderItem = {
       ...currentItem,
-      id: currentItem.id || Date.now().toString(),
+      id: itemId,
       subTotal
     };
 
@@ -135,7 +143,14 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
   };
 
   const deleteFromOrderList = (itemId: string) => {
-    setOrderList(prev => prev.filter(item => item.id !== itemId));
+    setOrderList(prev => {
+      const newList = prev.filter(item => item.id !== itemId);
+      // Regenerate sequential IDs after deletion
+      return newList.map((item, index) => ({
+        ...item,
+        id: (index + 1).toString().padStart(3, '0')
+      }));
+    });
   };
 
   const editOrderItem = (item: OrderItem) => {
@@ -182,7 +197,6 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
         resetCurrentItem();
       }
       
-      // Calculate totals
       const totals = calculateOrderTotal(
         orderList,
         parseFloat(formData.jasaDesain) || 0,
@@ -191,7 +205,6 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
         formData.ppn || 10
       );
 
-      // Prepare order data for database
       const orderData = {
         order_number: formData.orderNumber,
         customer_name: formData.customer,
@@ -215,7 +228,6 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
         status: 'pending' as const
       };
 
-      // Prepare order items
       const items = orderList.map((item) => ({
         item_name: item.item,
         bahan: item.bahan || null,
@@ -226,10 +238,8 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
         sub_total: item.subTotal || 0
       }));
 
-      // Create order using the hook
       createOrder({ orderData, items });
       
-      // Call the onSubmit callback
       onSubmit({
         ...formData,
         items: orderList,
@@ -309,6 +319,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit }: RequestOrderModalProps) 
                       onSave={handleSave}
                       onAddItem={addToOrderList}
                       isSaving={isCreatingOrder}
+                      nextItemId={generateNextItemId()}
                     />
                   </div>
                 </ScrollArea>
