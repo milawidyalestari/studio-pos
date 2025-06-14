@@ -40,7 +40,7 @@ export const saveOrderToDatabase = async (orderData: any) => {
       orderFields.ppn || 10
     );
 
-    // Prepare order data
+    // Prepare order data - match the actual database schema
     const order = {
       order_number: orderFields.orderNumber,
       customer_name: orderFields.customer,
@@ -59,7 +59,8 @@ export const saveOrderToDatabase = async (orderData: any) => {
       total_amount: totals.total,
       payment_type: orderFields.paymentType as any || null,
       bank: orderFields.bank || null,
-      admin: orderFields.admin || null,
+      admin_id: null, // Changed from 'admin' to 'admin_id'
+      desainer_id: null, // Changed from 'desainer' to 'desainer_id'
       komputer: orderFields.komputer || null,
       notes: orderFields.notes || null,
       status: 'pending' as const
