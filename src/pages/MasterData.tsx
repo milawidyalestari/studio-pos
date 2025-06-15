@@ -29,17 +29,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { MasterDataOverlay, TableColumn, MasterDataItem } from '@/components/MasterDataOverlay';
 import { useProductCategories, useCreateProductCategory, useUpdateProductCategory, useDeleteProductCategory } from '@/hooks/useProductCategories';
+import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, Product } from '@/hooks/useProducts';
+import { ProductForm } from '@/components/ProductForm';
 import { useToast } from '@/hooks/use-toast';
 
 // Sample data for other modules (keeping existing data)
-const sampleProducts = [
-  { kode: 'PRD001', jenis: 'Vinyl', nama: 'Vinyl Glossy', satuan: 'Roll', hargaBeli: 45000, hargaJual: 60000, stokAwal: 50, stokMasuk: 10, stokKeluar: 5, stokOpname: 55 },
-  { kode: 'PRD002', jenis: 'Banner', nama: 'Banner Frontlite', satuan: 'Roll', hargaBeli: 35000, hargaJual: 50000, stokAwal: 30, stokMasuk: 5, stokKeluar: 8, stokOpname: 27 },
-  { kode: 'PRD003', jenis: 'Sticker', nama: 'Sticker Chromo', satuan: 'Pack', hargaBeli: 15000, hargaJual: 25000, stokAwal: 100, stokMasuk: 20, stokKeluar: 15, stokOpname: 105 },
-];
-
 const sampleSuppliers = [
   { kode: 'SUP001', nama: 'PT Vinyl Indonesia', kontak: '021-12345678', email: 'info@vinylindonesia.com', whatsapp: '081234567890' },
   { kode: 'SUP002', nama: 'CV Banner Jaya', kontak: '021-87654321', email: 'sales@bannerjaya.com', whatsapp: '081987654321' },
@@ -61,7 +73,16 @@ const sampleEmployees = [
 const MasterData = () => {
   const [activeTab, setActiveTab] = useState('products');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isProductFormOpen, setIsProductFormOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [deleteProductId, setDeleteProductId] = useState<string | null>(null);
   const { toast } = useToast();
+  
+  // Product hooks
+  const { data: products = [], isLoading: productsLoading } = useProducts();
+  const createProductMutation = useCreateProduct();
+  const updateProductMutation = useUpdateProduct();
+  const deleteProductMutation = useDeleteProduct();
   
   // Product Categories hooks
   const { data: productCategories = [], isLoading: categoriesLoading } = useProductCategories();
@@ -134,6 +155,76 @@ const MasterData = () => {
     };
     return <Badge className={colors[level] || colors.Regular}>{level}</Badge>;
   };
+
+  // Product CRUD handlers
+  const handleAddProduct = () => {
+    setEditingProduct(null);
+    setIsProductFormOpen(true);
+  };
+
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product);
+    setIsProductFormOpen(true);
+  };
+
+  const handleDeleteProduct = (id: string) => {
+    setDeleteProductId(id);
+  };
+
+  const handleProductFormSubmit = async (productData: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
+    try {
+      if (editingProduct) {
+        await updateProductMutation.mutateAsync({
+          id: editingProduct.id,
+          ...productData
+        });
+        toast({
+          title: "Success",
+          description: "Product updated successfully",
+        });
+      } else {
+        await createProductMutation.mutateAsync(productData);
+        toast({
+          title: "Success",
+          description: "Product created successfully",
+        });
+      }
+      setIsProductFormOpen(false);
+      setEditingProduct(null);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save product",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const confirmDeleteProduct = async () => {
+    if (deleteProductId) {
+      try {
+        await deleteProductMutation.mutateAsync(deleteProductId);
+        toast({
+          title: "Success",
+          description: "Product deleted successfully",
+        });
+        setDeleteProductId(null);
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to delete product",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  // Filter products based on search term
+  const filteredProducts = products.filter(product =>
+    product.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.kode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.jenis?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const handleOverlayOpen = (type: string) => {
     let config;
@@ -389,6 +480,27 @@ const MasterData = () => {
     </div>
   );
 
+  const ProductActionButtons = ({ product }: { product: Product }) => (
+    <div className="flex items-center space-x-1">
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        onClick={() => handleEditProduct(product)}
+        className="h-8 w-8 p-0"
+      >
+        <Edit className="h-4 w-4" />
+      </Button>
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        onClick={() => handleDeleteProduct(product.id)}
+        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+
   const TableHeader = ({ title, icon: Icon, onAdd }: { title: string, icon: any, onAdd: () => void }) => (
     <div className="flex justify-between items-center mb-4">
       <div className="flex items-center gap-2">
@@ -482,44 +594,54 @@ const MasterData = () => {
               <TableHeader 
                 title="Data Produk & Jasa" 
                 icon={Package}
-                onAdd={() => handleAction('add')}
+                onAdd={handleAddProduct}
               />
               <SearchAndFilter />
             </CardHeader>
             <CardContent>
-              
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kode</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jenis</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Satuan</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Harga Beli</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Harga Jual</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stok Opname</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {sampleProducts.map((product) => (
-                      <tr key={product.kode} className="hover:bg-gray-50">
-                        <td className="px-4 py-4 text-sm font-medium text-gray-900">{product.kode}</td>
-                        <td className="px-4 py-4 text-sm text-gray-900">{product.jenis}</td>
-                        <td className="px-4 py-4 text-sm text-gray-900">{product.nama}</td>
-                        <td className="px-4 py-4 text-sm text-gray-900">{product.satuan}</td>
-                        <td className="px-4 py-4 text-sm text-gray-900">{formatCurrency(product.hargaBeli)}</td>
-                        <td className="px-4 py-4 text-sm font-semibold text-[#0050C8]">{formatCurrency(product.hargaJual)}</td>
-                        <td className="px-4 py-4 text-sm text-gray-900">{product.stokOpname}</td>
-                        <td className="px-4 py-4">
-                          <ActionButtons item={product} />
-                        </td>
+              {productsLoading ? (
+                <div className="text-center py-12">Loading products...</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kode</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jenis</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Satuan</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Harga Beli</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Harga Jual</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stok Opname</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredProducts.map((product) => (
+                        <tr key={product.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-4 text-sm font-medium text-gray-900">{product.kode}</td>
+                          <td className="px-4 py-4 text-sm text-gray-900">{product.jenis}</td>
+                          <td className="px-4 py-4 text-sm text-gray-900">{product.nama}</td>
+                          <td className="px-4 py-4 text-sm text-gray-900">{product.satuan}</td>
+                          <td className="px-4 py-4 text-sm text-gray-900">{formatCurrency(product.harga_beli || 0)}</td>
+                          <td className="px-4 py-4 text-sm font-semibold text-[#0050C8]">{formatCurrency(product.harga_jual || 0)}</td>
+                          <td className="px-4 py-4 text-sm text-gray-900">{product.stok_opname}</td>
+                          <td className="px-4 py-4">
+                            <ProductActionButtons product={product} />
+                          </td>
+                        </tr>
+                      ))}
+                      {filteredProducts.length === 0 && (
+                        <tr>
+                          <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
+                            {searchTerm ? 'No products found matching your search.' : 'No products available. Click "Add New" to create your first product.'}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -714,6 +836,44 @@ const MasterData = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Product Form Dialog */}
+      <Dialog open={isProductFormOpen} onOpenChange={setIsProductFormOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingProduct ? 'Edit Product' : 'Add New Product'}
+            </DialogTitle>
+          </DialogHeader>
+          <ProductForm
+            initialData={editingProduct}
+            onSubmit={handleProductFormSubmit}
+            onCancel={() => setIsProductFormOpen(false)}
+            isEditing={!!editingProduct}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Product Confirmation */}
+      <AlertDialog open={!!deleteProductId} onOpenChange={() => setDeleteProductId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the product and all associated data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteProduct}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete Product
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Master Data Overlay */}
       <MasterDataOverlay
