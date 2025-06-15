@@ -1,34 +1,5 @@
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Plus,
-  Search,
-  Edit,
-  Trash2,
-  Filter,
-  Download,
-  Upload,
-  Eye,
-  Settings,
-  Users,
-  Package,
-  Truck,
-  CreditCard,
-  Layers,
-  Tag,
-  Scale
-} from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -45,30 +16,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { 
+  Users,
+  Package,
+  Truck
+} from 'lucide-react';
 import { MasterDataOverlay, TableColumn, MasterDataItem } from '@/components/MasterDataOverlay';
 import { useProductCategories, useCreateProductCategory, useUpdateProductCategory, useDeleteProductCategory } from '@/hooks/useProductCategories';
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, Product } from '@/hooks/useProducts';
 import { ProductForm } from '@/components/ProductForm';
 import { useToast } from '@/hooks/use-toast';
+import { useMasterDataState } from '@/hooks/useMasterDataState';
 
-// Sample data for other modules (keeping existing data)
-const sampleSuppliers = [
-  { kode: 'SUP001', nama: 'PT Vinyl Indonesia', kontak: '021-12345678', email: 'info@vinylindonesia.com', whatsapp: '081234567890' },
-  { kode: 'SUP002', nama: 'CV Banner Jaya', kontak: '021-87654321', email: 'sales@bannerjaya.com', whatsapp: '081987654321' },
-  { kode: 'SUP003', nama: 'Toko Sticker Murah', kontak: '021-11223344', email: 'order@stickermurah.com', whatsapp: '081122334455' },
-];
-
-const sampleCustomers = [
-  { kode: 'CUS001', nama: 'John Doe', whatsapp: '081234567890', level: 'Premium' },
-  { kode: 'CUS002', nama: 'Jane Smith', whatsapp: '081987654321', level: 'Regular' },
-  { kode: 'CUS003', nama: 'Bob Wilson', whatsapp: '081122334455', level: 'VIP' },
-];
-
-const sampleEmployees = [
-  { kode: 'EMP001', nama: 'Ahmad Rizki', posisi: 'Manager', status: 'Active' },
-  { kode: 'EMP002', nama: 'Siti Nurhaliza', posisi: 'Designer', status: 'Active' },
-  { kode: 'EMP003', nama: 'Budi Santoso', posisi: 'Operator', status: 'Inactive' },
-];
+// Import refactored components
+import { MasterDataHeader } from '@/components/master-data/MasterDataHeader';
+import { ProductsTab } from '@/components/master-data/ProductsTab';
+import { SuppliersTab } from '@/components/master-data/SuppliersTab';
+import { CustomersTab } from '@/components/master-data/CustomersTab';
+import { EmployeesTab } from '@/components/master-data/EmployeesTab';
 
 const MasterData = () => {
   const [activeTab, setActiveTab] = useState('products');
@@ -90,30 +55,17 @@ const MasterData = () => {
   const updateCategoryMutation = useUpdateProductCategory();
   const deleteCategoryMutation = useDeleteProductCategory();
   
-  // Move useState calls inside the component
-  const [sampleGroups, setSampleGroups] = useState([
-    { id: '1', kode: 'GRP001', nama: 'Printing Materials' },
-    { id: '2', kode: 'GRP002', nama: 'Finishing Tools' },
-    { id: '3', kode: 'GRP003', nama: 'Design Services' },
-  ]);
-
-  const [sampleCategories, setSampleCategories] = useState([
-    { id: '1', kode: 'CAT001', kelompok: 'Printing Materials', kategori: 'Vinyl' },
-    { id: '2', kode: 'CAT002', kelompok: 'Printing Materials', kategori: 'Banner' },
-    { id: '3', kode: 'CAT003', kelompok: 'Finishing Tools', kategori: 'Laminating' },
-  ]);
-
-  const [sampleUnits, setSampleUnits] = useState([
-    { id: '1', kode: 'UNIT001', satuan: 'Roll' },
-    { id: '2', kode: 'UNIT002', satuan: 'Pack' },
-    { id: '3', kode: 'UNIT003', satuan: 'Meter' },
-  ]);
-
-  const [samplePaymentTypes, setSamplePaymentTypes] = useState([
-    { id: '1', kode: 'PAY001', tipe: 'Digital', jenisPembayaran: 'QRIS' },
-    { id: '2', kode: 'PAY002', tipe: 'Digital', jenisPembayaran: 'E-wallet' },
-    { id: '3', kode: 'PAY003', tipe: 'Card', jenisPembayaran: 'Debit Card' },
-  ]);
+  // Master data state
+  const {
+    sampleGroups,
+    setSampleGroups,
+    sampleCategories,
+    setSampleCategories,
+    sampleUnits,
+    setSampleUnits,
+    samplePaymentTypes,
+    setSamplePaymentTypes,
+  } = useMasterDataState();
   
   const [overlayConfig, setOverlayConfig] = useState<{
     isOpen: boolean;
@@ -136,25 +88,6 @@ const MasterData = () => {
     data: [],
     formFields: []
   });
-
-  const formatCurrency = (amount: number) => {
-    return `IDR ${amount.toLocaleString('id-ID')}`;
-  };
-
-  const getStatusBadge = (status: string) => {
-    return status === 'Active' ? 
-      <Badge className="bg-green-100 text-green-800">Active</Badge> :
-      <Badge className="bg-red-100 text-red-800">Inactive</Badge>;
-  };
-
-  const getLevelBadge = (level: string) => {
-    const colors = {
-      'VIP': 'bg-purple-100 text-purple-800',
-      'Premium': 'bg-blue-100 text-blue-800',
-      'Regular': 'bg-gray-100 text-gray-800'
-    };
-    return <Badge className={colors[level] || colors.Regular}>{level}</Badge>;
-  };
 
   const handleAddProduct = () => {
     console.log('Opening product form for new product');
@@ -225,13 +158,6 @@ const MasterData = () => {
       }
     }
   };
-
-  // Filter products based on search term
-  const filteredProducts = products.filter(product =>
-    product.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.kode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.jenis?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   const handleOverlayOpen = (type: string) => {
     let config;
@@ -484,122 +410,9 @@ const MasterData = () => {
     console.log('Action:', action, 'Item:', item);
   };
 
-  const ActionButtons = ({ item, showView = true }: { item: any, showView?: boolean }) => (
-    <div className="flex items-center space-x-1">
-      {showView && (
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={() => handleAction('view', item)}
-          className="h-8 w-8 p-0"
-        >
-          <Eye className="h-4 w-4" />
-        </Button>
-      )}
-      <Button 
-        variant="ghost" 
-        size="sm" 
-        onClick={() => handleAction('edit', item)}
-        className="h-8 w-8 p-0"
-      >
-        <Edit className="h-4 w-4" />
-      </Button>
-      <Button 
-        variant="ghost" 
-        size="sm" 
-        onClick={() => handleAction('delete', item)}
-        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
-    </div>
-  );
-
-  const ProductActionButtons = ({ product }: { product: Product }) => (
-    <div className="flex items-center space-x-1">
-      <Button 
-        variant="ghost" 
-        size="sm" 
-        onClick={() => handleEditProduct(product)}
-        className="h-8 w-8 p-0"
-      >
-        <Edit className="h-4 w-4" />
-      </Button>
-      <Button 
-        variant="ghost" 
-        size="sm" 
-        onClick={() => handleDeleteProduct(product.id)}
-        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
-    </div>
-  );
-
-  const TableHeader = ({ title, icon: Icon, onAdd }: { title: string, icon: any, onAdd: () => void }) => (
-    <div className="flex justify-between items-center mb-4">
-      <div className="flex items-center gap-2">
-        <Icon className="h-5 w-5 text-[#0050C8]" />
-        <h3 className="text-lg font-semibold">{title}</h3>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" className="gap-2">
-          <Download className="h-4 w-4" />
-          Export
-        </Button>
-        <Button variant="outline" size="sm" className="gap-2">
-          <Upload className="h-4 w-4" />
-          Import
-        </Button>
-        <Button onClick={onAdd} className="gap-2 bg-[#0050C8] hover:bg-[#003a9b]">
-          <Plus className="h-4 w-4" />
-          Add New
-        </Button>
-      </div>
-    </div>
-  );
-
-  const SearchAndFilter = () => (
-    <div className="flex items-center gap-3 mb-4">
-      <div className="relative flex-1 max-w-md">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <Input 
-          placeholder="Search..." 
-          className="pl-10"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-      </div>
-      <Button variant="outline" className="gap-2">
-        <Filter className="h-4 w-4" />
-        Filter
-      </Button>
-      <Select>
-        <SelectTrigger className="w-[150px]">
-          <SelectValue placeholder="Status" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Status</SelectItem>
-          <SelectItem value="active">Active</SelectItem>
-          <SelectItem value="inactive">Inactive</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-  );
-
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Master Data</h1>
-          <p className="text-gray-600">Manage all foundational data for your business</p>
-        </div>
-        <Button variant="outline" className="gap-2">
-          <Settings className="h-4 w-4" />
-          Settings
-        </Button>
-      </div>
+      <MasterDataHeader />
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -622,253 +435,47 @@ const MasterData = () => {
           </TabsTrigger>
         </TabsList>
 
-        {/* Products & Services Tab */}
-        <TabsContent value="products" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <TableHeader 
-                title="Data Produk & Jasa" 
-                icon={Package}
-                onAdd={handleAddProduct}
-              />
-              <SearchAndFilter />
-            </CardHeader>
-            <CardContent>
-              {productsLoading ? (
-                <div className="text-center py-12">Loading products...</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kode</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jenis</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Satuan</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Harga Beli</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Harga Jual</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stok Opname</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredProducts.map((product) => (
-                        <tr key={product.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-4 text-sm font-medium text-gray-900">{product.kode}</td>
-                          <td className="px-4 py-4 text-sm text-gray-900">{product.jenis}</td>
-                          <td className="px-4 py-4 text-sm text-gray-900">{product.nama}</td>
-                          <td className="px-4 py-4 text-sm text-gray-900">{product.satuan}</td>
-                          <td className="px-4 py-4 text-sm text-gray-900">{formatCurrency(product.harga_beli || 0)}</td>
-                          <td className="px-4 py-4 text-sm font-semibold text-[#0050C8]">{formatCurrency(product.harga_jual || 0)}</td>
-                          <td className="px-4 py-4 text-sm text-gray-900">{product.stok_opname}</td>
-                          <td className="px-4 py-4">
-                            <ProductActionButtons product={product} />
-                          </td>
-                        </tr>
-                      ))}
-                      {filteredProducts.length === 0 && (
-                        <tr>
-                          <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
-                            {searchTerm ? 'No products found matching your search.' : 'No products available. Click "Add New" to create your first product.'}
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Overlay Modules for Products */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleOverlayOpen('product-categories')}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <Package className="h-8 w-8 text-[#0050C8]" />
-                  <div>
-                    <h3 className="font-semibold">Product Categories</h3>
-                    <p className="text-sm text-gray-600">
-                      {categoriesLoading ? 'Loading...' : `${productCategories.length} categories`}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleOverlayOpen('groups')}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <Layers className="h-8 w-8 text-[#0050C8]" />
-                  <div>
-                    <h3 className="font-semibold">Data Kelompok</h3>
-                    <p className="text-sm text-gray-600">{sampleGroups.length} groups</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleOverlayOpen('categories')}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <Tag className="h-8 w-8 text-[#0050C8]" />
-                  <div>
-                    <h3 className="font-semibold">Data Kategori</h3>
-                    <p className="text-sm text-gray-600">{sampleCategories.length} categories</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleOverlayOpen('units')}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <Scale className="h-8 w-8 text-[#0050C8]" />
-                  <div>
-                    <h3 className="font-semibold">Data Satuan</h3>
-                    <p className="text-sm text-gray-600">{sampleUnits.length} units</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleOverlayOpen('payments')}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <CreditCard className="h-8 w-8 text-[#0050C8]" />
-                  <div>
-                    <h3 className="font-semibold">Jenis Non Tunai</h3>
-                    <p className="text-sm text-gray-600">{samplePaymentTypes.length} types</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+        <TabsContent value="products">
+          <ProductsTab
+            products={products}
+            productsLoading={productsLoading}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            onAddProduct={handleAddProduct}
+            onEditProduct={handleEditProduct}
+            onDeleteProduct={handleDeleteProduct}
+            productCategories={productCategories}
+            sampleGroups={sampleGroups}
+            sampleCategories={sampleCategories}
+            sampleUnits={sampleUnits}
+            samplePaymentTypes={samplePaymentTypes}
+            categoriesLoading={categoriesLoading}
+            onOverlayOpen={handleOverlayOpen}
+          />
         </TabsContent>
 
-        <TabsContent value="suppliers" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <TableHeader 
-                title="Data Supplier" 
-                icon={Truck}
-                onAdd={() => handleAction('add')}
-              />
-              <SearchAndFilter />
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kode</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kontak</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">WhatsApp</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {sampleSuppliers.map((supplier) => (
-                      <tr key={supplier.kode} className="hover:bg-gray-50">
-                        <td className="px-4 py-4 text-sm font-medium text-gray-900">{supplier.kode}</td>
-                        <td className="px-4 py-4 text-sm text-gray-900">{supplier.nama}</td>
-                        <td className="px-4 py-4 text-sm text-gray-900">{supplier.kontak}</td>
-                        <td className="px-4 py-4 text-sm text-gray-900">{supplier.email}</td>
-                        <td className="px-4 py-4 text-sm text-gray-900">{supplier.whatsapp}</td>
-                        <td className="px-4 py-4">
-                          <ActionButtons item={supplier} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="suppliers">
+          <SuppliersTab
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            onAction={handleAction}
+          />
         </TabsContent>
 
-        <TabsContent value="customers" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <TableHeader 
-                title="Data Pelanggan" 
-                icon={Users}
-                onAdd={() => handleAction('add')}
-              />
-              <SearchAndFilter />
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kode</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">No WhatsApp</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Level Pelanggan</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {sampleCustomers.map((customer) => (
-                      <tr key={customer.kode} className="hover:bg-gray-50">
-                        <td className="px-4 py-4 text-sm font-medium text-gray-900">{customer.kode}</td>
-                        <td className="px-4 py-4 text-sm text-gray-900">{customer.nama}</td>
-                        <td className="px-4 py-4 text-sm text-gray-900">{customer.whatsapp}</td>
-                        <td className="px-4 py-4">{getLevelBadge(customer.level)}</td>
-                        <td className="px-4 py-4">
-                          <ActionButtons item={customer} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="customers">
+          <CustomersTab
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            onAction={handleAction}
+          />
         </TabsContent>
 
-        <TabsContent value="employees" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <TableHeader 
-                title="Data Karyawan" 
-                icon={Users}
-                onAdd={() => handleAction('add')}
-              />
-              <SearchAndFilter />
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kode</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Posisi</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {sampleEmployees.map((employee) => (
-                      <tr key={employee.kode} className="hover:bg-gray-50">
-                        <td className="px-4 py-4 text-sm font-medium text-gray-900">{employee.kode}</td>
-                        <td className="px-4 py-4 text-sm text-gray-900">{employee.nama}</td>
-                        <td className="px-4 py-4 text-sm text-gray-900">{employee.posisi}</td>
-                        <td className="px-4 py-4">{getStatusBadge(employee.status)}</td>
-                        <td className="px-4 py-4">
-                          <ActionButtons item={employee} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="employees">
+          <EmployeesTab
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            onAction={handleAction}
+          />
         </TabsContent>
       </Tabs>
 
