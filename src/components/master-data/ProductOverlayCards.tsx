@@ -56,7 +56,9 @@ export const ProductOverlayCards: React.FC<ProductOverlayCardsProps> = ({
             <Tag className="h-8 w-8 text-[#0050C8]" />
             <div>
               <h3 className="font-semibold">Data Kategori</h3>
-              <p className="text-sm text-gray-600">{sampleCategories.length} categories</p>
+              <p className="text-sm text-gray-600">
+                {categoriesLoading ? 'Loading...' : `${sampleCategories.length} categories`}
+              </p>
             </div>
           </div>
         </CardContent>
