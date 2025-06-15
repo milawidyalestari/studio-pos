@@ -35,8 +35,8 @@ export const useTransactions = () => {
       
       return data as Transaction[];
     },
-    // Force refetch to get the new data
-    staleTime: 0,
+    staleTime: 30000, // 30 seconds
     refetchOnMount: true,
+    refetchInterval: 60000, // Refetch every minute to get new transactions
   });
 };
