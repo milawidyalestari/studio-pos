@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -111,12 +112,6 @@ export const ProductForm: React.FC<ProductFormProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">
-          {isEditing ? 'Edit Product' : 'Add New Product'}
-        </h3>
-      </div>
-
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -195,10 +190,11 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               value={formData.category_id}
               onValueChange={(value) => handleInputChange('category_id', value)}
             >
-              <SelectTrigger placeholder="Select category (optional)">
+              <SelectTrigger>
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-white">
+                <SelectItem value="">No Category</SelectItem>
                 {categories.map((category) => (
                   <SelectItem key={category.id} value={category.id}>
                     {category.name}
