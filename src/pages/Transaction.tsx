@@ -42,46 +42,68 @@ const TransactionPage = () => {
     {
       key: 'id',
       label: 'Kode Transaksi',
-      width: '150px',
+      width: '180px',
       render: (value) => (
-        <span className="font-medium text-gray-900">
-          {String(value).slice(0, 8).toUpperCase()}
-        </span>
+        <div className="font-mono text-sm">
+          <span className="font-semibold text-gray-900 bg-gray-50 px-3 py-1 rounded-md border">
+            {String(value).slice(0, 8).toUpperCase()}
+          </span>
+        </div>
       )
     },
     {
       key: 'customer_name',
-      label: 'Customer',
+      label: 'Nama Customer',
+      width: '250px',
       render: (value) => (
-        <span className="text-gray-900">{value || 'N/A'}</span>
+        <div className="flex flex-col">
+          <span className="font-medium text-gray-900">{value || 'N/A'}</span>
+          <span className="text-xs text-gray-500">Customer</span>
+        </div>
       )
     },
     {
       key: 'transaction_date',
       label: 'Tanggal Selesai',
-      width: '120px',
+      width: '160px',
       render: (value) => (
-        <span className="text-gray-900">{formatDate(value)}</span>
+        <div className="text-center">
+          <span className="inline-block bg-blue-50 text-blue-700 px-3 py-1 rounded-md text-sm font-medium">
+            {formatDate(value)}
+          </span>
+        </div>
       )
     },
     {
       key: 'amount',
       label: 'Total Harga',
-      width: '150px',
+      width: '180px',
       render: (value) => (
-        <span className="font-semibold text-[#0050C8]">
-          {formatCurrency(Number(value))}
-        </span>
+        <div className="text-right">
+          <span className="font-bold text-lg text-[#0050C8] bg-blue-50 px-3 py-1 rounded-md">
+            {formatCurrency(Number(value))}
+          </span>
+        </div>
       )
     },
     {
       key: 'payment_method',
-      label: 'Jenis Pembayaran',
-      width: '130px',
+      label: 'Metode Pembayaran',
+      width: '160px',
       render: (value) => (
-        <span className="px-2 py-1 text-xs bg-gray-100 rounded">
-          {value || 'Cash'}
-        </span>
+        <div className="text-center">
+          <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
+            value === 'cash' ? 'bg-green-100 text-green-700' :
+            value === 'transfer' ? 'bg-blue-100 text-blue-700' :
+            value === 'credit' ? 'bg-orange-100 text-orange-700' :
+            'bg-gray-100 text-gray-700'
+          }`}>
+            {value === 'cash' ? 'Tunai' :
+             value === 'transfer' ? 'Transfer' :
+             value === 'credit' ? 'Kredit' :
+             value || 'Tunai'}
+          </span>
+        </div>
       )
     }
   ];
@@ -135,7 +157,12 @@ const TransactionPage = () => {
       </div>
 
       {/* Transaction Table */}
-      <div className="bg-white rounded-lg border">
+      <div className="bg-white rounded-lg border shadow-sm">
+        <div className="p-4 border-b">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Daftar Transaksi ({filteredTransactions.length})
+          </h3>
+        </div>
         <DataTable
           data={filteredTransactions}
           columns={columns}
