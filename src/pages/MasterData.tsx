@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { MasterDataOverlay, TableColumn, MasterDataItem } from '@/components/MasterDataOverlay';
 import { useProductCategories, useCreateProductCategory, useUpdateProductCategory, useDeleteProductCategory } from '@/hooks/useProductCategories';
+import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from '@/hooks/useCategories';
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, Product } from '@/hooks/useProducts';
 import { ProductForm } from '@/components/ProductForm';
 import { useToast } from '@/hooks/use-toast';
@@ -55,12 +56,16 @@ const MasterData = () => {
   const updateCategoryMutation = useUpdateProductCategory();
   const deleteCategoryMutation = useDeleteProductCategory();
   
+  // Database Categories hooks
+  const { data: dbCategories = [], isLoading: dbCategoriesLoading } = useCategories();
+  const createDbCategoryMutation = useCreateCategory();
+  const updateDbCategoryMutation = useUpdateCategory();
+  const deleteDbCategoryMutation = useDeleteCategory();
+  
   // Master data state
   const {
     sampleGroups,
     setSampleGroups,
-    sampleCategories,
-    setSampleCategories,
     sampleUnits,
     setSampleUnits,
     samplePaymentTypes,
@@ -185,6 +190,31 @@ const MasterData = () => {
           ]
         };
         break;
+      case 'categories':
+        console.log('Opening Database Categories with data:', dbCategories);
+        config = {
+          isOpen: true,
+          type: 'categories',
+          title: 'Category Data Management',
+          columns: [
+            { key: 'code', label: 'Code' },
+            { key: 'group_name', label: 'Group' },
+            { key: 'category_name', label: 'Category' }
+          ],
+          data: dbCategories.map(cat => ({
+            id: cat.id,
+            kode: cat.code,
+            code: cat.code,
+            group_name: cat.group_name,
+            category_name: cat.category_name
+          })),
+          formFields: [
+            { key: 'code', label: 'Code', type: 'text' as const, required: true },
+            { key: 'group_name', label: 'Group', type: 'select' as const, required: true, options: sampleGroups.map(g => ({ value: g.nama, label: g.nama })) },
+            { key: 'category_name', label: 'Category', type: 'text' as const, required: true }
+          ]
+        };
+        break;
       case 'groups':
         config = {
           isOpen: true,
@@ -198,24 +228,6 @@ const MasterData = () => {
           formFields: [
             { key: 'kode', label: 'Code', type: 'text' as const, required: true },
             { key: 'nama', label: 'Name', type: 'text' as const, required: true }
-          ]
-        };
-        break;
-      case 'categories':
-        config = {
-          isOpen: true,
-          type: 'categories',
-          title: 'Category Data Management',
-          columns: [
-            { key: 'kode', label: 'Code' },
-            { key: 'kelompok', label: 'Group' },
-            { key: 'kategori', label: 'Category' }
-          ],
-          data: sampleCategories,
-          formFields: [
-            { key: 'kode', label: 'Code', type: 'text' as const, required: true },
-            { key: 'kelompok', label: 'Group', type: 'select' as const, required: true, options: sampleGroups.map(g => ({ value: g.nama, label: g.nama })) },
-            { key: 'kategori', label: 'Category', type: 'text' as const, required: true }
           ]
         };
         break;
@@ -281,6 +293,17 @@ const MasterData = () => {
           title: "Success",
           description: "Product category created successfully",
         });
+      } else if (overlayConfig.type === 'categories') {
+        console.log('Creating database category:', item);
+        await createDbCategoryMutation.mutateAsync({
+          code: item.code as string,
+          group_name: item.group_name as string,
+          category_name: item.category_name as string
+        });
+        toast({
+          title: "Success",
+          description: "Category created successfully",
+        });
       } else {
         // Handle other types with sample data
         const newItem = { ...item, id: Date.now().toString() };
@@ -288,9 +311,6 @@ const MasterData = () => {
         switch (overlayConfig.type) {
           case 'groups':
             setSampleGroups(prev => [...prev, newItem as { id: string; kode: string; nama: string; }]);
-            break;
-          case 'categories':
-            setSampleCategories(prev => [...prev, newItem as { id: string; kode: string; kelompok: string; kategori: string; }]);
             break;
           case 'units':
             setSampleUnits(prev => [...prev, newItem as { id: string; kode: string; satuan: string; }]);
@@ -330,14 +350,23 @@ const MasterData = () => {
           title: "Success",
           description: "Product category updated successfully",
         });
+      } else if (overlayConfig.type === 'categories') {
+        console.log('Updating database category:', item);
+        await updateDbCategoryMutation.mutateAsync({
+          id: item.id!,
+          code: item.code as string,
+          group_name: item.group_name as string,
+          category_name: item.category_name as string
+        });
+        toast({
+          title: "Success",
+          description: "Category updated successfully",
+        });
       } else {
         // Handle other types with sample data
         switch (overlayConfig.type) {
           case 'groups':
             setSampleGroups(prev => prev.map(g => g.id === item.id ? item as { id: string; kode: string; nama: string; } : g));
-            break;
-          case 'categories':
-            setSampleCategories(prev => prev.map(c => c.id === item.id ? item as { id: string; kode: string; kelompok: string; kategori: string; } : c));
             break;
           case 'units':
             setSampleUnits(prev => prev.map(u => u.id === item.id ? item as { id: string; kode: string; satuan: string; } : u));
@@ -373,14 +402,18 @@ const MasterData = () => {
           title: "Success",
           description: "Product category deleted successfully",
         });
+      } else if (overlayConfig.type === 'categories') {
+        console.log('Deleting database category:', id);
+        await deleteDbCategoryMutation.mutateAsync(id);
+        toast({
+          title: "Success",
+          description: "Category deleted successfully",
+        });
       } else {
         // Handle other types with sample data
         switch (overlayConfig.type) {
           case 'groups':
             setSampleGroups(prev => prev.filter(g => g.id !== id));
-            break;
-          case 'categories':
-            setSampleCategories(prev => prev.filter(c => c.id !== id));
             break;
           case 'units':
             setSampleUnits(prev => prev.filter(u => u.id !== id));
@@ -446,10 +479,10 @@ const MasterData = () => {
             onDeleteProduct={handleDeleteProduct}
             productCategories={productCategories}
             sampleGroups={sampleGroups}
-            sampleCategories={sampleCategories}
+            sampleCategories={dbCategories}
             sampleUnits={sampleUnits}
             samplePaymentTypes={samplePaymentTypes}
-            categoriesLoading={categoriesLoading}
+            categoriesLoading={categoriesLoading || dbCategoriesLoading}
             onOverlayOpen={handleOverlayOpen}
           />
         </TabsContent>

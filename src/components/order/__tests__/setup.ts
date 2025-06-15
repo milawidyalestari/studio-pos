@@ -1,4 +1,6 @@
 
 import '@testing-library/jest-dom';
 
-// This file is used to set up testing utilities and configurations
+// Remove the automatic jest-dom types import to fix build errors
+// The types are already included via the package dependency
+
