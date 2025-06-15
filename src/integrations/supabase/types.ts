@@ -591,7 +591,13 @@ export type Database = {
     Enums: {
       customer_level: "Regular" | "Premium" | "VIP"
       employee_status: "Active" | "Inactive"
-      order_status: "pending" | "in-progress" | "ready" | "done"
+      order_status:
+        | "Design"
+        | "Cek File"
+        | "Konfirmasi"
+        | "Export"
+        | "Done"
+        | "Proses Cetak"
       payment_type: "cash" | "transfer" | "credit"
     }
     CompositeTypes: {
@@ -710,7 +716,14 @@ export const Constants = {
     Enums: {
       customer_level: ["Regular", "Premium", "VIP"],
       employee_status: ["Active", "Inactive"],
-      order_status: ["pending", "in-progress", "ready", "done"],
+      order_status: [
+        "Design",
+        "Cek File",
+        "Konfirmasi",
+        "Export",
+        "Done",
+        "Proses Cetak",
+      ],
       payment_type: ["cash", "transfer", "credit"],
     },
   },
