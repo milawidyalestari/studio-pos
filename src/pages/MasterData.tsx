@@ -158,21 +158,26 @@ const MasterData = () => {
 
   // Product CRUD handlers
   const handleAddProduct = () => {
+    console.log('Opening product form for new product');
     setEditingProduct(null);
     setIsProductFormOpen(true);
   };
 
   const handleEditProduct = (product: Product) => {
+    console.log('Opening product form for editing:', product);
     setEditingProduct(product);
     setIsProductFormOpen(true);
   };
 
   const handleDeleteProduct = (id: string) => {
+    console.log('Requesting product deletion:', id);
     setDeleteProductId(id);
   };
 
   const handleProductFormSubmit = async (productData: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
     try {
+      console.log('Submitting product form:', productData);
+      
       if (editingProduct) {
         await updateProductMutation.mutateAsync({
           id: editingProduct.id,
@@ -192,6 +197,7 @@ const MasterData = () => {
       setIsProductFormOpen(false);
       setEditingProduct(null);
     } catch (error) {
+      console.error('Error saving product:', error);
       toast({
         title: "Error",
         description: "Failed to save product",
@@ -203,6 +209,7 @@ const MasterData = () => {
   const confirmDeleteProduct = async () => {
     if (deleteProductId) {
       try {
+        console.log('Confirming product deletion:', deleteProductId);
         await deleteProductMutation.mutateAsync(deleteProductId);
         toast({
           title: "Success",
@@ -210,6 +217,7 @@ const MasterData = () => {
         });
         setDeleteProductId(null);
       } catch (error) {
+        console.error('Error deleting product:', error);
         toast({
           title: "Error",
           description: "Failed to delete product",
