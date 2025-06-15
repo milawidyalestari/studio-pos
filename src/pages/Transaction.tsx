@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 
 const TransactionPage = () => {
-  const { data: transactions = [], isLoading, refetch } = useTransactions();
+  const { data: transactions = [], isLoading, refetch, error } = useTransactions();
   const [searchTerm, setSearchTerm] = useState('');
 
   // Auto-refresh data on component mount
@@ -24,6 +24,7 @@ const TransactionPage = () => {
 
   console.log('TransactionPage - Total transactions:', transactions.length);
   console.log('TransactionPage - Sample transaction:', transactions[0]);
+  console.log('TransactionPage - Error:', error);
 
   // Filter transactions based on search term
   const filteredTransactions = transactions.filter(transaction =>
@@ -122,6 +123,11 @@ const TransactionPage = () => {
     refetch();
   };
 
+  // Show error message if there's an issue
+  if (error) {
+    console.error('Transaction fetch error:', error);
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -146,12 +152,20 @@ const TransactionPage = () => {
         </div>
       </div>
 
-      {/* Success Message */}
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-        <p className="text-sm text-green-800">
-          ✅ {transactions.length} transaksi berhasil dimuat dari database
-        </p>
-      </div>
+      {/* Status Message */}
+      {error ? (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-sm text-red-800">
+            ❌ Error loading transactions: {error.message}
+          </p>
+        </div>
+      ) : (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <p className="text-sm text-green-800">
+            ✅ {transactions.length} transaksi berhasil dimuat dari database
+          </p>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex items-center justify-between bg-white p-4 rounded-lg border">
