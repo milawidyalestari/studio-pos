@@ -12,6 +12,8 @@ import {
 import { Product } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 import { useUnits } from '@/hooks/useUnits';
+import { useProductCodeGenerator } from '@/hooks/useProductCodeGenerator';
+import { RefreshCw } from 'lucide-react';
 
 interface ProductFormProps {
   initialData?: Product | null;
@@ -44,6 +46,15 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   
   const { data: categories = [], isLoading: categoriesLoading, error: categoriesError } = useCategories();
   const { data: units = [], isLoading: unitsLoading, error: unitsError } = useUnits();
+  const { generatedCode, isGenerating, regenerateCode } = useProductCodeGenerator();
+
+  // Auto-fill product code for new products
+  useEffect(() => {
+    if (!isEditing && generatedCode && !formData.kode) {
+      setFormData(prev => ({ ...prev, kode: generatedCode }));
+      console.log('Auto-filled product code:', generatedCode);
+    }
+  }, [generatedCode, isEditing, formData.kode]);
 
   // Debug logging untuk melihat data kategori dan unit
   useEffect(() => {
@@ -77,6 +88,12 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     setFormData(prev => ({ ...prev, [key]: value }));
     if (errors[key]) {
       setErrors(prev => ({ ...prev, [key]: '' }));
+    }
+  };
+
+  const handleRegenerateCode = () => {
+    if (!isEditing) {
+      regenerateCode();
     }
   };
 
@@ -136,14 +153,34 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             <Label htmlFor="kode" className="text-sm font-medium">
               Product Code <span className="text-red-500">*</span>
             </Label>
-            <Input
-              id="kode"
-              type="text"
-              value={formData.kode}
-              onChange={(e) => handleInputChange('kode', e.target.value)}
-              className={errors.kode ? 'border-red-500' : ''}
-              placeholder="Enter product code"
-            />
+            <div className="flex gap-2">
+              <Input
+                id="kode"
+                type="text"
+                value={formData.kode}
+                onChange={(e) => handleInputChange('kode', e.target.value)}
+                className={errors.kode ? 'border-red-500' : ''}
+                placeholder={isEditing ? "Enter product code" : "Auto-generated code"}
+                readOnly={!isEditing && isGenerating}
+              />
+              {!isEditing && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRegenerateCode}
+                  disabled={isGenerating}
+                  className="px-3"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isGenerating ? 'animate-spin' : ''}`} />
+                </Button>
+              )}
+            </div>
+            {!isEditing && (
+              <p className="text-xs text-gray-500">
+                Code is auto-generated. Click refresh to generate a new one.
+              </p>
+            )}
             {errors.kode && (
               <p className="text-red-500 text-xs">{errors.kode}</p>
             )}
