@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -223,10 +222,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                     console.log('Rendering category:', category);
                     return (
                       <SelectItem key={category.id} value={category.id}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{category.category_name}</span>
-                          <span className="text-xs text-gray-500">{category.group_name} - {category.code}</span>
-                        </div>
+                        {category.category_name}
                       </SelectItem>
                     );
                   })
@@ -239,13 +235,6 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                 )}
               </SelectContent>
             </Select>
-            
-            {/* Debug information */}
-            <div className="text-xs text-gray-500 mt-1">
-              Debug: {categories ? `${categories.length} categories loaded` : 'No categories data'}
-              {categoriesLoading && ' (Loading...)'}
-              {categoriesError && ' (Error occurred)'}
-            </div>
             
             {categoriesError && (
               <p className="text-red-500 text-xs">
