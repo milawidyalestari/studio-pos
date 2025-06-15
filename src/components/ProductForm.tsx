@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -101,10 +100,10 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     e.preventDefault();
     
     if (validateForm()) {
-      // If no category is selected, set category_id to undefined
+      // If "no-category" is selected, set category_id to undefined
       const submitData = {
         ...formData,
-        category_id: formData.category_id || undefined
+        category_id: formData.category_id === 'no-category' ? undefined : formData.category_id || undefined
       };
       onSubmit(submitData);
     }
@@ -194,7 +193,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent className="bg-white">
-                <SelectItem value="">No Category</SelectItem>
+                <SelectItem value="no-category">No Category</SelectItem>
                 {categories.map((category) => (
                   <SelectItem key={category.id} value={category.id}>
                     {category.name}
