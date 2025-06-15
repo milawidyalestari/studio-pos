@@ -24,6 +24,9 @@ import {
 import { MasterDataOverlay, TableColumn, MasterDataItem } from '@/components/MasterDataOverlay';
 import { useProductCategories, useCreateProductCategory, useUpdateProductCategory, useDeleteProductCategory } from '@/hooks/useProductCategories';
 import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from '@/hooks/useCategories';
+import { useGroups, useCreateGroup, useUpdateGroup, useDeleteGroup } from '@/hooks/useGroups';
+import { useUnits, useCreateUnit, useUpdateUnit, useDeleteUnit } from '@/hooks/useUnits';
+import { usePaymentTypes, useCreatePaymentType, useUpdatePaymentType, useDeletePaymentType } from '@/hooks/usePaymentTypes';
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, Product } from '@/hooks/useProducts';
 import { ProductForm } from '@/components/ProductForm';
 import { useToast } from '@/hooks/use-toast';
@@ -61,6 +64,24 @@ const MasterData = () => {
   const createDbCategoryMutation = useCreateCategory();
   const updateDbCategoryMutation = useUpdateCategory();
   const deleteDbCategoryMutation = useDeleteCategory();
+  
+  // Groups hooks
+  const { data: groups = [], isLoading: groupsLoading } = useGroups();
+  const createGroupMutation = useCreateGroup();
+  const updateGroupMutation = useUpdateGroup();
+  const deleteGroupMutation = useDeleteGroup();
+  
+  // Units hooks
+  const { data: units = [], isLoading: unitsLoading } = useUnits();
+  const createUnitMutation = useCreateUnit();
+  const updateUnitMutation = useUpdateUnit();
+  const deleteUnitMutation = useDeleteUnit();
+  
+  // Payment Types hooks
+  const { data: paymentTypes = [], isLoading: paymentTypesLoading } = usePaymentTypes();
+  const createPaymentTypeMutation = useCreatePaymentType();
+  const updatePaymentTypeMutation = useUpdatePaymentType();
+  const deletePaymentTypeMutation = useDeletePaymentType();
   
   // Master data state
   const {
@@ -180,7 +201,7 @@ const MasterData = () => {
           ],
           data: productCategories.map(cat => ({
             id: cat.id,
-            kode: cat.id, // Use id as kode for compatibility
+            kode: cat.id,
             name: cat.name,
             description: cat.description || ''
           })),
@@ -210,7 +231,7 @@ const MasterData = () => {
           })),
           formFields: [
             { key: 'code', label: 'Code', type: 'text' as const, required: true },
-            { key: 'group_name', label: 'Group', type: 'select' as const, required: true, options: sampleGroups.map(g => ({ value: g.nama, label: g.nama })) },
+            { key: 'group_name', label: 'Group', type: 'select' as const, required: true, options: groups.map(g => ({ value: g.name, label: g.name })) },
             { key: 'category_name', label: 'Category', type: 'text' as const, required: true }
           ]
         };
@@ -221,13 +242,18 @@ const MasterData = () => {
           type: 'groups',
           title: 'Group Data Management',
           columns: [
-            { key: 'kode', label: 'Code' },
-            { key: 'nama', label: 'Name' }
+            { key: 'code', label: 'Code' },
+            { key: 'name', label: 'Name' }
           ],
-          data: sampleGroups,
+          data: groups.map(group => ({
+            id: group.id,
+            kode: group.code,
+            code: group.code,
+            name: group.name
+          })),
           formFields: [
-            { key: 'kode', label: 'Code', type: 'text' as const, required: true },
-            { key: 'nama', label: 'Name', type: 'text' as const, required: true }
+            { key: 'code', label: 'Code', type: 'text' as const, required: true },
+            { key: 'name', label: 'Name', type: 'text' as const, required: true }
           ]
         };
         break;
@@ -237,13 +263,18 @@ const MasterData = () => {
           type: 'units',
           title: 'Unit Data Management',
           columns: [
-            { key: 'kode', label: 'Code' },
-            { key: 'satuan', label: 'Unit' }
+            { key: 'code', label: 'Code' },
+            { key: 'name', label: 'Unit' }
           ],
-          data: sampleUnits,
+          data: units.map(unit => ({
+            id: unit.id,
+            kode: unit.code,
+            code: unit.code,
+            name: unit.name
+          })),
           formFields: [
-            { key: 'kode', label: 'Code', type: 'text' as const, required: true },
-            { key: 'satuan', label: 'Unit', type: 'text' as const, required: true }
+            { key: 'code', label: 'Code', type: 'text' as const, required: true },
+            { key: 'name', label: 'Unit', type: 'text' as const, required: true }
           ]
         };
         break;
@@ -253,18 +284,24 @@ const MasterData = () => {
           type: 'payments',
           title: 'Non-Cash Payment Types',
           columns: [
-            { key: 'kode', label: 'Code' },
-            { key: 'tipe', label: 'Type' },
-            { key: 'jenisPembayaran', label: 'Payment Method' }
+            { key: 'code', label: 'Code' },
+            { key: 'type', label: 'Type' },
+            { key: 'payment_method', label: 'Payment Method' }
           ],
-          data: samplePaymentTypes,
+          data: paymentTypes.map(payment => ({
+            id: payment.id,
+            kode: payment.code,
+            code: payment.code,
+            type: payment.type,
+            payment_method: payment.payment_method
+          })),
           formFields: [
-            { key: 'kode', label: 'Code', type: 'text' as const, required: true },
-            { key: 'tipe', label: 'Type', type: 'select' as const, required: true, options: [
+            { key: 'code', label: 'Code', type: 'text' as const, required: true },
+            { key: 'type', label: 'Type', type: 'select' as const, required: true, options: [
               { value: 'Digital', label: 'Digital' },
               { value: 'Card', label: 'Card' }
             ]},
-            { key: 'jenisPembayaran', label: 'Payment Method', type: 'text' as const, required: true }
+            { key: 'payment_method', label: 'Payment Method', type: 'text' as const, required: true }
           ]
         };
         break;
@@ -304,25 +341,36 @@ const MasterData = () => {
           title: "Success",
           description: "Category created successfully",
         });
-      } else {
-        // Handle other types with sample data
-        const newItem = { ...item, id: Date.now().toString() };
-        
-        switch (overlayConfig.type) {
-          case 'groups':
-            setSampleGroups(prev => [...prev, newItem as { id: string; kode: string; nama: string; }]);
-            break;
-          case 'units':
-            setSampleUnits(prev => [...prev, newItem as { id: string; kode: string; satuan: string; }]);
-            break;
-          case 'payments':
-            setSamplePaymentTypes(prev => [...prev, newItem as { id: string; kode: string; tipe: string; jenisPembayaran: string; }]);
-            break;
-        }
-        
+      } else if (overlayConfig.type === 'groups') {
+        console.log('Creating group:', item);
+        await createGroupMutation.mutateAsync({
+          code: item.code as string,
+          name: item.name as string
+        });
         toast({
           title: "Success",
-          description: "Item created successfully",
+          description: "Group created successfully",
+        });
+      } else if (overlayConfig.type === 'units') {
+        console.log('Creating unit:', item);
+        await createUnitMutation.mutateAsync({
+          code: item.code as string,
+          name: item.name as string
+        });
+        toast({
+          title: "Success",
+          description: "Unit created successfully",
+        });
+      } else if (overlayConfig.type === 'payments') {
+        console.log('Creating payment type:', item);
+        await createPaymentTypeMutation.mutateAsync({
+          code: item.code as string,
+          type: item.type as string,
+          payment_method: item.payment_method as string
+        });
+        toast({
+          title: "Success",
+          description: "Payment type created successfully",
         });
       }
     } catch (error) {
@@ -362,23 +410,39 @@ const MasterData = () => {
           title: "Success",
           description: "Category updated successfully",
         });
-      } else {
-        // Handle other types with sample data
-        switch (overlayConfig.type) {
-          case 'groups':
-            setSampleGroups(prev => prev.map(g => g.id === item.id ? item as { id: string; kode: string; nama: string; } : g));
-            break;
-          case 'units':
-            setSampleUnits(prev => prev.map(u => u.id === item.id ? item as { id: string; kode: string; satuan: string; } : u));
-            break;
-          case 'payments':
-            setSamplePaymentTypes(prev => prev.map(p => p.id === item.id ? item as { id: string; kode: string; tipe: string; jenisPembayaran: string; } : p));
-            break;
-        }
-        
+      } else if (overlayConfig.type === 'groups') {
+        console.log('Updating group:', item);
+        await updateGroupMutation.mutateAsync({
+          id: item.id!,
+          code: item.code as string,
+          name: item.name as string
+        });
         toast({
           title: "Success",
-          description: "Item updated successfully",
+          description: "Group updated successfully",
+        });
+      } else if (overlayConfig.type === 'units') {
+        console.log('Updating unit:', item);
+        await updateUnitMutation.mutateAsync({
+          id: item.id!,
+          code: item.code as string,
+          name: item.name as string
+        });
+        toast({
+          title: "Success",
+          description: "Unit updated successfully",
+        });
+      } else if (overlayConfig.type === 'payments') {
+        console.log('Updating payment type:', item);
+        await updatePaymentTypeMutation.mutateAsync({
+          id: item.id!,
+          code: item.code as string,
+          type: item.type as string,
+          payment_method: item.payment_method as string
+        });
+        toast({
+          title: "Success",
+          description: "Payment type updated successfully",
         });
       }
     } catch (error) {
@@ -409,23 +473,26 @@ const MasterData = () => {
           title: "Success",
           description: "Category deleted successfully",
         });
-      } else {
-        // Handle other types with sample data
-        switch (overlayConfig.type) {
-          case 'groups':
-            setSampleGroups(prev => prev.filter(g => g.id !== id));
-            break;
-          case 'units':
-            setSampleUnits(prev => prev.filter(u => u.id !== id));
-            break;
-          case 'payments':
-            setSamplePaymentTypes(prev => prev.filter(p => p.id !== id));
-            break;
-        }
-        
+      } else if (overlayConfig.type === 'groups') {
+        console.log('Deleting group:', id);
+        await deleteGroupMutation.mutateAsync(id);
         toast({
           title: "Success",
-          description: "Item deleted successfully",
+          description: "Group deleted successfully",
+        });
+      } else if (overlayConfig.type === 'units') {
+        console.log('Deleting unit:', id);
+        await deleteUnitMutation.mutateAsync(id);
+        toast({
+          title: "Success",
+          description: "Unit deleted successfully",
+        });
+      } else if (overlayConfig.type === 'payments') {
+        console.log('Deleting payment type:', id);
+        await deletePaymentTypeMutation.mutateAsync(id);
+        toast({
+          title: "Success",
+          description: "Payment type deleted successfully",
         });
       }
     } catch (error) {
@@ -478,11 +545,11 @@ const MasterData = () => {
             onEditProduct={handleEditProduct}
             onDeleteProduct={handleDeleteProduct}
             productCategories={productCategories}
-            sampleGroups={sampleGroups}
+            sampleGroups={groups}
             sampleCategories={dbCategories}
-            sampleUnits={sampleUnits}
-            samplePaymentTypes={samplePaymentTypes}
-            categoriesLoading={categoriesLoading || dbCategoriesLoading}
+            sampleUnits={units}
+            samplePaymentTypes={paymentTypes}
+            categoriesLoading={categoriesLoading || dbCategoriesLoading || groupsLoading || unitsLoading || paymentTypesLoading}
             onOverlayOpen={handleOverlayOpen}
           />
         </TabsContent>
