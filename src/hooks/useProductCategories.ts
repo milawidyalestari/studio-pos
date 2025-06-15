@@ -15,6 +15,16 @@ export const useProductCategories = () => {
     queryFn: async () => {
       console.log('Fetching product categories from database...');
       
+      // First, let's check if the table exists and what data is there
+      const { count, error: countError } = await supabase
+        .from('product_categories')
+        .select('*', { count: 'exact', head: true });
+      
+      console.log('Product categories table count:', count);
+      if (countError) {
+        console.error('Error counting product categories:', countError);
+      }
+      
       const { data, error } = await supabase
         .from('product_categories')
         .select('*')
@@ -26,6 +36,13 @@ export const useProductCategories = () => {
       }
 
       console.log('Product categories fetched successfully:', data);
+      console.log('Number of categories fetched:', data?.length || 0);
+      
+      // Additional debugging
+      if (data && data.length === 0) {
+        console.warn('No categories found in database. Please check if categories were saved properly.');
+      }
+      
       return data as ProductCategory[];
     },
   });

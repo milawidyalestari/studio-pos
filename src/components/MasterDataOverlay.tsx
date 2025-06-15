@@ -78,6 +78,14 @@ export const MasterDataOverlay: React.FC<MasterDataOverlayProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  // Debug logging for data changes
+  useEffect(() => {
+    if (isOpen) {
+      console.log(`MasterDataOverlay - ${title} opened with data:`, data);
+      console.log(`MasterDataOverlay - ${title} data length:`, data?.length || 0);
+    }
+  }, [isOpen, title, data]);
+
   // Reset state when overlay closes
   useEffect(() => {
     if (!isOpen) {
@@ -102,23 +110,29 @@ export const MasterDataOverlay: React.FC<MasterDataOverlayProps> = ({
   const paginatedData = filteredData.slice(startIndex, startIndex + itemsPerPage);
 
   const handleAdd = () => {
+    console.log(`MasterDataOverlay - Adding new ${title} item`);
     setEditingItem(null);
     setIsFormOpen(true);
   };
 
   const handleEditClick = (item: MasterDataItem) => {
+    console.log(`MasterDataOverlay - Editing ${title} item:`, item);
     setEditingItem(item);
     setIsFormOpen(true);
   };
 
   const handleDeleteClick = (id: string) => {
+    console.log(`MasterDataOverlay - Deleting ${title} item with id:`, id);
     setDeleteConfirm(id);
   };
 
   const handleFormSubmit = (formData: MasterDataItem) => {
+    console.log(`MasterDataOverlay - Form submitted for ${title}:`, formData);
     if (editingItem) {
+      console.log(`MasterDataOverlay - Calling onEdit for ${title}`);
       onEdit({ ...editingItem, ...formData });
     } else {
+      console.log(`MasterDataOverlay - Calling onAdd for ${title}`);
       onAdd(formData);
     }
     setIsFormOpen(false);
@@ -126,12 +140,14 @@ export const MasterDataOverlay: React.FC<MasterDataOverlayProps> = ({
   };
 
   const handleFormCancel = () => {
+    console.log(`MasterDataOverlay - Form cancelled for ${title}`);
     setIsFormOpen(false);
     setEditingItem(null);
   };
 
   const confirmDelete = () => {
     if (deleteConfirm) {
+      console.log(`MasterDataOverlay - Confirming delete for ${title} with id:`, deleteConfirm);
       onDelete(deleteConfirm);
       setDeleteConfirm(null);
     }
@@ -185,6 +201,13 @@ export const MasterDataOverlay: React.FC<MasterDataOverlayProps> = ({
                     Add New
                   </Button>
                 </div>
+                
+                {/* Debug information for empty data */}
+                {data.length === 0 && (
+                  <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded-md">
+                    No {title.toLowerCase()} data found. Click "Add New" to create the first record.
+                  </div>
+                )}
               </div>
 
               {/* Table Section */}
