@@ -43,6 +43,13 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   
   const { data: categories = [], isLoading: categoriesLoading, error: categoriesError } = useProductCategories();
 
+  // Debug logging untuk melihat data kategori
+  useEffect(() => {
+    console.log('ProductForm - Categories data:', categories);
+    console.log('ProductForm - Categories loading:', categoriesLoading);
+    console.log('ProductForm - Categories error:', categoriesError);
+  }, [categories, categoriesLoading, categoriesError]);
+
   useEffect(() => {
     if (initialData) {
       setFormData({
@@ -195,7 +202,10 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             </Label>
             <Select
               value={formData.category_id}
-              onValueChange={(value) => handleInputChange('category_id', value)}
+              onValueChange={(value) => {
+                console.log('Category selected:', value);
+                handleInputChange('category_id', value);
+              }}
               disabled={categoriesLoading}
             >
               <SelectTrigger className={categoriesError ? 'border-red-500' : ''}>
@@ -205,28 +215,43 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                   "Select category"
                 } />
               </SelectTrigger>
-              <SelectContent className="bg-white z-50">
+              <SelectContent className="bg-white z-50 max-h-60 overflow-y-auto">
                 <SelectItem value="no-category">No Category</SelectItem>
-                {categories.map((category) => (
-                  <SelectItem key={category.id} value={category.id}>
-                    {category.name}
-                    {category.description && (
-                      <span className="text-gray-500 text-xs ml-2">
-                        - {category.description}
-                      </span>
-                    )}
-                  </SelectItem>
-                ))}
+                {categories && categories.length > 0 ? (
+                  categories.map((category) => {
+                    console.log('Rendering category:', category);
+                    return (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                        {category.description && (
+                          <span className="text-gray-500 text-xs ml-2">
+                            - {category.description}
+                          </span>
+                        )}
+                      </SelectItem>
+                    );
+                  })
+                ) : (
+                  !categoriesLoading && (
+                    <SelectItem value="debug-info" disabled>
+                      Debug: {categories ? `${categories.length} categories found` : 'Categories is null/undefined'}
+                    </SelectItem>
+                  )
+                )}
               </SelectContent>
             </Select>
+            
+            {/* Debug information */}
+            <div className="text-xs text-gray-500 mt-1">
+              Debug: {categories ? `${categories.length} categories loaded` : 'No categories data'}
+              {categoriesLoading && ' (Loading...)'}
+              {categoriesError && ' (Error occurred)'}
+            </div>
+            
             {categoriesError && (
               <p className="text-red-500 text-xs">
                 Failed to load categories. Categories must be managed through Category Data Management.
-              </p>
-            )}
-            {categories.length === 0 && !categoriesLoading && !categoriesError && (
-              <p className="text-amber-600 text-xs">
-                No categories available. Please add categories through Category Data Management first.
+                Error: {categoriesError.message || 'Unknown error'}
               </p>
             )}
           </div>
