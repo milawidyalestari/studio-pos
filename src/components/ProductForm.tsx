@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Product } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
+import { useUnits } from '@/hooks/useUnits';
 
 interface ProductFormProps {
   initialData?: Product | null;
@@ -42,13 +43,15 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   
   const { data: categories = [], isLoading: categoriesLoading, error: categoriesError } = useCategories();
+  const { data: units = [], isLoading: unitsLoading, error: unitsError } = useUnits();
 
-  // Debug logging untuk melihat data kategori
+  // Debug logging untuk melihat data kategori dan unit
   useEffect(() => {
     console.log('ProductForm - Categories data:', categories);
-    console.log('ProductForm - Categories loading:', categoriesLoading);
-    console.log('ProductForm - Categories error:', categoriesError);
-  }, [categories, categoriesLoading, categoriesError]);
+    console.log('ProductForm - Units data:', units);
+    console.log('ProductForm - Units loading:', unitsLoading);
+    console.log('ProductForm - Units error:', unitsError);
+  }, [categories, units, unitsLoading, unitsError]);
 
   useEffect(() => {
     if (initialData) {
@@ -117,9 +120,12 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     }
   };
 
-  // Handler untuk menampilkan error jika ada masalah loading kategori
+  // Handler untuk menampilkan error jika ada masalah loading kategori atau unit
   if (categoriesError) {
     console.error('Error loading categories:', categoriesError);
+  }
+  if (unitsError) {
+    console.error('Error loading units:', unitsError);
   }
 
   return (
@@ -180,17 +186,49 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           <div className="space-y-2">
             <Label htmlFor="satuan" className="text-sm font-medium">
               Unit <span className="text-red-500">*</span>
+              {unitsLoading && <span className="text-blue-500 text-xs ml-2">(Loading...)</span>}
+              {unitsError && <span className="text-red-500 text-xs ml-2">(Error loading units)</span>}
             </Label>
-            <Input
-              id="satuan"
-              type="text"
+            <Select
               value={formData.satuan}
-              onChange={(e) => handleInputChange('satuan', e.target.value)}
-              className={errors.satuan ? 'border-red-500' : ''}
-              placeholder="Enter unit (e.g., Roll, Pack, Meter)"
-            />
-            {errors.satuan && (
-              <p className="text-red-500 text-xs">{errors.satuan}</p>
+              onValueChange={(value) => {
+                console.log('Unit selected:', value);
+                handleInputChange('satuan', value);
+              }}
+              disabled={unitsLoading}
+            >
+              <SelectTrigger className={unitsError ? 'border-red-500' : ''}>
+                <SelectValue placeholder={
+                  unitsLoading ? "Loading units..." : 
+                  unitsError ? "Error loading units" :
+                  "Select unit"
+                } />
+              </SelectTrigger>
+              <SelectContent className="bg-white z-50 max-h-60 overflow-y-auto">
+                {units && units.length > 0 ? (
+                  units.map((unit) => {
+                    console.log('Rendering unit:', unit);
+                    return (
+                      <SelectItem key={unit.id} value={unit.name}>
+                        {unit.name}
+                      </SelectItem>
+                    );
+                  })
+                ) : (
+                  !unitsLoading && (
+                    <SelectItem value="debug-info" disabled>
+                      Debug: {units ? `${units.length} units found` : 'Units is null/undefined'}
+                    </SelectItem>
+                  )
+                )}
+              </SelectContent>
+            </Select>
+            
+            {unitsError && (
+              <p className="text-red-500 text-xs">
+                Failed to load units. Units must be managed through Unit Data Management.
+                Error: {unitsError.message || 'Unknown error'}
+              </p>
             )}
           </div>
 
