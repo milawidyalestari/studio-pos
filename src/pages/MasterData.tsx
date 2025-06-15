@@ -156,7 +156,6 @@ const MasterData = () => {
     return <Badge className={colors[level] || colors.Regular}>{level}</Badge>;
   };
 
-  // Product CRUD handlers
   const handleAddProduct = () => {
     console.log('Opening product form for new product');
     setEditingProduct(null);
@@ -239,6 +238,7 @@ const MasterData = () => {
     
     switch (type) {
       case 'product-categories':
+        console.log('Opening Product Categories with data:', productCategories);
         config = {
           isOpen: true,
           type: 'product-categories',
@@ -249,7 +249,7 @@ const MasterData = () => {
           ],
           data: productCategories.map(cat => ({
             id: cat.id,
-            kode: cat.id,
+            kode: cat.id, // Use id as kode for compatibility
             name: cat.name,
             description: cat.description || ''
           })),
@@ -343,7 +343,10 @@ const MasterData = () => {
 
   const handleAdd = async (item: MasterDataItem) => {
     try {
+      console.log('handleAdd called with type:', overlayConfig.type, 'item:', item);
+      
       if (overlayConfig.type === 'product-categories') {
+        console.log('Creating product category:', item);
         await createCategoryMutation.mutateAsync({
           name: item.name as string,
           description: item.description as string
@@ -353,7 +356,7 @@ const MasterData = () => {
           description: "Product category created successfully",
         });
       } else {
-        // Handle other types
+        // Handle other types with sample data
         const newItem = { ...item, id: Date.now().toString() };
         
         switch (overlayConfig.type) {
@@ -370,8 +373,14 @@ const MasterData = () => {
             setSamplePaymentTypes(prev => [...prev, newItem as { id: string; kode: string; tipe: string; jenisPembayaran: string; }]);
             break;
         }
+        
+        toast({
+          title: "Success",
+          description: "Item created successfully",
+        });
       }
     } catch (error) {
+      console.error('Error in handleAdd:', error);
       toast({
         title: "Error",
         description: "Failed to create item",
@@ -382,7 +391,10 @@ const MasterData = () => {
 
   const handleEdit = async (item: MasterDataItem) => {
     try {
+      console.log('handleEdit called with type:', overlayConfig.type, 'item:', item);
+      
       if (overlayConfig.type === 'product-categories') {
+        console.log('Updating product category:', item);
         await updateCategoryMutation.mutateAsync({
           id: item.id!,
           name: item.name as string,
@@ -393,7 +405,7 @@ const MasterData = () => {
           description: "Product category updated successfully",
         });
       } else {
-        // Handle other types
+        // Handle other types with sample data
         switch (overlayConfig.type) {
           case 'groups':
             setSampleGroups(prev => prev.map(g => g.id === item.id ? item as { id: string; kode: string; nama: string; } : g));
@@ -408,8 +420,14 @@ const MasterData = () => {
             setSamplePaymentTypes(prev => prev.map(p => p.id === item.id ? item as { id: string; kode: string; tipe: string; jenisPembayaran: string; } : p));
             break;
         }
+        
+        toast({
+          title: "Success",
+          description: "Item updated successfully",
+        });
       }
     } catch (error) {
+      console.error('Error in handleEdit:', error);
       toast({
         title: "Error",
         description: "Failed to update item",
@@ -420,14 +438,17 @@ const MasterData = () => {
 
   const handleDelete = async (id: string) => {
     try {
+      console.log('handleDelete called with type:', overlayConfig.type, 'id:', id);
+      
       if (overlayConfig.type === 'product-categories') {
+        console.log('Deleting product category:', id);
         await deleteCategoryMutation.mutateAsync(id);
         toast({
           title: "Success",
           description: "Product category deleted successfully",
         });
       } else {
-        // Handle other types
+        // Handle other types with sample data
         switch (overlayConfig.type) {
           case 'groups':
             setSampleGroups(prev => prev.filter(g => g.id !== id));
@@ -442,8 +463,14 @@ const MasterData = () => {
             setSamplePaymentTypes(prev => prev.filter(p => p.id !== id));
             break;
         }
+        
+        toast({
+          title: "Success",
+          description: "Item deleted successfully",
+        });
       }
     } catch (error) {
+      console.error('Error in handleDelete:', error);
       toast({
         title: "Error",
         description: "Failed to delete item",
