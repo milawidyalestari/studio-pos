@@ -30,8 +30,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MasterDataOverlay, TableColumn, MasterDataItem } from '@/components/MasterDataOverlay';
+import { useProductCategories, useCreateProductCategory, useUpdateProductCategory, useDeleteProductCategory } from '@/hooks/useProductCategories';
+import { useToast } from '@/hooks/use-toast';
 
-// Sample data for each module
+// Sample data for other modules (keeping existing data)
 const sampleProducts = [
   { kode: 'PRD001', jenis: 'Vinyl', nama: 'Vinyl Glossy', satuan: 'Roll', hargaBeli: 45000, hargaJual: 60000, stokAwal: 50, stokMasuk: 10, stokKeluar: 5, stokOpname: 55 },
   { kode: 'PRD002', jenis: 'Banner', nama: 'Banner Frontlite', satuan: 'Roll', hargaBeli: 35000, hargaJual: 50000, stokAwal: 30, stokMasuk: 5, stokKeluar: 8, stokOpname: 27 },
@@ -59,6 +61,13 @@ const sampleEmployees = [
 const MasterData = () => {
   const [activeTab, setActiveTab] = useState('products');
   const [searchTerm, setSearchTerm] = useState('');
+  const { toast } = useToast();
+  
+  // Product Categories hooks
+  const { data: productCategories = [], isLoading: categoriesLoading } = useProductCategories();
+  const createCategoryMutation = useCreateProductCategory();
+  const updateCategoryMutation = useUpdateProductCategory();
+  const deleteCategoryMutation = useDeleteProductCategory();
   
   // Move useState calls inside the component
   const [sampleGroups, setSampleGroups] = useState([
@@ -130,6 +139,27 @@ const MasterData = () => {
     let config;
     
     switch (type) {
+      case 'product-categories':
+        config = {
+          isOpen: true,
+          type: 'product-categories',
+          title: 'Product Categories Management',
+          columns: [
+            { key: 'name', label: 'Category Name' },
+            { key: 'description', label: 'Description' }
+          ],
+          data: productCategories.map(cat => ({
+            id: cat.id,
+            kode: cat.id,
+            name: cat.name,
+            description: cat.description || ''
+          })),
+          formFields: [
+            { key: 'name', label: 'Category Name', type: 'text' as const, required: true },
+            { key: 'description', label: 'Description', type: 'text' as const }
+          ]
+        };
+        break;
       case 'groups':
         config = {
           isOpen: true,
@@ -212,56 +242,114 @@ const MasterData = () => {
     setOverlayConfig(prev => ({ ...prev, isOpen: false }));
   };
 
-  const handleAdd = (item: MasterDataItem) => {
-    const newItem = { ...item, id: Date.now().toString() };
-    
-    switch (overlayConfig.type) {
-      case 'groups':
-        setSampleGroups(prev => [...prev, newItem as { id: string; kode: string; nama: string; }]);
-        break;
-      case 'categories':
-        setSampleCategories(prev => [...prev, newItem as { id: string; kode: string; kelompok: string; kategori: string; }]);
-        break;
-      case 'units':
-        setSampleUnits(prev => [...prev, newItem as { id: string; kode: string; satuan: string; }]);
-        break;
-      case 'payments':
-        setSamplePaymentTypes(prev => [...prev, newItem as { id: string; kode: string; tipe: string; jenisPembayaran: string; }]);
-        break;
+  const handleAdd = async (item: MasterDataItem) => {
+    try {
+      if (overlayConfig.type === 'product-categories') {
+        await createCategoryMutation.mutateAsync({
+          name: item.name as string,
+          description: item.description as string
+        });
+        toast({
+          title: "Success",
+          description: "Product category created successfully",
+        });
+      } else {
+        // Handle other types
+        const newItem = { ...item, id: Date.now().toString() };
+        
+        switch (overlayConfig.type) {
+          case 'groups':
+            setSampleGroups(prev => [...prev, newItem as { id: string; kode: string; nama: string; }]);
+            break;
+          case 'categories':
+            setSampleCategories(prev => [...prev, newItem as { id: string; kode: string; kelompok: string; kategori: string; }]);
+            break;
+          case 'units':
+            setSampleUnits(prev => [...prev, newItem as { id: string; kode: string; satuan: string; }]);
+            break;
+          case 'payments':
+            setSamplePaymentTypes(prev => [...prev, newItem as { id: string; kode: string; tipe: string; jenisPembayaran: string; }]);
+            break;
+        }
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create item",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleEdit = (item: MasterDataItem) => {
-    switch (overlayConfig.type) {
-      case 'groups':
-        setSampleGroups(prev => prev.map(g => g.id === item.id ? item as { id: string; kode: string; nama: string; } : g));
-        break;
-      case 'categories':
-        setSampleCategories(prev => prev.map(c => c.id === item.id ? item as { id: string; kode: string; kelompok: string; kategori: string; } : c));
-        break;
-      case 'units':
-        setSampleUnits(prev => prev.map(u => u.id === item.id ? item as { id: string; kode: string; satuan: string; } : u));
-        break;
-      case 'payments':
-        setSamplePaymentTypes(prev => prev.map(p => p.id === item.id ? item as { id: string; kode: string; tipe: string; jenisPembayaran: string; } : p));
-        break;
+  const handleEdit = async (item: MasterDataItem) => {
+    try {
+      if (overlayConfig.type === 'product-categories') {
+        await updateCategoryMutation.mutateAsync({
+          id: item.id!,
+          name: item.name as string,
+          description: item.description as string
+        });
+        toast({
+          title: "Success",
+          description: "Product category updated successfully",
+        });
+      } else {
+        // Handle other types
+        switch (overlayConfig.type) {
+          case 'groups':
+            setSampleGroups(prev => prev.map(g => g.id === item.id ? item as { id: string; kode: string; nama: string; } : g));
+            break;
+          case 'categories':
+            setSampleCategories(prev => prev.map(c => c.id === item.id ? item as { id: string; kode: string; kelompok: string; kategori: string; } : c));
+            break;
+          case 'units':
+            setSampleUnits(prev => prev.map(u => u.id === item.id ? item as { id: string; kode: string; satuan: string; } : u));
+            break;
+          case 'payments':
+            setSamplePaymentTypes(prev => prev.map(p => p.id === item.id ? item as { id: string; kode: string; tipe: string; jenisPembayaran: string; } : p));
+            break;
+        }
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update item",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleDelete = (id: string) => {
-    switch (overlayConfig.type) {
-      case 'groups':
-        setSampleGroups(prev => prev.filter(g => g.id !== id));
-        break;
-      case 'categories':
-        setSampleCategories(prev => prev.filter(c => c.id !== id));
-        break;
-      case 'units':
-        setSampleUnits(prev => prev.filter(u => u.id !== id));
-        break;
-      case 'payments':
-        setSamplePaymentTypes(prev => prev.filter(p => p.id !== id));
-        break;
+  const handleDelete = async (id: string) => {
+    try {
+      if (overlayConfig.type === 'product-categories') {
+        await deleteCategoryMutation.mutateAsync(id);
+        toast({
+          title: "Success",
+          description: "Product category deleted successfully",
+        });
+      } else {
+        // Handle other types
+        switch (overlayConfig.type) {
+          case 'groups':
+            setSampleGroups(prev => prev.filter(g => g.id !== id));
+            break;
+          case 'categories':
+            setSampleCategories(prev => prev.filter(c => c.id !== id));
+            break;
+          case 'units':
+            setSampleUnits(prev => prev.filter(u => u.id !== id));
+            break;
+          case 'payments':
+            setSamplePaymentTypes(prev => prev.filter(p => p.id !== id));
+            break;
+        }
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete item",
+        variant: "destructive",
+      });
     }
   };
 
@@ -436,7 +524,21 @@ const MasterData = () => {
           </Card>
 
           {/* Overlay Modules for Products */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleOverlayOpen('product-categories')}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <Package className="h-8 w-8 text-[#0050C8]" />
+                  <div>
+                    <h3 className="font-semibold">Product Categories</h3>
+                    <p className="text-sm text-gray-600">
+                      {categoriesLoading ? 'Loading...' : `${productCategories.length} categories`}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleOverlayOpen('groups')}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
@@ -487,7 +589,6 @@ const MasterData = () => {
           </div>
         </TabsContent>
 
-        
         <TabsContent value="suppliers" className="space-y-4">
           <Card>
             <CardHeader>
