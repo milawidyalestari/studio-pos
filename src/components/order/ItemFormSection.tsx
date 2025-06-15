@@ -130,8 +130,8 @@ const ItemFormSection = ({
       </div>
 
       {/* Row 3: Jumlah Pesanan & Dimensi */}
-      <div className="grid grid-cols-4 gap-2 mb-4">
-        <div>
+      <div className="flex gap-4 mb-4">
+        <div className="w-1/4">
           <Label htmlFor="jumlahPesanan" className="text-sm font-medium">Jml Pesanan</Label>
           <Input
             id="jumlahPesanan"
@@ -142,34 +142,36 @@ const ItemFormSection = ({
             className="mt-1"
           />
         </div>
-        <div>
-          <Label htmlFor="dimensiP" className="text-sm font-medium">Dimensi</Label>
-          <Input
-            id="dimensiP"
-            type="number"
-            value={currentItem.ukuran.panjang}
-            onChange={(e) => updateCurrentItem('ukuran', { ...currentItem.ukuran, panjang: e.target.value })}
-            placeholder="P"
-            className="mt-1"
-          />
-        </div>
-        <div className="flex items-end">
-          <span className="text-sm mb-2">x</span>
-        </div>
-        <div>
-          <Label htmlFor="dimensiL" className="text-sm font-medium invisible">L</Label>
-          <div className="flex mt-1">
+        <div className="flex-1 flex items-end gap-1">
+          <div className="flex-1">
+            <Label htmlFor="dimensiP" className="text-sm font-medium">Dimensi</Label>
+            <Input
+              id="dimensiP"
+              type="number"
+              value={currentItem.ukuran.panjang}
+              onChange={(e) => updateCurrentItem('ukuran', { ...currentItem.ukuran, panjang: e.target.value })}
+              placeholder="P"
+              className="mt-1"
+            />
+          </div>
+          <span className="text-sm pb-2">x</span>
+          <div className="flex-1">
+            <Label htmlFor="dimensiL" className="text-sm font-medium invisible">L</Label>
             <Input
               id="dimensiL"
               type="number"
               value={currentItem.ukuran.lebar}
               onChange={(e) => updateCurrentItem('ukuran', { ...currentItem.ukuran, lebar: e.target.value })}
               placeholder="L"
+              className="mt-1"
             />
-            <span className="flex items-center mx-2">=</span>
+          </div>
+          <span className="text-sm pb-2">=</span>
+          <div className="flex-1">
+            <Label className="text-sm font-medium invisible">Total</Label>
             <Input
               value={dimensionTotal.toFixed(0)}
-              className="bg-gray-50"
+              className="mt-1 bg-gray-50"
               readOnly
             />
           </div>
