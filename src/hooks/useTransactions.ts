@@ -35,5 +35,8 @@ export const useTransactions = () => {
       
       return data as Transaction[];
     },
+    // Force refetch to get the new data
+    staleTime: 0,
+    refetchOnMount: true,
   });
 };
