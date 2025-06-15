@@ -1,3 +1,4 @@
+
 import React, { memo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
@@ -39,11 +40,11 @@ const Sidebar = memo<SidebarProps>(({ collapsed, onToggle }) => {
 
   return (
     <div className={cn(
-      "bg-white border-r border-gray-200 transition-all duration-300 flex flex-col",
+      "bg-white border-r border-gray-200 transition-all duration-300 flex flex-col h-screen",
       collapsed ? "w-16" : "w-64"
     )}>
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+      <div className="p-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
         {!collapsed && (
           <h1 className="text-xl font-bold text-gray-800">{APP_CONFIG.APP_NAME}</h1>
         )}
@@ -59,7 +60,7 @@ const Sidebar = memo<SidebarProps>(({ collapsed, onToggle }) => {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-4" role="navigation">
+      <nav className="flex-1 py-4 overflow-y-auto" role="navigation">
         <ul className="space-y-1 px-2">
           {menuItems.map((item) => {
             const Icon = item.icon;
@@ -87,7 +88,7 @@ const Sidebar = memo<SidebarProps>(({ collapsed, onToggle }) => {
       </nav>
 
       {/* Logout */}
-      <div className="p-2 border-t border-gray-200">
+      <div className="p-2 border-t border-gray-200 flex-shrink-0">
         <button 
           className={cn(
             "flex items-center w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors",
