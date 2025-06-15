@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Edit, Calendar, Archive } from 'lucide-react';
+import { Edit, Calendar, Trash2 } from 'lucide-react';
 
 interface Order {
   id: string;
@@ -27,10 +27,10 @@ interface OrderCardProps {
   snapshot?: any;
   onOrderClick?: (order: Order) => void;
   onEditOrder?: (order: Order) => void;
-  onArchiveOrder?: (orderId: string) => void;
+  onDeleteOrder?: (orderId: string) => void;
 }
 
-const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onArchiveOrder }: OrderCardProps) => {
+const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDeleteOrder }: OrderCardProps) => {
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -99,10 +99,10 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onArc
     }
   };
 
-  const handleArchiveClick = (e: React.MouseEvent) => {
+  const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (onArchiveOrder) {
-      onArchiveOrder(order.id);
+    if (onDeleteOrder) {
+      onDeleteOrder(order.id);
     }
   };
 
@@ -168,20 +168,20 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onArc
                 </TooltipContent>
               </Tooltip>
 
-              {/* Archive Button */}
+              {/* Delete Button */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button 
                     size="sm" 
                     variant="ghost" 
                     className="h-6 w-6 p-0 hover:bg-red-100 hover:text-red-600 transition-colors"
-                    onClick={handleArchiveClick}
+                    onClick={handleDeleteClick}
                   >
-                    <Archive className="h-3 w-3" />
+                    <Trash2 className="h-3 w-3" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Archive order</p>
+                  <p>Delete order</p>
                 </TooltipContent>
               </Tooltip>
             </div>

@@ -29,7 +29,7 @@ export interface KanbanBoardProps {
   onDragEnd: (result: DropResult) => void;
   onOrderClick?: (order: Order) => void;
   onEditOrder?: (order: Order) => void;
-  onArchiveOrder?: (orderId: string) => void;
+  onDeleteOrder?: (orderId: string) => void;
   onUpdateOrderStatus?: (orderId: string, newStatus: string) => void;
 }
 

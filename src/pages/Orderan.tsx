@@ -11,6 +11,7 @@ import OrderTable from '@/components/OrderTable';
 import { useOrders } from '@/hooks/useOrders';
 import { formatCurrency } from '@/services/masterData';
 import { useToast } from '@/hooks/use-toast';
+import { deleteOrderFromDatabase } from '@/services/deleteOrderService';
 
 interface Order {
   id: string;
@@ -33,7 +34,6 @@ const Orderan = () => {
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
-  const [archivedOrders, setArchivedOrders] = useState<string[]>([]);
   const [localOrders, setLocalOrders] = useState<Order[]>([]);
   const { orders: dbOrders, isLoading } = useOrders();
   const { toast } = useToast();
@@ -56,11 +56,11 @@ const Orderan = () => {
           avatar: index % 4 === 0 ? '/lovable-uploads/04d2c4d6-1119-4b62-9672-b1f8bd3f7143.png' : undefined,
           assignedBy: 'Orbit'
         } : undefined
-      })).filter(order => !archivedOrders.includes(order.id));
+      }));
       
       setLocalOrders(transformedOrders);
     }
-  }, [dbOrders, archivedOrders]);
+  }, [dbOrders]);
 
   const handleOrderModalSubmit = (orderData: any) => {
     // The order is automatically saved through the RequestOrderModal using useOrders hook
@@ -131,12 +131,29 @@ const Orderan = () => {
     setShowRequestModal(true);
   };
 
-  const handleArchiveOrder = (orderId: string) => {
-    setArchivedOrders(prev => [...prev, orderId]);
-    toast({
-      title: "Order Archived",
-      description: "Order has been moved to archive",
-    });
+  const handleDeleteOrder = async (orderId: string) => {
+    try {
+      // Remove from local state immediately for better UX
+      setLocalOrders(prevOrders => prevOrders.filter(order => order.id !== orderId));
+      
+      // Delete from database
+      await deleteOrderFromDatabase(orderId);
+      
+      toast({
+        title: "Order Deleted",
+        description: "Order has been permanently deleted from the system",
+      });
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      
+      // If database delete fails, we need to refresh the data to restore the order in UI
+      // The useOrders hook will automatically refetch the data
+      toast({
+        title: "Error",
+        description: "Failed to delete order from database",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleModalClose = () => {
@@ -216,7 +233,7 @@ const Orderan = () => {
               onDragEnd={handleDragEnd} 
               onOrderClick={handleOrderClick}
               onEditOrder={handleEditOrder}
-              onArchiveOrder={handleArchiveOrder}
+              onDeleteOrder={handleDeleteOrder}
               onUpdateOrderStatus={updateOrderStatus}
             />
           ) : (

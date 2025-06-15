@@ -17,7 +17,7 @@ const KanbanBoard = ({
   onDragEnd, 
   onOrderClick, 
   onEditOrder, 
-  onArchiveOrder,
+  onDeleteOrder,
   onUpdateOrderStatus 
 }: KanbanBoardProps) => {
   const [columns, setColumns] = useState<KanbanColumnType[]>(DEFAULT_COLUMNS);
@@ -73,12 +73,12 @@ const KanbanBoard = ({
     });
   };
 
-  const handleArchiveOrder = (orderId: string) => {
-    if (onArchiveOrder) {
-      onArchiveOrder(orderId);
+  const handleDeleteOrder = (orderId: string) => {
+    if (onDeleteOrder) {
+      onDeleteOrder(orderId);
       toast({
-        title: "Order archived",
-        description: "Order has been moved to archive",
+        title: "Order deleted",
+        description: "Order has been permanently deleted from the system",
       });
     }
   };
@@ -106,7 +106,7 @@ const KanbanBoard = ({
                 orders={columnOrders}
                 onOrderClick={onOrderClick}
                 onEditOrder={onEditOrder}
-                onArchiveOrder={handleArchiveOrder}
+                onDeleteOrder={handleDeleteOrder}
               />
             );
           })}
