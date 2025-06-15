@@ -13,12 +13,15 @@ import {
 } from 'lucide-react';
 
 const TransactionPage = () => {
-  const { data: transactions = [], isLoading } = useTransactions();
+  const { data: transactions = [], isLoading, refetch } = useTransactions();
   const [searchTerm, setSearchTerm] = useState('');
+
+  console.log('TransactionPage - Total transactions:', transactions.length);
+  console.log('TransactionPage - Sample transaction:', transactions[0]);
 
   // Filter transactions based on search term
   const filteredTransactions = transactions.filter(transaction =>
-    transaction.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (transaction.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) || '') ||
     transaction.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -108,6 +111,11 @@ const TransactionPage = () => {
     }
   ];
 
+  const handleRefresh = () => {
+    console.log('Refreshing transactions...');
+    refetch();
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -121,7 +129,7 @@ const TransactionPage = () => {
             <FileDown className="h-4 w-4" />
             Export
           </Button>
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2" onClick={handleRefresh}>
             <RefreshCw className="h-4 w-4" />
             Sync
           </Button>
@@ -131,6 +139,15 @@ const TransactionPage = () => {
           </Button>
         </div>
       </div>
+
+      {/* Debug Info */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <p className="text-sm text-yellow-800">
+            Debug: {transactions.length} transaksi ditemukan di database
+          </p>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex items-center justify-between bg-white p-4 rounded-lg border">
