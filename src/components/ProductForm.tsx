@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Product } from '@/hooks/useProducts';
-import { useProductCategories } from '@/hooks/useProductCategories';
+import { useCategories } from '@/hooks/useCategories';
 
 interface ProductFormProps {
   initialData?: Product | null;
@@ -41,7 +42,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   
-  const { data: categories = [], isLoading: categoriesLoading, error: categoriesError } = useProductCategories();
+  const { data: categories = [], isLoading: categoriesLoading, error: categoriesError } = useCategories();
 
   // Debug logging untuk melihat data kategori
   useEffect(() => {
@@ -222,12 +223,10 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                     console.log('Rendering category:', category);
                     return (
                       <SelectItem key={category.id} value={category.id}>
-                        {category.name}
-                        {category.description && (
-                          <span className="text-gray-500 text-xs ml-2">
-                            - {category.description}
-                          </span>
-                        )}
+                        <div className="flex flex-col">
+                          <span className="font-medium">{category.category_name}</span>
+                          <span className="text-xs text-gray-500">{category.group_name} - {category.code}</span>
+                        </div>
                       </SelectItem>
                     );
                   })
