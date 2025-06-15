@@ -1,12 +1,12 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { useProducts } from '@/hooks/useProducts';
+import { useProducts, Product } from '@/hooks/useProducts';
 import { calculateProductPrice } from '@/services/productPricing';
 import { formatCurrency } from '@/services/masterData';
+import ProductSelectionModal from './ProductSelectionModal';
 
 interface OrderItem {
   id: string;
@@ -39,6 +39,8 @@ const ItemFormSection = ({
   nextItemId
 }: ItemFormSectionProps) => {
   const { data: products, isLoading: productsLoading } = useProducts();
+  const [showItemSelectionModal, setShowItemSelectionModal] = useState(false);
+  const [showMaterialSelectionModal, setShowMaterialSelectionModal] = useState(false);
 
   // Filter products by type for different select options
   const materials = products?.filter(p => p.jenis === 'Material') || [];
@@ -54,6 +56,18 @@ const ItemFormSection = ({
       updateCurrentItem('item', selectedProduct.nama);
       console.log('Selected product:', selectedProduct);
     }
+  };
+
+  const handleItemSelection = (product: Product) => {
+    updateCurrentItem('productCode', product.kode);
+    updateCurrentItem('item', product.nama);
+    console.log('Selected item from modal:', product);
+  };
+
+  const handleMaterialSelection = (product: Product) => {
+    updateCurrentItem('productCode', product.kode);
+    updateCurrentItem('item', product.nama);
+    console.log('Selected material from modal:', product);
   };
 
   // Calculate unit price and total price
@@ -107,7 +121,13 @@ const ItemFormSection = ({
               className="bg-blue-50 border-blue-200"
               readOnly
             />
-            <Button type="button" variant="outline" size="sm" className="ml-1 px-2">
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              className="ml-1 px-2"
+              onClick={() => setShowItemSelectionModal(true)}
+            >
               ?
             </Button>
             <Button type="button" variant="outline" size="sm" className="ml-1 px-2">
@@ -214,7 +234,13 @@ const ItemFormSection = ({
               className="bg-blue-50 border-blue-200"
               readOnly
             />
-            <Button type="button" variant="outline" size="sm" className="ml-1 px-2">
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              className="ml-1 px-2"
+              onClick={() => setShowMaterialSelectionModal(true)}
+            >
               ?
             </Button>
             <Button type="button" variant="outline" size="sm" className="ml-1 px-2">
@@ -305,6 +331,23 @@ const ItemFormSection = ({
           <Button type="button" onClick={onAddItem} className="bg-[#0050C8] hover:bg-[#003a9b]">Add Item</Button>
         )}
       </div>
+
+      {/* Product Selection Modals */}
+      <ProductSelectionModal
+        open={showItemSelectionModal}
+        onClose={() => setShowItemSelectionModal(false)}
+        onSelectProduct={handleItemSelection}
+        title="Pilih Item"
+        filterType="all"
+      />
+
+      <ProductSelectionModal
+        open={showMaterialSelectionModal}
+        onClose={() => setShowMaterialSelectionModal(false)}
+        onSelectProduct={handleMaterialSelection}
+        title="Pilih Bahan/Material"
+        filterType="Material"
+      />
     </div>
   );
 };
