@@ -2,10 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { calculateItemPrice, formatCurrency } from '@/services/masterData';
+import { formatCurrency } from '@/services/productPricing';
 import { useToast } from '@/hooks/use-toast';
 import { generateOrderNumber } from '@/services/orderService';
 import { useOrders } from '@/hooks/useOrders';
+import { useProducts, Product } from '@/hooks/useProducts';
+import { calculateProductPrice } from '@/services/productPricing';
 import CustomerInfoSection from './order/CustomerInfoSection';
 import ItemFormSection from './order/ItemFormSection';
 import OrderListSection from './order/OrderListSection';
@@ -16,7 +18,7 @@ import { Order } from '@/types';
 
 interface OrderItem {
   id: string;
-  bahan: string;
+  productCode: string;
   item: string;
   ukuran: { panjang: string; lebar: string };
   quantity: string;
@@ -34,6 +36,7 @@ interface RequestOrderModalProps {
 const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrderModalProps) => {
   const { toast } = useToast();
   const { createOrder, isCreatingOrder } = useOrders();
+  const { data: products } = useProducts();
   
   const [formData, setFormData] = useState({
     orderNumber: generateOrderNumber(),
@@ -61,7 +64,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
 
   const [currentItem, setCurrentItem] = useState({
     id: '',
-    bahan: '',
+    productCode: '',
     item: '',
     ukuran: { panjang: '', lebar: '' },
     quantity: '',
@@ -73,10 +76,9 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
-  // Generate next sequential ID based on current order list
   const generateNextItemId = () => {
     const nextNumber = orderList.length + 1;
-    return nextNumber.toString().padStart(3, '0'); // Format as 001, 002, etc.
+    return nextNumber.toString().padStart(3, '0');
   };
 
   useEffect(() => {
@@ -110,7 +112,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   const resetCurrentItem = () => {
     setCurrentItem({
       id: '',
-      bahan: '',
+      productCode: '',
       item: '',
       ukuran: { panjang: '', lebar: '' },
       quantity: '',
@@ -119,21 +121,40 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
     setEditingItemId(null);
   };
 
+  const calculateItemSubTotal = (item: typeof currentItem): number => {
+    if (!products || !item.productCode || !item.quantity) return 0;
+
+    const product = products.find(p => p.kode === item.productCode);
+    if (!product) return 0;
+
+    const panjang = parseFloat(item.ukuran.panjang) || 0;
+    const lebar = parseFloat(item.ukuran.lebar) || 0;
+    const quantity = parseInt(item.quantity) || 0;
+
+    let subtotal = calculateProductPrice(product, quantity, panjang, lebar);
+
+    // Add finishing cost if selected
+    if (item.finishing && item.finishing !== 'none') {
+      const finishingService = products.find(p => p.kode === item.finishing);
+      if (finishingService) {
+        subtotal += (finishingService.harga_jual || 0) * quantity;
+      }
+    }
+
+    return subtotal;
+  };
+
   const addToOrderList = () => {
-    if (!currentItem.item || !currentItem.ukuran.panjang || !currentItem.ukuran.lebar || !currentItem.quantity) {
+    if (!currentItem.item || !currentItem.quantity || !currentItem.productCode) {
+      toast({
+        title: "Error",
+        description: "Mohon lengkapi semua field yang diperlukan",
+        variant: "destructive",
+      });
       return;
     }
 
-    const panjang = parseFloat(currentItem.ukuran.panjang) || 0;
-    const lebar = parseFloat(currentItem.ukuran.lebar) || 0;
-    const quantity = parseInt(currentItem.quantity) || 0;
-    
-    let subTotal = 0;
-    if (panjang > 0 && lebar > 0 && quantity > 0) {
-      subTotal = calculateItemPrice(panjang, lebar, quantity, currentItem.bahan, currentItem.finishing);
-    }
-
-    // Use the generated sequential ID
+    const subTotal = calculateItemSubTotal(currentItem);
     const itemId = generateNextItemId();
 
     const newOrderItem: OrderItem = {
@@ -149,7 +170,6 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   const deleteFromOrderList = (itemId: string) => {
     setOrderList(prev => {
       const newList = prev.filter(item => item.id !== itemId);
-      // Regenerate sequential IDs after deletion
       return newList.map((item, index) => ({
         ...item,
         id: (index + 1).toString().padStart(3, '0')
@@ -181,15 +201,8 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
 
   const handleSave = async () => {
     try {
-      if (editingItemId && currentItem.item && currentItem.ukuran.panjang && currentItem.ukuran.lebar && currentItem.quantity) {
-        const panjang = parseFloat(currentItem.ukuran.panjang) || 0;
-        const lebar = parseFloat(currentItem.ukuran.lebar) || 0;
-        const quantity = parseInt(currentItem.quantity) || 0;
-        
-        let subTotal = 0;
-        if (panjang > 0 && lebar > 0 && quantity > 0) {
-          subTotal = calculateItemPrice(panjang, lebar, quantity, currentItem.bahan, currentItem.finishing);
-        }
+      if (editingItemId && currentItem.item && currentItem.quantity && currentItem.productCode) {
+        const subTotal = calculateItemSubTotal(currentItem);
 
         const updatedItem: OrderItem = {
           ...currentItem,
@@ -235,7 +248,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
 
       const items = orderList.map((item) => ({
         item_name: item.item,
-        bahan: item.bahan || null,
+        bahan: item.productCode || null,
         panjang: parseFloat(item.ukuran?.panjang) || null,
         lebar: parseFloat(item.ukuran?.lebar) || null,
         quantity: parseInt(item.quantity) || 0,
