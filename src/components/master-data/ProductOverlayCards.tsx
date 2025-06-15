@@ -44,7 +44,9 @@ export const ProductOverlayCards: React.FC<ProductOverlayCardsProps> = ({
             <Layers className="h-8 w-8 text-[#0050C8]" />
             <div>
               <h3 className="font-semibold">Data Kelompok</h3>
-              <p className="text-sm text-gray-600">{sampleGroups.length} groups</p>
+              <p className="text-sm text-gray-600">
+                {categoriesLoading ? 'Loading...' : `${sampleGroups.length} groups`}
+              </p>
             </div>
           </div>
         </CardContent>
@@ -70,7 +72,9 @@ export const ProductOverlayCards: React.FC<ProductOverlayCardsProps> = ({
             <Scale className="h-8 w-8 text-[#0050C8]" />
             <div>
               <h3 className="font-semibold">Data Satuan</h3>
-              <p className="text-sm text-gray-600">{sampleUnits.length} units</p>
+              <p className="text-sm text-gray-600">
+                {categoriesLoading ? 'Loading...' : `${sampleUnits.length} units`}
+              </p>
             </div>
           </div>
         </CardContent>
@@ -82,7 +86,9 @@ export const ProductOverlayCards: React.FC<ProductOverlayCardsProps> = ({
             <CreditCard className="h-8 w-8 text-[#0050C8]" />
             <div>
               <h3 className="font-semibold">Jenis Non Tunai</h3>
-              <p className="text-sm text-gray-600">{samplePaymentTypes.length} types</p>
+              <p className="text-sm text-gray-600">
+                {categoriesLoading ? 'Loading...' : `${samplePaymentTypes.length} types`}
+              </p>
             </div>
           </div>
         </CardContent>
