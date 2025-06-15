@@ -41,7 +41,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   
-  const { data: categories = [] } = useProductCategories();
+  const { data: categories = [], isLoading: categoriesLoading, error: categoriesError } = useProductCategories();
 
   useEffect(() => {
     if (initialData) {
@@ -100,14 +100,20 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     e.preventDefault();
     
     if (validateForm()) {
-      // If "no-category" is selected, set category_id to undefined
+      // Validasi category_id: pastikan valid atau undefined untuk "no-category"
       const submitData = {
         ...formData,
-        category_id: formData.category_id === 'no-category' ? undefined : formData.category_id || undefined
+        category_id: formData.category_id === 'no-category' || formData.category_id === '' ? undefined : formData.category_id
       };
+      console.log('Submitting product data:', submitData);
       onSubmit(submitData);
     }
   };
+
+  // Handler untuk menampilkan error jika ada masalah loading kategori
+  if (categoriesError) {
+    console.error('Error loading categories:', categoriesError);
+  }
 
   return (
     <div className="space-y-6">
@@ -184,23 +190,45 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           <div className="space-y-2">
             <Label htmlFor="category_id" className="text-sm font-medium">
               Category
+              {categoriesLoading && <span className="text-blue-500 text-xs ml-2">(Loading...)</span>}
+              {categoriesError && <span className="text-red-500 text-xs ml-2">(Error loading categories)</span>}
             </Label>
             <Select
               value={formData.category_id}
               onValueChange={(value) => handleInputChange('category_id', value)}
+              disabled={categoriesLoading}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Select category" />
+              <SelectTrigger className={categoriesError ? 'border-red-500' : ''}>
+                <SelectValue placeholder={
+                  categoriesLoading ? "Loading categories..." : 
+                  categoriesError ? "Error loading categories" :
+                  "Select category"
+                } />
               </SelectTrigger>
-              <SelectContent className="bg-white">
+              <SelectContent className="bg-white z-50">
                 <SelectItem value="no-category">No Category</SelectItem>
                 {categories.map((category) => (
                   <SelectItem key={category.id} value={category.id}>
                     {category.name}
+                    {category.description && (
+                      <span className="text-gray-500 text-xs ml-2">
+                        - {category.description}
+                      </span>
+                    )}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {categoriesError && (
+              <p className="text-red-500 text-xs">
+                Failed to load categories. Categories must be managed through Category Data Management.
+              </p>
+            )}
+            {categories.length === 0 && !categoriesLoading && !categoriesError && (
+              <p className="text-amber-600 text-xs">
+                No categories available. Please add categories through Category Data Management first.
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
