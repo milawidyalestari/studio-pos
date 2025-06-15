@@ -10,7 +10,7 @@ interface KanbanColumnProps {
   orders: Order[];
   onOrderClick?: (order: Order) => void;
   onEditOrder?: (order: Order) => void;
-  onArchiveOrder?: (orderId: string) => void;
+  onDeleteOrder?: (orderId: string) => void;
 }
 
 const KanbanColumn = ({ 
@@ -18,7 +18,7 @@ const KanbanColumn = ({
   orders, 
   onOrderClick, 
   onEditOrder, 
-  onArchiveOrder 
+  onDeleteOrder 
 }: KanbanColumnProps) => {
   return (
     <div 
@@ -47,7 +47,7 @@ const KanbanColumn = ({
                     snapshot={snapshot}
                     onOrderClick={onOrderClick}
                     onEditOrder={onEditOrder}
-                    onArchiveOrder={onArchiveOrder}
+                    onDeleteOrder={onDeleteOrder}
                   />
                 )}
               </Draggable>
