@@ -8,7 +8,7 @@ export const updateOrderStatusInDatabase = async (orderId: string, newStatus: st
     const { data, error } = await supabase
       .from('orders')
       .update({ 
-        status: newStatus,
+        status: newStatus as 'Design' | 'Cek File' | 'Konfirmasi' | 'Export' | 'Done' | 'Proses Cetak',
         updated_at: new Date().toISOString()
       })
       .eq('id', orderId)

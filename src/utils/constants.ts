@@ -1,3 +1,4 @@
+
 export const APP_CONFIG = {
   APP_NAME: 'PrintSys',
   VERSION: '1.0.0',
@@ -17,10 +18,12 @@ export const ROUTES = {
 } as const;
 
 export const ORDER_STATUS = {
-  PENDING: 'pending',
-  IN_PROGRESS: 'in-progress',
-  READY: 'ready',
-  DONE: 'done',
+  DESIGN: 'Design',
+  CEK_FILE: 'Cek File',
+  KONFIRMASI: 'Konfirmasi',
+  EXPORT: 'Export',
+  DONE: 'Done',
+  PROSES_CETAK: 'Proses Cetak',
 } as const;
 
 export const CUSTOMER_LEVELS = {

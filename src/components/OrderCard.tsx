@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,14 +43,18 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onArc
   const getResponsiblePerson = () => {
     // Based on status, determine who's responsible
     switch (order.status) {
-      case 'pending':
-        return { name: 'Admin', avatar: undefined, role: 'Processing' };
-      case 'in-progress':
+      case 'Design':
         return order.designer || { name: 'Designer', avatar: undefined, role: 'Designing' };
-      case 'ready':
-        return { name: 'Production', avatar: undefined, role: 'Ready for pickup' };
-      case 'done':
-        return { name: 'Completed', avatar: undefined, role: 'Delivered' };
+      case 'Cek File':
+        return { name: 'QC Team', avatar: undefined, role: 'Quality Check' };
+      case 'Konfirmasi':
+        return { name: 'Admin', avatar: undefined, role: 'Confirming' };
+      case 'Export':
+        return { name: 'Pre-Press', avatar: undefined, role: 'Exporting Files' };
+      case 'Proses Cetak':
+        return { name: 'Production', avatar: undefined, role: 'Printing' };
+      case 'Done':
+        return { name: 'Completed', avatar: undefined, role: 'Ready for pickup' };
       default:
         return { name: 'Unassigned', avatar: undefined, role: 'Pending' };
     }
