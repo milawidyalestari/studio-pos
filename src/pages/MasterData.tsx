@@ -22,7 +22,6 @@ import {
   Truck
 } from 'lucide-react';
 import { MasterDataOverlay, TableColumn, MasterDataItem } from '@/components/MasterDataOverlay';
-import { useProductCategories, useCreateProductCategory, useUpdateProductCategory, useDeleteProductCategory } from '@/hooks/useProductCategories';
 import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from '@/hooks/useCategories';
 import { useGroups, useCreateGroup, useUpdateGroup, useDeleteGroup } from '@/hooks/useGroups';
 import { useUnits, useCreateUnit, useUpdateUnit, useDeleteUnit } from '@/hooks/useUnits';
@@ -52,12 +51,6 @@ const MasterData = () => {
   const createProductMutation = useCreateProduct();
   const updateProductMutation = useUpdateProduct();
   const deleteProductMutation = useDeleteProduct();
-  
-  // Product Categories hooks
-  const { data: productCategories = [], isLoading: categoriesLoading } = useProductCategories();
-  const createCategoryMutation = useCreateProductCategory();
-  const updateCategoryMutation = useUpdateProductCategory();
-  const deleteCategoryMutation = useDeleteProductCategory();
   
   // Database Categories hooks
   const { data: dbCategories = [], isLoading: dbCategoriesLoading } = useCategories();
@@ -189,28 +182,6 @@ const MasterData = () => {
     let config;
     
     switch (type) {
-      case 'product-categories':
-        console.log('Opening Product Categories with data:', productCategories);
-        config = {
-          isOpen: true,
-          type: 'product-categories',
-          title: 'Product Categories Management',
-          columns: [
-            { key: 'name', label: 'Category Name' },
-            { key: 'description', label: 'Description' }
-          ],
-          data: productCategories.map(cat => ({
-            id: cat.id,
-            kode: cat.id,
-            name: cat.name,
-            description: cat.description || ''
-          })),
-          formFields: [
-            { key: 'name', label: 'Category Name', type: 'text' as const, required: true },
-            { key: 'description', label: 'Description', type: 'text' as const }
-          ]
-        };
-        break;
       case 'categories':
         console.log('Opening Database Categories with data:', dbCategories);
         config = {
@@ -320,17 +291,7 @@ const MasterData = () => {
     try {
       console.log('handleAdd called with type:', overlayConfig.type, 'item:', item);
       
-      if (overlayConfig.type === 'product-categories') {
-        console.log('Creating product category:', item);
-        await createCategoryMutation.mutateAsync({
-          name: item.name as string,
-          description: item.description as string
-        });
-        toast({
-          title: "Success",
-          description: "Product category created successfully",
-        });
-      } else if (overlayConfig.type === 'categories') {
+      if (overlayConfig.type === 'categories') {
         console.log('Creating database category:', item);
         await createDbCategoryMutation.mutateAsync({
           code: item.code as string,
@@ -387,18 +348,7 @@ const MasterData = () => {
     try {
       console.log('handleEdit called with type:', overlayConfig.type, 'item:', item);
       
-      if (overlayConfig.type === 'product-categories') {
-        console.log('Updating product category:', item);
-        await updateCategoryMutation.mutateAsync({
-          id: item.id!,
-          name: item.name as string,
-          description: item.description as string
-        });
-        toast({
-          title: "Success",
-          description: "Product category updated successfully",
-        });
-      } else if (overlayConfig.type === 'categories') {
+      if (overlayConfig.type === 'categories') {
         console.log('Updating database category:', item);
         await updateDbCategoryMutation.mutateAsync({
           id: item.id!,
@@ -459,14 +409,7 @@ const MasterData = () => {
     try {
       console.log('handleDelete called with type:', overlayConfig.type, 'id:', id);
       
-      if (overlayConfig.type === 'product-categories') {
-        console.log('Deleting product category:', id);
-        await deleteCategoryMutation.mutateAsync(id);
-        toast({
-          title: "Success",
-          description: "Product category deleted successfully",
-        });
-      } else if (overlayConfig.type === 'categories') {
+      if (overlayConfig.type === 'categories') {
         console.log('Deleting database category:', id);
         await deleteDbCategoryMutation.mutateAsync(id);
         toast({
@@ -544,12 +487,11 @@ const MasterData = () => {
             onAddProduct={handleAddProduct}
             onEditProduct={handleEditProduct}
             onDeleteProduct={handleDeleteProduct}
-            productCategories={productCategories}
             sampleGroups={groups}
             sampleCategories={dbCategories}
             sampleUnits={units}
             samplePaymentTypes={paymentTypes}
-            categoriesLoading={categoriesLoading || dbCategoriesLoading || groupsLoading || unitsLoading || paymentTypesLoading}
+            categoriesLoading={dbCategoriesLoading || groupsLoading || unitsLoading || paymentTypesLoading}
             onOverlayOpen={handleOverlayOpen}
           />
         </TabsContent>
