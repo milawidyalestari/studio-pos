@@ -17,7 +17,6 @@ interface ProductsTabProps {
   onAddProduct: () => void;
   onEditProduct: (product: Product) => void;
   onDeleteProduct: (id: string) => void;
-  productCategories: any[];
   sampleGroups: any[];
   sampleCategories: any[];
   sampleUnits: any[];
@@ -34,7 +33,6 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
   onAddProduct,
   onEditProduct,
   onDeleteProduct,
-  productCategories,
   sampleGroups,
   sampleCategories,
   sampleUnits,
@@ -131,7 +129,6 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
       </Card>
 
       <ProductOverlayCards
-        productCategories={productCategories}
         sampleGroups={sampleGroups}
         sampleCategories={sampleCategories}
         sampleUnits={sampleUnits}

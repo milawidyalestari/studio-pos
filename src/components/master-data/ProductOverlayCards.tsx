@@ -1,10 +1,9 @@
 
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Package, Layers, Tag, Scale, CreditCard } from 'lucide-react';
+import { Layers, Tag, Scale, CreditCard } from 'lucide-react';
 
 interface ProductOverlayCardsProps {
-  productCategories: any[];
   sampleGroups: any[];
   sampleCategories: any[];
   sampleUnits: any[];
@@ -14,7 +13,6 @@ interface ProductOverlayCardsProps {
 }
 
 export const ProductOverlayCards: React.FC<ProductOverlayCardsProps> = ({
-  productCategories,
   sampleGroups,
   sampleCategories,
   sampleUnits,
@@ -23,21 +21,7 @@ export const ProductOverlayCards: React.FC<ProductOverlayCardsProps> = ({
   onOverlayOpen
 }) => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-      <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onOverlayOpen('product-categories')}>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-3">
-            <Package className="h-8 w-8 text-[#0050C8]" />
-            <div>
-              <h3 className="font-semibold">Product Categories</h3>
-              <p className="text-sm text-gray-600">
-                {categoriesLoading ? 'Loading...' : `${productCategories.length} categories`}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onOverlayOpen('groups')}>
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
