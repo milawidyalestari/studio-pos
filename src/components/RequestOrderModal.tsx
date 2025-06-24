@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -243,7 +242,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
         bank: formData.bank || null,
         komputer: formData.komputer || null,
         notes: formData.notes || null,
-        status: 'pending' as const
+        status: 'Design' as const
       };
 
       const items = orderList.map((item) => ({
