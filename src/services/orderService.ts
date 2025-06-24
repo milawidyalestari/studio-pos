@@ -6,10 +6,14 @@ export const generateOrderNumber = () => {
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const day = date.getDate().toString().padStart(2, '0');
   
-  // Use timestamp in milliseconds for better uniqueness
-  const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
+  // Generate a random alphanumeric string for better uniqueness
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let randomSuffix = '';
+  for (let i = 0; i < 6; i++) {
+    randomSuffix += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
   
-  return `ORD${year}${month}${day}${timestamp}`;
+  return `ORD${year}${month}${day}${randomSuffix}`;
 };
 
 export const calculateOrderTotal = (items: any[], jasaDesain: number = 0, biayaLain: number = 0, discount: number = 0, ppn: number = 10) => {
