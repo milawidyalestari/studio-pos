@@ -13,7 +13,12 @@ interface InboxMessage {
   unread: boolean;
 }
 
-const InboxSection = () => {
+interface InboxSectionProps {
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+}
+
+const InboxSection: React.FC<InboxSectionProps> = ({ collapsed, onToggleCollapse }) => {
   const inboxMessages: InboxMessage[] = [
     {
       id: '1',
@@ -52,7 +57,7 @@ const InboxSection = () => {
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="flex-shrink-0">
-        <CardHeader className="pb-3 pt-4 px-4">
+        <CardHeader className="pb-3 pt-4 px-4 cursor-pointer select-none" onClick={onToggleCollapse}>
           <CardTitle className="text-lg flex items-center justify-between">
             <div className="flex items-center">
               <Bell className="h-5 w-5 mr-2 text-[#0050C8]" />
@@ -64,33 +69,35 @@ const InboxSection = () => {
           </CardTitle>
         </CardHeader>
       </div>
-      <CardContent className="flex-1 min-h-0 pt-0 pb-4 px-4">
-        <ScrollArea className="h-full">
-          <div className="space-y-3 pr-2">
-            {inboxMessages.map((message) => (
-              <div
-                key={message.id}
-                className={`p-3 border rounded-lg hover:bg-gray-50 cursor-pointer ${
-                  message.unread ? 'bg-blue-50 border-blue-200' : 'bg-white'
-                }`}
-              >
-                <div className="flex items-start space-x-3">
-                  <div className={`w-2 h-2 rounded-full mt-2 ${
-                    message.unread ? 'bg-blue-500' : 'bg-gray-300'
-                  }`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {message.customer} {message.type}
-                    </p>
-                    <p className="text-xs text-gray-500 mb-1">{message.time}</p>
-                    <p className="text-sm text-gray-600 truncate">{message.message}</p>
+      {!collapsed && (
+        <CardContent className="flex-1 min-h-0 pt-0 pb-4 px-4">
+          <ScrollArea className="h-full">
+            <div className="space-y-3 pr-2">
+              {inboxMessages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`p-3 border rounded-lg hover:bg-gray-50 cursor-pointer ${
+                    message.unread ? 'bg-blue-50 border-blue-200' : 'bg-white'
+                  }`}
+                >
+                  <div className="flex items-start space-x-3">
+                    <div className={`w-2 h-2 rounded-full mt-2 ${
+                      message.unread ? 'bg-blue-500' : 'bg-gray-300'
+                    }`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {message.customer} {message.type}
+                      </p>
+                      <p className="text-xs text-gray-500 mb-1">{message.time}</p>
+                      <p className="text-sm text-gray-600 truncate">{message.message}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </ScrollArea>
-      </CardContent>
+              ))}
+            </div>
+          </ScrollArea>
+        </CardContent>
+      )}
     </div>
   );
 };

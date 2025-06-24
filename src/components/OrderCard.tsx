@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Edit, Calendar, Trash2 } from 'lucide-react';
+import { DraggableProvided, DraggableStateSnapshot } from 'react-beautiful-dnd';
 
 interface Order {
   id: string;
@@ -23,43 +24,14 @@ interface Order {
 
 interface OrderCardProps {
   order: Order;
-  provided?: any;
-  snapshot?: any;
+  provided?: DraggableProvided;
+  snapshot?: DraggableStateSnapshot;
   onOrderClick?: (order: Order) => void;
   onEditOrder?: (order: Order) => void;
   onDeleteOrder?: (orderId: string) => void;
 }
 
 const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDeleteOrder }: OrderCardProps) => {
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(word => word.charAt(0))
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
-  const getResponsiblePerson = () => {
-    // Based on status, determine who's responsible
-    switch (order.status) {
-      case 'Design':
-        return order.designer || { name: 'Designer', avatar: undefined, role: 'Designing' };
-      case 'Cek File':
-        return { name: 'QC Team', avatar: undefined, role: 'Quality Check' };
-      case 'Konfirmasi':
-        return { name: 'Admin', avatar: undefined, role: 'Confirming' };
-      case 'Export':
-        return { name: 'Pre-Press', avatar: undefined, role: 'Exporting Files' };
-      case 'Proses Cetak':
-        return { name: 'Production', avatar: undefined, role: 'Printing' };
-      case 'Done':
-        return { name: 'Completed', avatar: undefined, role: 'Ready for pickup' };
-      default:
-        return { name: 'Unassigned', avatar: undefined, role: 'Pending' };
-    }
-  };
-
   const formatDeadline = (dateString: string) => {
     if (!dateString) return 'No deadline';
     const date = new Date(dateString);
@@ -106,8 +78,6 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
     }
   };
 
-  const responsiblePerson = getResponsiblePerson();
-
   return (
     <TooltipProvider>
       <Card 
@@ -133,24 +103,6 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
               </div>
             </div>
             <div className="flex items-center gap-1">
-              {/* Responsible Person Avatar */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Avatar className="h-7 w-7 ring-2 ring-white shadow-sm">
-                    <AvatarImage src={responsiblePerson.avatar} alt={responsiblePerson.name} />
-                    <AvatarFallback className="text-xs bg-blue-100 text-blue-700 font-medium">
-                      {getInitials(responsiblePerson.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <div className="text-sm">
-                    <p className="font-medium">{responsiblePerson.name}</p>
-                    <p className="text-gray-500">{responsiblePerson.role}</p>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-              
               {/* Edit Button */}
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -202,41 +154,6 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
               </span>
             )}
           </div>
-          
-          {/* Assigned Team (only avatars) */}
-          {order.designer && (
-            <div className="flex items-center gap-1 mb-3">
-              <span className="text-xs text-gray-500 mr-2">Team:</span>
-              <div className="flex -space-x-1">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Avatar className="h-6 w-6 ring-2 ring-white">
-                      <AvatarImage src={order.designer.avatar} alt={order.designer.name} />
-                      <AvatarFallback className="text-xs bg-green-100 text-green-700">
-                        {getInitials(order.designer.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <div className="text-sm">
-                      <p className="font-medium">{order.designer.name}</p>
-                      <p className="text-gray-500">Designer</p>
-                      {order.designer.assignedBy && (
-                        <p className="text-gray-400">Assigned by {order.designer.assignedBy}</p>
-                      )}
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-                
-                {/* Add more team members here if needed */}
-                <Avatar className="h-6 w-6 ring-2 ring-white">
-                  <AvatarFallback className="text-xs bg-gray-100 text-gray-600">
-                    +
-                  </AvatarFallback>
-                </Avatar>
-              </div>
-            </div>
-          )}
           
           {/* Price */}
           <div className="flex justify-between items-center">

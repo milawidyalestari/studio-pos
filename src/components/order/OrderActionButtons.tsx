@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 
@@ -8,9 +7,10 @@ interface OrderActionButtonsProps {
   onSubmit: () => void;
   isSaving: boolean;
   hasUnsavedChanges: boolean;
+  children?: React.ReactNode;
 }
 
-const OrderActionButtons = ({ onNew, onSave, onSubmit, isSaving, hasUnsavedChanges }: OrderActionButtonsProps) => {
+const OrderActionButtons = ({ onNew, onSave, onSubmit, isSaving, hasUnsavedChanges, children }: OrderActionButtonsProps) => {
   return (
     <div className="border-t px-6 py-4 bg-white flex-shrink-0">
       <div className="flex justify-between">
@@ -27,7 +27,10 @@ const OrderActionButtons = ({ onNew, onSave, onSubmit, isSaving, hasUnsavedChang
           </Button>
           <Button type="button" className="bg-[#0050C8] hover:bg-[#003a9b]">Print SPK</Button>
         </div>
-        <Button type="submit" className="bg-[#0050C8] hover:bg-[#003a9b]" onClick={onSubmit}>Print Receipt</Button>
+        <div className="flex items-center gap-2">
+          {children}
+          <Button type="submit" className="bg-[#0050C8] hover:bg-[#003a9b]" onClick={onSubmit}>Print Receipt</Button>
+        </div>
       </div>
     </div>
   );

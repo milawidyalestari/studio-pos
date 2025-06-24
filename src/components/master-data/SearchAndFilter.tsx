@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,11 +13,21 @@ import {
 interface SearchAndFilterProps {
   searchTerm: string;
   onSearchChange: (value: string) => void;
+  statusFilter: string;
+  onStatusFilterChange: (value: string) => void;
+  posisiFilter: string;
+  onPosisiFilterChange: (value: string) => void;
+  posisiOptions: string[];
 }
 
 export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({ 
   searchTerm, 
-  onSearchChange 
+  onSearchChange,
+  statusFilter,
+  onStatusFilterChange,
+  posisiFilter,
+  onPosisiFilterChange,
+  posisiOptions = []
 }) => (
   <div className="flex items-center gap-3 mb-4">
     <div className="relative flex-1 max-w-md">
@@ -34,7 +43,7 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
       <Filter className="h-4 w-4" />
       Filter
     </Button>
-    <Select>
+    <Select value={statusFilter} onValueChange={onStatusFilterChange}>
       <SelectTrigger className="w-[150px]">
         <SelectValue placeholder="Status" />
       </SelectTrigger>
@@ -42,6 +51,17 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
         <SelectItem value="all">All Status</SelectItem>
         <SelectItem value="active">Active</SelectItem>
         <SelectItem value="inactive">Inactive</SelectItem>
+      </SelectContent>
+    </Select>
+    <Select value={posisiFilter} onValueChange={onPosisiFilterChange}>
+      <SelectTrigger className="w-[150px]">
+        <SelectValue placeholder="Posisi" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">All Posisi</SelectItem>
+        {posisiOptions.map((pos) => (
+          <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+        ))}
       </SelectContent>
     </Select>
   </div>

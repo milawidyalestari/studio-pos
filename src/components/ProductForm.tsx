@@ -150,6 +150,23 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
+            <Label htmlFor="nama" className="text-sm font-medium">
+              Product Name <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="nama"
+              type="text"
+              value={formData.nama}
+              onChange={(e) => handleInputChange('nama', e.target.value)}
+              className={errors.nama ? 'border-red-500' : ''}
+              placeholder="Enter product name"
+            />
+            {errors.nama && (
+              <p className="text-red-500 text-xs">{errors.nama}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="kode" className="text-sm font-medium">
               Product Code <span className="text-red-500">*</span>
             </Label>
@@ -183,23 +200,6 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             )}
             {errors.kode && (
               <p className="text-red-500 text-xs">{errors.kode}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="nama" className="text-sm font-medium">
-              Product Name <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="nama"
-              type="text"
-              value={formData.nama}
-              onChange={(e) => handleInputChange('nama', e.target.value)}
-              className={errors.nama ? 'border-red-500' : ''}
-              placeholder="Enter product name"
-            />
-            {errors.nama && (
-              <p className="text-red-500 text-xs">{errors.nama}</p>
             )}
           </div>
 
@@ -294,7 +294,6 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                 <SelectItem value="no-category">No Category</SelectItem>
                 {categories && categories.length > 0 ? (
                   categories.map((category) => {
-                    console.log('Rendering category:', category);
                     return (
                       <SelectItem key={category.id} value={category.id}>
                         {category.category_name}
@@ -313,7 +312,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             
             {categoriesError && (
               <p className="text-red-500 text-xs">
-                Failed to load categories. Categories must be managed through Category Data Management.
+                Failed to load product categories. Product categories must be managed through Product Category Data Management.
                 Error: {categoriesError.message || 'Unknown error'}
               </p>
             )}
@@ -328,8 +327,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               type="number"
               min="0"
               step="0.01"
-              value={formData.harga_beli}
-              onChange={(e) => handleInputChange('harga_beli', parseFloat(e.target.value) || 0)}
+              value={formData.harga_beli === 0 ? '' : formData.harga_beli}
+              onChange={(e) => handleInputChange('harga_beli', e.target.value === '' ? '' : parseFloat(e.target.value))}
               className={errors.harga_beli ? 'border-red-500' : ''}
               placeholder="0.00"
             />
@@ -347,8 +346,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               type="number"
               min="0"
               step="0.01"
-              value={formData.harga_jual}
-              onChange={(e) => handleInputChange('harga_jual', parseFloat(e.target.value) || 0)}
+              value={formData.harga_jual === 0 ? '' : formData.harga_jual}
+              onChange={(e) => handleInputChange('harga_jual', e.target.value === '' ? '' : parseFloat(e.target.value))}
               className={errors.harga_jual ? 'border-red-500' : ''}
               placeholder="0.00"
             />
@@ -365,8 +364,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               id="stok_opname"
               type="number"
               min="0"
-              value={formData.stok_opname}
-              onChange={(e) => handleInputChange('stok_opname', parseInt(e.target.value) || 0)}
+              value={formData.stok_opname === 0 ? '' : formData.stok_opname}
+              onChange={(e) => handleInputChange('stok_opname', e.target.value === '' ? '' : parseInt(e.target.value))}
               placeholder="0"
             />
           </div>
@@ -379,8 +378,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               id="stok_minimum"
               type="number"
               min="0"
-              value={formData.stok_minimum}
-              onChange={(e) => handleInputChange('stok_minimum', parseInt(e.target.value) || 0)}
+              value={formData.stok_minimum === 0 ? '' : formData.stok_minimum}
+              onChange={(e) => handleInputChange('stok_minimum', e.target.value === '' ? '' : parseInt(e.target.value))}
               placeholder="0"
             />
           </div>
@@ -393,8 +392,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               id="stok_awal"
               type="number"
               min="0"
-              value={formData.stok_awal}
-              onChange={(e) => handleInputChange('stok_awal', parseInt(e.target.value) || 0)}
+              value={formData.stok_awal === 0 ? '' : formData.stok_awal}
+              onChange={(e) => handleInputChange('stok_awal', e.target.value === '' ? '' : parseInt(e.target.value))}
               placeholder="0"
             />
           </div>
@@ -407,8 +406,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               id="stok_masuk"
               type="number"
               min="0"
-              value={formData.stok_masuk}
-              onChange={(e) => handleInputChange('stok_masuk', parseInt(e.target.value) || 0)}
+              value={formData.stok_masuk === 0 ? '' : formData.stok_masuk}
+              onChange={(e) => handleInputChange('stok_masuk', e.target.value === '' ? '' : parseInt(e.target.value))}
               placeholder="0"
             />
           </div>
@@ -421,8 +420,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               id="stok_keluar"
               type="number"
               min="0"
-              value={formData.stok_keluar}
-              onChange={(e) => handleInputChange('stok_keluar', parseInt(e.target.value) || 0)}
+              value={formData.stok_keluar === 0 ? '' : formData.stok_keluar}
+              onChange={(e) => handleInputChange('stok_keluar', e.target.value === '' ? '' : parseInt(e.target.value))}
               placeholder="0"
             />
           </div>
@@ -437,6 +436,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           </Button>
         </div>
       </form>
+      {categories && categories.length === 0 && !categoriesLoading && (
+        <p className="text-xs text-amber-600">Tidak ada kategori produk ditemukan. Silakan tambahkan kategori produk terlebih dahulu di menu Master Data &gt; Kategori Produk.</p>
+      )}
     </div>
   );
 };

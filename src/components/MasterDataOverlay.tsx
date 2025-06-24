@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -211,27 +210,27 @@ export const MasterDataOverlay: React.FC<MasterDataOverlayProps> = ({
               </div>
 
               {/* Table Section */}
-              <ScrollArea className="flex-1">
+              <ScrollArea className="flex-1 overflow-y-auto max-h-[60vh]">
                 <div className="p-6">
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead className="bg-gray-50 border-b">
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-16">
+                          <th className="px-4 py-1 text-left text-xs font-medium text-gray-500 uppercase w-16">
                             No
                           </th>
                           {columns.map((column) => (
                             <th 
                               key={column.key}
                               className={cn(
-                                "px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase",
+                                "px-4 py-1 text-left text-xs font-medium text-gray-500 uppercase",
                                 column.width && `w-${column.width}`
                               )}
                             >
                               {column.label}
                             </th>
                           ))}
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-24">
+                          <th className="px-4 py-1 text-left text-xs font-medium text-gray-500 uppercase w-24">
                             Actions
                           </th>
                         </tr>
@@ -239,15 +238,15 @@ export const MasterDataOverlay: React.FC<MasterDataOverlayProps> = ({
                       <tbody className="bg-white divide-y divide-gray-200">
                         {paginatedData.map((item, index) => (
                           <tr key={item.id || item.kode} className="hover:bg-gray-50">
-                            <td className="px-4 py-4 text-sm text-gray-900">
+                            <td className="px-4 py-1 text-sm text-gray-900">
                               {startIndex + index + 1}
                             </td>
                             {columns.map((column) => (
-                              <td key={column.key} className="px-4 py-4 text-sm text-gray-900">
+                              <td key={column.key} className="px-4 py-1 text-sm text-gray-900">
                                 {item[column.key]}
                               </td>
                             ))}
-                            <td className="px-4 py-4">
+                            <td className="px-4 py-1">
                               <div className="flex items-center gap-1">
                                 <Button 
                                   variant="ghost" 

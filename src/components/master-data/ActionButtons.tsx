@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Eye, Edit, Trash2 } from 'lucide-react';
@@ -15,16 +14,6 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
   onAction 
 }) => (
   <div className="flex items-center space-x-1">
-    {showView && (
-      <Button 
-        variant="ghost" 
-        size="sm" 
-        onClick={() => onAction('view', item)}
-        className="h-8 w-8 p-0"
-      >
-        <Eye className="h-4 w-4" />
-      </Button>
-    )}
     <Button 
       variant="ghost" 
       size="sm" 

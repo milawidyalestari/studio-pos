@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -12,6 +11,25 @@ const Dashboard = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedDeadline, setSelectedDeadline] = useState<string>('all');
   const [showInbox, setShowInbox] = useState(false);
+  const [calendarCollapsed, setCalendarCollapsed] = useState(false);
+  const [inboxCollapsed, setInboxCollapsed] = useState(false);
+
+  // Flex logic for stacking and dynamic height
+  let calendarFlex = 'min-h-0';
+  let inboxFlex = 'min-h-0';
+  if (calendarCollapsed && inboxCollapsed) {
+    calendarFlex = 'flex-shrink-0 min-h-0';
+    inboxFlex = 'flex-shrink-0 min-h-0';
+  } else if (calendarCollapsed) {
+    calendarFlex = 'flex-shrink-0 min-h-0';
+    inboxFlex = 'flex-1 min-h-0';
+  } else if (inboxCollapsed) {
+    calendarFlex = 'flex-1 min-h-0';
+    inboxFlex = 'flex-shrink-0 min-h-0';
+  } else {
+    calendarFlex = 'flex-shrink-0';
+    inboxFlex = 'flex-1 min-h-0';
+  }
 
   return (
     <div className="p-6 h-screen flex flex-col overflow-hidden">
@@ -41,20 +59,26 @@ const Dashboard = () => {
 
         {/* Right Section: Calendar and Inbox */}
         <Card className="lg:col-span-1 flex flex-col min-h-0">
-          {/* Calendar Section */}
-          <div className="flex-shrink-0">
-            <CalendarSection
-              selectedDate={selectedDate}
-              onDateSelect={setSelectedDate}
-            />
-          </div>
+          <div className={`flex flex-col flex-1 min-h-0`}>
+            {/* Calendar Section */}
+            <div className={`${calendarFlex} overflow-hidden`}>
+              <CalendarSection
+                selectedDate={selectedDate}
+                onDateSelect={setSelectedDate}
+                collapsed={calendarCollapsed}
+                onToggleCollapse={() => setCalendarCollapsed((c) => !c)}
+              />
+              {/* Visual separation */}
+              <div className="border-b border-gray-200 mb-1" />
+            </div>
 
-          {/* Single Line Divider */}
-          <Separator className="flex-shrink-0" />
-
-          {/* Inbox Section */}
-          <div className="flex-1 min-h-0">
-            <InboxSection />
+            {/* Inbox Section */}
+            <div className={`${inboxFlex} overflow-y-auto`}>
+              <InboxSection
+                collapsed={inboxCollapsed}
+                onToggleCollapse={() => setInboxCollapsed((c) => !c)}
+              />
+            </div>
           </div>
         </Card>
       </div>

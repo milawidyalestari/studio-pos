@@ -1,21 +1,5 @@
-
 import { DropResult } from 'react-beautiful-dnd';
-
-export interface Order {
-  id: string;
-  orderNumber: string;
-  customer: string;
-  items: string[];
-  total: string;
-  status: string;
-  date: string;
-  estimatedDate: string;
-  designer?: {
-    name: string;
-    avatar?: string;
-    assignedBy?: string;
-  };
-}
+import { OrderWithItems } from '@/types';
 
 export interface KanbanColumn {
   id: string;
@@ -25,10 +9,10 @@ export interface KanbanColumn {
 }
 
 export interface KanbanBoardProps {
-  orders: Order[];
+  orders: OrderWithItems[];
   onDragEnd: (result: DropResult) => void;
-  onOrderClick?: (order: Order) => void;
-  onEditOrder?: (order: Order) => void;
+  onOrderClick?: (order: OrderWithItems) => void;
+  onEditOrder?: (order: OrderWithItems) => void;
   onDeleteOrder?: (orderId: string) => void;
   onUpdateOrderStatus?: (orderId: string, newStatus: string) => void;
 }

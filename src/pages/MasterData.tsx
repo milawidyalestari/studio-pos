@@ -30,6 +30,7 @@ import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, Prod
 import { ProductForm } from '@/components/ProductForm';
 import { useToast } from '@/hooks/use-toast';
 import { useMasterDataState } from '@/hooks/useMasterDataState';
+import { supabase } from '@/integrations/supabase/client';
 
 // Import refactored components
 import { MasterDataHeader } from '@/components/master-data/MasterDataHeader';
@@ -107,6 +108,14 @@ const MasterData = () => {
     data: [],
     formFields: []
   });
+
+  const [positions, setPositions] = useState<{ id: number, name: string }[]>([]);
+  // Fetch positions
+  const fetchPositions = async () => {
+    const { data, error } = await supabase.from('positions').select('*').order('name');
+    if (!error && data) setPositions(data);
+  };
+  React.useEffect(() => { fetchPositions(); }, []);
 
   const handleAddProduct = () => {
     console.log('Opening product form for new product');
@@ -276,6 +285,20 @@ const MasterData = () => {
           ]
         };
         break;
+      case 'positions':
+        config = {
+          isOpen: true,
+          type: 'positions',
+          title: 'Data Posisi',
+          columns: [
+            { key: 'name', label: 'Nama Posisi' }
+          ],
+          data: positions.map(pos => ({ id: pos.id, name: pos.name })),
+          formFields: [
+            { key: 'name', label: 'Nama Posisi', type: 'text' as const, required: true }
+          ]
+        };
+        break;
       default:
         return;
     }
@@ -333,6 +356,11 @@ const MasterData = () => {
           title: "Success",
           description: "Payment type created successfully",
         });
+      } else if (overlayConfig.type === 'positions') {
+        await supabase.from('positions').insert([{ name: item.name }]);
+        fetchPositions();
+        toast({ title: 'Success', description: 'Posisi berhasil ditambahkan' });
+        return;
       }
     } catch (error) {
       console.error('Error in handleAdd:', error);
@@ -394,6 +422,11 @@ const MasterData = () => {
           title: "Success",
           description: "Payment type updated successfully",
         });
+      } else if (overlayConfig.type === 'positions') {
+        await supabase.from('positions').update({ name: item.name }).eq('id', item.id);
+        fetchPositions();
+        toast({ title: 'Success', description: 'Posisi berhasil diupdate' });
+        return;
       }
     } catch (error) {
       console.error('Error in handleEdit:', error);
@@ -437,6 +470,11 @@ const MasterData = () => {
           title: "Success",
           description: "Payment type deleted successfully",
         });
+      } else if (overlayConfig.type === 'positions') {
+        await supabase.from('positions').delete().eq('id', id);
+        fetchPositions();
+        toast({ title: 'Success', description: 'Posisi berhasil dihapus' });
+        return;
       }
     } catch (error) {
       console.error('Error in handleDelete:', error);

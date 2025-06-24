@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,6 +6,7 @@ import type { Database } from '@/integrations/supabase/types';
 
 type Order = Database['public']['Tables']['orders']['Row'];
 type OrderInsert = Database['public']['Tables']['orders']['Insert'];
+type OrderUpdate = Database['public']['Tables']['orders']['Update'];
 type OrderItem = Database['public']['Tables']['order_items']['Row'];
 type OrderItemInsert = Database['public']['Tables']['order_items']['Insert'];
 
@@ -76,10 +76,66 @@ export const useOrders = () => {
     },
   });
 
+  const updateOrderMutation = useMutation({
+    mutationFn: async ({ orderId, orderData, items }: { orderId: string; orderData: OrderUpdate; items: OrderItemInsert[] }) => {
+      const { data: updatedOrder, error: orderError } = await supabase
+        .from('orders')
+        .update(orderData)
+        .eq('id', orderId)
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      const { error: deleteError } = await supabase
+        .from('order_items')
+        .delete()
+        .eq('order_id', orderId);
+
+      if (deleteError) {
+        // Optional: Handle case where deletion fails but order was updated
+        console.error('Failed to delete old items, but order was updated. Manual cleanup may be required.');
+        throw deleteError;
+      }
+      
+      const newItems = items.map(item => ({
+        ...item,
+        order_id: updatedOrder.id
+      }));
+
+      if(newItems.length > 0) {
+        const { error: itemsError } = await supabase
+          .from('order_items')
+          .insert(newItems);
+  
+        if (itemsError) throw itemsError;
+      }
+
+      return updatedOrder;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      toast({
+        title: "Order updated successfully",
+        description: "The order has been updated in the database.",
+      });
+    },
+    onError: (error) => {
+      console.error('Error updating order:', error);
+      toast({
+        title: "Error updating order",
+        description: `There was an error updating the order: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
   return {
     orders,
     isLoading,
     createOrder: createOrderMutation.mutate,
     isCreatingOrder: createOrderMutation.isPending,
+    updateOrder: updateOrderMutation.mutate,
+    isUpdatingOrder: updateOrderMutation.isPending,
   };
 };
