@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 
@@ -18,12 +17,12 @@ const Layout = ({ children }: LayoutProps) => {
         />
       </div>
       <main 
-        className={`flex-1 overflow-auto transition-all duration-300 ${
+        className={`flex-1 transition-all duration-300 ${
           sidebarCollapsed ? 'ml-16' : 'ml-64'
         }`}
-        style={{ height: '100vh' }}
+        style={{ height: '100vh', overflowY: 'auto' }}
       >
-        <div className="pr-[10px]">
+        <div className="mx-auto max-w-screen-2xl">
           {children}
         </div>
       </main>

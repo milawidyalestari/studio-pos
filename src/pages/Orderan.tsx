@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,22 +11,7 @@ import { useOrders } from '@/hooks/useOrders';
 import { formatCurrency } from '@/services/masterData';
 import { useToast } from '@/hooks/use-toast';
 import { deleteOrderFromDatabase } from '@/services/deleteOrderService';
-
-interface Order {
-  id: string;
-  orderNumber: string;
-  customer: string;
-  items: string[];
-  total: string;
-  status: string;
-  date: string;
-  estimatedDate: string;
-  designer?: {
-    name: string;
-    avatar?: string;
-    assignedBy?: string;
-  };
-}
+import { Order } from '@/types';
 
 const Orderan = () => {
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
@@ -62,7 +46,7 @@ const Orderan = () => {
     }
   }, [dbOrders]);
 
-  const handleOrderModalSubmit = (orderData: any) => {
+  const handleOrderModalSubmit = (orderData: object) => {
     // The order is automatically saved through the RequestOrderModal using useOrders hook
     // The order list will automatically refresh due to React Query invalidation
     console.log('Order submitted:', orderData);
@@ -75,7 +59,7 @@ const Orderan = () => {
     setLocalOrders(prevOrders => 
       prevOrders.map(order => 
         order.id === orderId 
-          ? { ...order, status: newStatus }
+          ? { ...order, status: newStatus as Order['status'] }
           : order
       )
     );

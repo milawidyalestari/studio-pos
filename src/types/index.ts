@@ -1,3 +1,11 @@
+import { Database } from "@/integrations/supabase/types";
+
+type DbOrder = Database['public']['Tables']['orders']['Row'];
+type DbOrderItem = Database['public']['Tables']['order_items']['Row'];
+
+export interface OrderWithItems extends DbOrder {
+  order_items: DbOrderItem[];
+}
 
 export interface Order {
   id: string;
@@ -44,6 +52,7 @@ export interface Customer {
 }
 
 export interface Employee {
+  id: string;
   kode: string;
   nama: string;
   posisi: string;

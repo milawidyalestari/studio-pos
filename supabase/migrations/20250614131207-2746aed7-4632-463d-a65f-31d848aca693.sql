@@ -1,6 +1,6 @@
-
 -- Create enum types for better data consistency
-CREATE TYPE order_status AS ENUM ('pending', 'in-progress', 'ready', 'done');
+DROP TYPE IF EXISTS order_status;
+CREATE TYPE order_status AS ENUM ('Design', 'Cek File', 'Konfirmasi', 'Export', 'Done', 'Proses Cetak');
 CREATE TYPE customer_level AS ENUM ('Regular', 'Premium', 'VIP');
 CREATE TYPE employee_status AS ENUM ('Active', 'Inactive');
 CREATE TYPE payment_type AS ENUM ('cash', 'transfer', 'credit');
@@ -115,6 +115,7 @@ CREATE TABLE public.order_items (
   finishing VARCHAR(100),
   unit_price DECIMAL(15,2) DEFAULT 0,
   sub_total DECIMAL(15,2) DEFAULT 0,
+  description TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 

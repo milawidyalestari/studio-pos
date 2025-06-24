@@ -1,28 +1,21 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Edit } from 'lucide-react';
+import { OrderWithItems } from '@/types';
+import { formatCurrency } from '@/services/masterData';
 
-interface Order {
-  id: string;
-  orderNumber: string;
-  customer: string;
-  items: string[];
-  total: string;
-  status: 'Design' | 'Cek File' | 'Konfirmasi' | 'Export' | 'Done' | 'Proses Cetak';
-  date: string;
-  estimatedDate: string;
-}
+type OrderStatus = OrderWithItems['status'];
 
 interface OrderTableProps {
-  orders: Order[];
-  onUpdateStatus: (orderId: string, newStatus: Order['status']) => void;
-  onOrderClick?: (order: Order) => void;
+  orders: OrderWithItems[];
+  onUpdateStatus: (orderId: string, newStatus: OrderStatus) => void;
+  onOrderClick?: (order: OrderWithItems) => void;
+  onEditOrder?: (order: OrderWithItems) => void;
 }
 
-const OrderTable = ({ orders, onUpdateStatus, onOrderClick }: OrderTableProps) => {
-  const getStatusColor = (status: Order['status']) => {
+const OrderTable = ({ orders, onUpdateStatus, onOrderClick, onEditOrder }: OrderTableProps) => {
+  const getStatusColor = (status: OrderStatus) => {
     switch (status) {
       case 'Design': return 'bg-purple-100 text-purple-800';
       case 'Cek File': return 'bg-blue-100 text-blue-800';
@@ -34,7 +27,7 @@ const OrderTable = ({ orders, onUpdateStatus, onOrderClick }: OrderTableProps) =
     }
   };
 
-  const getNextStatus = (currentStatus: Order['status']): Order['status'] | null => {
+  const getNextStatus = (currentStatus: OrderStatus): OrderStatus | null => {
     switch (currentStatus) {
       case 'Design': return 'Cek File';
       case 'Cek File': return 'Konfirmasi';
@@ -46,7 +39,7 @@ const OrderTable = ({ orders, onUpdateStatus, onOrderClick }: OrderTableProps) =
     }
   };
 
-  const handleRowClick = (order: Order) => {
+  const handleRowClick = (order: OrderWithItems) => {
     if (onOrderClick) {
       onOrderClick(order);
     }
@@ -77,24 +70,27 @@ const OrderTable = ({ orders, onUpdateStatus, onOrderClick }: OrderTableProps) =
                   className="hover:bg-gray-50 cursor-pointer"
                   onClick={() => handleRowClick(order)}
                 >
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.orderNumber}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.customer}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.order_number}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.customer_name}</td>
                   <td className="px-6 py-4 text-sm text-gray-900">
-                    {order.items.join(', ')}
+                    {order.order_items?.map(item => item.item_name).join(', ')}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[#0050C8]">{order.total}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[#0050C8]">{formatCurrency(order.total_amount || 0)}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <Badge className={getStatusColor(order.status)}>
                       {order.status}
                     </Badge>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.date}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{new Date(order.tanggal).toLocaleDateString()}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
                       <Button 
                         size="sm" 
                         variant="outline"
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onEditOrder) onEditOrder(order);
+                        }}
                       >
                         <Edit className="h-3 w-3" />
                       </Button>
