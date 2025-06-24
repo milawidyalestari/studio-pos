@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export const generateOrderNumber = () => {
@@ -6,9 +5,11 @@ export const generateOrderNumber = () => {
   const year = date.getFullYear().toString().slice(-2);
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const day = date.getDate().toString().padStart(2, '0');
-  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
   
-  return `ORD${year}${month}${day}${random}`;
+  // Use timestamp in milliseconds for better uniqueness
+  const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
+  
+  return `ORD${year}${month}${day}${timestamp}`;
 };
 
 export const calculateOrderTotal = (items: any[], jasaDesain: number = 0, biayaLain: number = 0, discount: number = 0, ppn: number = 10) => {
