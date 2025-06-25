@@ -10,12 +10,11 @@ import ProductSelectionModal from './ProductSelectionModal';
 
 interface OrderItem {
   id: string;
-  bahan: string;
+  productCode: string;
   item: string;
   ukuran: { panjang: string; lebar: string };
   quantity: string;
   finishing: string;
-  notes?: string;
 }
 
 interface ItemFormSectionProps {
@@ -48,25 +47,25 @@ const ItemFormSection = ({
   const services = products?.filter(p => p.jenis === 'Service') || [];
   const allProducts = products || [];
 
-  const selectedProduct = products?.find(p => p.kode === currentItem.bahan);
+  const selectedProduct = products?.find(p => p.kode === currentItem.productCode);
 
   const handleProductSelect = (productCode: string) => {
     const selectedProduct = products?.find(p => p.kode === productCode);
     if (selectedProduct) {
-      updateCurrentItem('bahan', productCode);
+      updateCurrentItem('productCode', productCode);
       updateCurrentItem('item', selectedProduct.nama);
       console.log('Selected product:', selectedProduct);
     }
   };
 
   const handleItemSelection = (product: Product) => {
-    updateCurrentItem('bahan', product.kode);
+    updateCurrentItem('productCode', product.kode);
     updateCurrentItem('item', product.nama);
     console.log('Selected item from modal:', product);
   };
 
   const handleMaterialSelection = (product: Product) => {
-    updateCurrentItem('bahan', product.kode);
+    updateCurrentItem('productCode', product.kode);
     updateCurrentItem('item', product.nama);
     console.log('Selected material from modal:', product);
   };
@@ -136,6 +135,18 @@ const ItemFormSection = ({
             </Button>
           </div>
         </div>
+      </div>
+
+      {/* Row 2: Nama Pesanan */}
+      <div className="mb-4">
+        <Label htmlFor="namaPesanan" className="text-sm font-medium">Nama Pesanan</Label>
+        <Input
+          id="namaPesanan"
+          value={currentItem.item}
+          onChange={(e) => updateCurrentItem('item', e.target.value)}
+          placeholder="Masukkan nama pesanan"
+          className="mt-1"
+        />
       </div>
 
       {/* Row 3: Jumlah Pesanan & Dimensi */}
@@ -219,7 +230,7 @@ const ItemFormSection = ({
           <div className="flex mt-1">
             <Input
               id="kodeBahan"
-              value={currentItem.bahan}
+              value={currentItem.productCode}
               className="bg-blue-50 border-blue-200"
               readOnly
             />
@@ -248,6 +259,42 @@ const ItemFormSection = ({
         </div>
       </div>
 
+      {/* Row 6: Product Selection */}
+      <div className="mb-4">
+        <Label htmlFor="product" className="text-sm font-medium">Pilih Produk/Material</Label>
+        <Select 
+          value={currentItem.productCode} 
+          onValueChange={handleProductSelect}
+          disabled={productsLoading}
+        >
+          <SelectTrigger className="mt-1">
+            <SelectValue placeholder={productsLoading ? "Loading..." : "Pilih Produk"} />
+          </SelectTrigger>
+          <SelectContent className="bg-white">
+            {materials.length > 0 && (
+              <>
+                <div className="px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-100">Materials</div>
+                {materials.map((product) => (
+                  <SelectItem key={product.id} value={product.kode} className="bg-white hover:bg-gray-50">
+                    {product.kode} - {product.nama} - {product.satuan} ({formatCurrency(product.harga_jual || 0)})
+                  </SelectItem>
+                ))}
+              </>
+            )}
+            {services.length > 0 && (
+              <>
+                <div className="px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-100">Services</div>
+                {services.map((product) => (
+                  <SelectItem key={product.id} value={product.kode} className="bg-white hover:bg-gray-50">
+                    {product.kode} - {product.nama} - {product.satuan} ({formatCurrency(product.harga_jual || 0)})
+                  </SelectItem>
+                ))}
+              </>
+            )}
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Row 7: Finishing */}
       <div className="mb-4">
         <Label htmlFor="finishing" className="text-sm font-medium">Finishing</Label>
@@ -267,18 +314,6 @@ const ItemFormSection = ({
             <SelectItem value="none" className="bg-white hover:bg-gray-50">Tanpa Finishing</SelectItem>
           </SelectContent>
         </Select>
-      </div>
-
-      {/* Notes: pindahkan ke sini */}
-      <div className="mb-4">
-        <Label htmlFor="notes" className="text-sm font-medium">Notes</Label>
-        <textarea
-          id="notes"
-          value={currentItem.notes || ''}
-          onChange={e => updateCurrentItem('notes', e.target.value)}
-          placeholder="Order notes..."
-          className="mt-1 h-20 resize-none w-full border rounded-md p-2"
-        />
       </div>
 
       <div className="flex space-x-2">

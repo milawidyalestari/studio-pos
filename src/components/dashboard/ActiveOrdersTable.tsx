@@ -89,10 +89,11 @@ const ActiveOrdersTable: React.FC<ActiveOrdersTableProps> = ({
       switch (selectedDeadline) {
         case 'today':
           return isSameDay(orderDeadline, today);
-        case 'tomorrow':
+        case 'tomorrow': {
           const tomorrow = new Date(today);
           tomorrow.setDate(tomorrow.getDate() + 1);
           return isSameDay(orderDeadline, tomorrow);
+        }
         case 'overdue':
           return orderDeadline < today;
         default:

@@ -1,14 +1,22 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+export interface OrderStatus {
+  id: number;
+  name: string;
+}
+
 export function useOrderStatus() {
-  const [statuses, setStatuses] = useState<string[]>([]);
+  const [statuses, setStatuses] = useState<OrderStatus[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchStatuses() {
       setLoading(true);
-      const { data, error } = await supabase.rpc('get_order_status_enum');
+      const { data, error } = await supabase
+        .from('order_statuses')
+        .select('id, name')
+        .order('id', { ascending: true });
       if (!error && data) {
         setStatuses(data);
       }

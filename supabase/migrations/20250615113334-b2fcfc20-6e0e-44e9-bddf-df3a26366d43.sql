@@ -80,3 +80,6 @@ INSERT INTO public.orders (
 ('ORD-2024-093', 'Bayu Setiawan', '2024-12-22', 'Done', 55000, 'cash', 'Sticker produk natal', '2024-12-22 14:30:00'),
 ('ORD-2024-094', 'Sari Dewi', '2024-12-20', 'Done', 125000, 'credit', 'Poster promosi akhir tahun', '2024-12-20 16:45:00'),
 ('ORD-2024-095', 'Dani Pratama', '2024-12-18', 'Done', 90000, 'transfer', 'Kartu nama tahun baru', '2024-12-18 10:20:00');
+
+-- Drop the status column from the orders table
+ALTER TABLE public.orders DROP COLUMN IF EXISTS status;

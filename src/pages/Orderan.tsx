@@ -11,85 +11,37 @@ import { useOrders } from '@/hooks/useOrders';
 import { formatCurrency } from '@/services/masterData';
 import { useToast } from '@/hooks/use-toast';
 import { deleteOrderFromDatabase } from '@/services/deleteOrderService';
-import { Order } from '@/types';
+import { Order, OrderWithItems } from '@/types';
+// FIX: Temporarily comment out or remove the import that causes an error if the module does not exist
+// import { getStatusIdByName } from '@/utils/getStatusId';
 
 const Orderan = () => {
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
   const [showRequestModal, setShowRequestModal] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
-  const [localOrders, setLocalOrders] = useState<Order[]>([]);
-  const { orders: dbOrders, isLoading } = useOrders();
+  const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(null);
+  const [editingOrder, setEditingOrder] = useState<OrderWithItems | null>(null);
+  const { orders: dbOrders, isLoading, updateOrder, deleteOrder } = useOrders();
+  const orders = dbOrders || [];
   const { toast } = useToast();
   
-  // Transform database orders to match UI format and merge with local state
-  React.useEffect(() => {
-    if (dbOrders) {
-      const transformedOrders: Order[] = dbOrders.map((order, index) => ({
-        id: order.id,
-        orderNumber: order.order_number,
-        customer: order.customer_name || 'Unknown Customer',
-        items: order.order_items?.map(item => item.item_name) || [],
-        total: formatCurrency(order.total_amount || 0),
-        status: order.status,
-        date: new Date(order.tanggal).toLocaleDateString(),
-        estimatedDate: order.estimasi || '',
-        // Add sample designer data for demonstration (every other order has a designer assigned)
-        designer: index % 2 === 0 ? {
-          name: index % 4 === 0 ? 'Alex Chen' : 'Sarah Wilson',
-          avatar: index % 4 === 0 ? '/lovable-uploads/04d2c4d6-1119-4b62-9672-b1f8bd3f7143.png' : undefined,
-          assignedBy: 'Orbit'
-        } : undefined
-      }));
-      
-      setLocalOrders(transformedOrders);
-    }
-  }, [dbOrders]);
-
   const handleOrderModalSubmit = (orderData: object) => {
     // The order is automatically saved through the RequestOrderModal using useOrders hook
     // The order list will automatically refresh due to React Query invalidation
     console.log('Order submitted:', orderData);
   };
 
-  const updateOrderStatus = async (orderId: string, newStatus: string) => {
-    console.log('Updating order status:', orderId, 'to', newStatus);
-    
-    // Update local state immediately for better UX
-    setLocalOrders(prevOrders => 
-      prevOrders.map(order => 
-        order.id === orderId 
-          ? { ...order, status: newStatus as Order['status'] }
-          : order
-      )
-    );
-
-    // TODO: Implement actual database update
-    // For now, we'll just update the local state and show a success message
+  const updateOrderStatus = async (orderId: string, status_id: number) => {
     try {
-      // Here you would call your API to update the order status in the database
-      // await updateOrderStatusInDatabase(orderId, newStatus);
-      
+      await updateOrder({ orderId, orderData: { status_id }, items: [] }); // items kosong jika hanya update status
       toast({
-        title: "Status Updated",
-        description: `Order status changed to ${newStatus}`,
+        title: 'Status Updated',
+        description: `Order status changed`,
       });
     } catch (error) {
-      console.error('Error updating order status:', error);
-      
-      // Revert local state on error
-      setLocalOrders(prevOrders => 
-        prevOrders.map(order => 
-          order.id === orderId 
-            ? { ...order, status: order.status } // revert to original status
-            : order
-        )
-      );
-      
       toast({
-        title: "Error",
-        description: "Failed to update order status",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to update order status',
+        variant: 'destructive',
       });
     }
   };
@@ -106,38 +58,17 @@ const Orderan = () => {
     // The updateOrderStatus will be called by the KanbanBoard component
   };
 
-  const handleOrderClick = (order: Order) => {
+  const handleOrderClick = (order: OrderWithItems) => {
     setSelectedOrder(order);
   };
 
-  const handleEditOrder = (order: Order) => {
+  const handleEditOrder = (order: OrderWithItems) => {
     setEditingOrder(order);
     setShowRequestModal(true);
   };
 
-  const handleDeleteOrder = async (orderId: string) => {
-    try {
-      // Remove from local state immediately for better UX
-      setLocalOrders(prevOrders => prevOrders.filter(order => order.id !== orderId));
-      
-      // Delete from database
-      await deleteOrderFromDatabase(orderId);
-      
-      toast({
-        title: "Order Deleted",
-        description: "Order has been permanently deleted from the system",
-      });
-    } catch (error) {
-      console.error('Error deleting order:', error);
-      
-      // If database delete fails, we need to refresh the data to restore the order in UI
-      // The useOrders hook will automatically refetch the data
-      toast({
-        title: "Error",
-        description: "Failed to delete order from database",
-        variant: "destructive",
-      });
-    }
+  const handleDeleteOrder = (orderId: string) => {
+    deleteOrder(orderId);
   };
 
   const handleModalClose = () => {
@@ -202,7 +133,7 @@ const Orderan = () => {
       </div>
 
       {/* Content */}
-      {localOrders.length === 0 ? (
+      {orders.length === 0 ? (
         <div className="flex justify-center items-center h-64 bg-gray-50 rounded-lg">
           <div className="text-center">
             <p className="text-gray-500 text-lg mb-2">No orders found</p>
@@ -213,7 +144,7 @@ const Orderan = () => {
         <>
           {viewMode === 'kanban' ? (
             <KanbanBoard 
-              orders={localOrders} 
+              orders={orders} 
               onDragEnd={handleDragEnd} 
               onOrderClick={handleOrderClick}
               onEditOrder={handleEditOrder}
@@ -221,7 +152,7 @@ const Orderan = () => {
               onUpdateOrderStatus={updateOrderStatus}
             />
           ) : (
-            <OrderTable orders={localOrders} onUpdateStatus={updateOrderStatus} onOrderClick={handleOrderClick} />
+            <OrderTable orders={orders} onUpdateStatus={updateOrderStatus} onOrderClick={handleOrderClick} onEditOrder={handleEditOrder} />
           )}
         </>
       )}
@@ -230,7 +161,7 @@ const Orderan = () => {
         open={showRequestModal}
         onClose={handleModalClose}
         onSubmit={handleOrderModalSubmit}
-        editingOrder={editingOrder}
+        editingOrder={editingOrder as any}
       />
 
       {/* Order Details Modal */}
@@ -238,19 +169,24 @@ const Orderan = () => {
         <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Order Details - {selectedOrder.orderNumber}</DialogTitle>
+              <DialogTitle>Order Details - {selectedOrder.order_number}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
                 <label className="font-semibold">Customer:</label>
-                <p>{selectedOrder.customer}</p>
+                <p>
+                  {selectedOrder.customer_name ||
+                    selectedOrder.customer?.name ||
+                    selectedOrder.customer_id ||
+                    'Unknown'}
+                </p>
               </div>
               <div>
                 <label className="font-semibold">Items:</label>
                 <div className="space-y-1">
-                  {selectedOrder.items.map((item, index) => (
+                  {(selectedOrder.order_items || []).map((orderItem: any, index: number) => (
                     <span key={index} className="text-sm bg-gray-100 px-2 py-1 rounded mr-1 inline-block">
-                      {item}
+                      {orderItem.item_name || orderItem.name || orderItem.title || 'Unknown Item'}
                     </span>
                   ))}
                 </div>
@@ -261,7 +197,7 @@ const Orderan = () => {
               </div>
               <div>
                 <label className="font-semibold">Status:</label>
-                <p className="capitalize">{selectedOrder.status}</p>
+                <p className="capitalize">{selectedOrder.order_statuses?.name || selectedOrder.status_id}</p>
               </div>
               <div>
                 <label className="font-semibold">Order Date:</label>
