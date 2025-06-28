@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -50,23 +51,21 @@ const InboxSection = () => {
   ];
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      <div className="flex-shrink-0">
-        <CardHeader className="pb-3 pt-4 px-4">
-          <CardTitle className="text-lg flex items-center justify-between">
-            <div className="flex items-center">
-              <Bell className="h-5 w-5 mr-2 text-[#0050C8]" />
-              Inbox
-            </div>
-            <Button variant="ghost" size="sm">
-              <Filter className="h-4 w-4" />
-            </Button>
-          </CardTitle>
-        </CardHeader>
-      </div>
-      <CardContent className="flex-1 min-h-0 pt-0 pb-4 px-4">
+    <>
+      <CardHeader className="pb-3 pt-4">
+        <CardTitle className="text-lg flex items-center justify-between">
+          <div className="flex items-center">
+            <Bell className="h-5 w-5 mr-2 text-[#0050C8]" />
+            Inbox
+          </div>
+          <Button variant="ghost" size="sm">
+            <Filter className="h-4 w-4" />
+          </Button>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0 pb-0 flex-1 min-h-0">
         <ScrollArea className="h-full">
-          <div className="space-y-3 pr-2">
+          <div className="space-y-3 pr-4">
             {inboxMessages.map((message) => (
               <div
                 key={message.id}
@@ -91,7 +90,7 @@ const InboxSection = () => {
           </div>
         </ScrollArea>
       </CardContent>
-    </div>
+    </>
   );
 };
 
