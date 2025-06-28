@@ -11,12 +11,21 @@ const Layout = ({ children }: LayoutProps) => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      <Sidebar 
-        collapsed={sidebarCollapsed} 
-        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} 
-      />
-      <main className="flex-1 overflow-auto pr-[10px]">
-        {children}
+      <div className="fixed top-0 left-0 h-full z-10">
+        <Sidebar 
+          collapsed={sidebarCollapsed} 
+          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} 
+        />
+      </div>
+      <main 
+        className={`flex-1 overflow-auto transition-all duration-300 ${
+          sidebarCollapsed ? 'ml-16' : 'ml-64'
+        }`}
+        style={{ height: '100vh' }}
+      >
+        <div className="pr-[10px]">
+          {children}
+        </div>
       </main>
     </div>
   );

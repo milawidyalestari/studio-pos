@@ -9,6 +9,33 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      categories: {
+        Row: {
+          category_name: string
+          code: string
+          created_at: string
+          group_name: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          category_name: string
+          code: string
+          created_at?: string
+          group_name: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          category_name?: string
+          code?: string
+          created_at?: string
+          group_name?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           address: string | null
@@ -72,6 +99,30 @@ export type Database = {
           posisi?: string | null
           status?: Database["public"]["Enums"]["employee_status"] | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      groups: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -300,6 +351,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      payment_types: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          payment_method: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          payment_method: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          payment_method?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       product_categories: {
         Row: {
@@ -578,17 +656,50 @@ export type Database = {
           },
         ]
       }
+      units: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_customer_code: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
     }
     Enums: {
       customer_level: "Regular" | "Premium" | "VIP"
       employee_status: "Active" | "Inactive"
-      order_status: "pending" | "in-progress" | "ready" | "done"
+      order_status:
+        | "Design"
+        | "Cek File"
+        | "Konfirmasi"
+        | "Export"
+        | "Done"
+        | "Proses Cetak"
       payment_type: "cash" | "transfer" | "credit"
     }
     CompositeTypes: {
@@ -707,7 +818,14 @@ export const Constants = {
     Enums: {
       customer_level: ["Regular", "Premium", "VIP"],
       employee_status: ["Active", "Inactive"],
-      order_status: ["pending", "in-progress", "ready", "done"],
+      order_status: [
+        "Design",
+        "Cek File",
+        "Konfirmasi",
+        "Export",
+        "Done",
+        "Proses Cetak",
+      ],
       payment_type: ["cash", "transfer", "credit"],
     },
   },
