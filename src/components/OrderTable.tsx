@@ -10,7 +10,7 @@ interface Order {
   customer: string;
   items: string[];
   total: string;
-  status: 'Design' | 'Cek File' | 'Konfirmasi' | 'Export' | 'Done' | 'Proses Cetak';
+  status: 'pending' | 'in-progress' | 'ready' | 'done';
   date: string;
   estimatedDate: string;
 }
@@ -24,25 +24,11 @@ interface OrderTableProps {
 const OrderTable = ({ orders, onUpdateStatus, onOrderClick }: OrderTableProps) => {
   const getStatusColor = (status: Order['status']) => {
     switch (status) {
-      case 'Design': return 'bg-purple-100 text-purple-800';
-      case 'Cek File': return 'bg-blue-100 text-blue-800';
-      case 'Konfirmasi': return 'bg-yellow-100 text-yellow-800';
-      case 'Export': return 'bg-orange-100 text-orange-800';
-      case 'Proses Cetak': return 'bg-indigo-100 text-indigo-800';
-      case 'Done': return 'bg-green-100 text-green-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'in-progress': return 'bg-blue-100 text-blue-800';
+      case 'ready': return 'bg-green-100 text-green-800';
+      case 'done': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getNextStatus = (currentStatus: Order['status']): Order['status'] | null => {
-    switch (currentStatus) {
-      case 'Design': return 'Cek File';
-      case 'Cek File': return 'Konfirmasi';
-      case 'Konfirmasi': return 'Export';
-      case 'Export': return 'Proses Cetak';
-      case 'Proses Cetak': return 'Done';
-      case 'Done': return null;
-      default: return null;
     }
   };
 
@@ -68,53 +54,51 @@ const OrderTable = ({ orders, onUpdateStatus, onOrderClick }: OrderTableProps) =
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {orders.map((order) => {
-              const nextStatus = getNextStatus(order.status);
-              
-              return (
-                <tr 
-                  key={order.id} 
-                  className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => handleRowClick(order)}
-                >
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.orderNumber}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.customer}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {order.items.join(', ')}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[#0050C8]">{order.total}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <Badge className={getStatusColor(order.status)}>
-                      {order.status}
-                    </Badge>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.date}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
+            {orders.map((order) => (
+              <tr 
+                key={order.id} 
+                className="hover:bg-gray-50 cursor-pointer"
+                onClick={() => handleRowClick(order)}
+              >
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.orderNumber}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.customer}</td>
+                <td className="px-6 py-4 text-sm text-gray-900">
+                  {order.items.join(', ')}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[#0050C8]">{order.total}</td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <Badge className={getStatusColor(order.status)}>
+                    {order.status}
+                  </Badge>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.date}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <div className="flex space-x-2">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Edit className="h-3 w-3" />
+                    </Button>
+                    {order.status !== 'done' && (
                       <Button 
                         size="sm" 
-                        variant="outline"
-                        onClick={(e) => e.stopPropagation()}
+                        className="bg-[#0050C8] hover:bg-[#003a9b]"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const nextStatus = order.status === 'pending' ? 'in-progress' : 
+                                           order.status === 'in-progress' ? 'ready' : 'done';
+                          onUpdateStatus(order.id, nextStatus);
+                        }}
                       >
-                        <Edit className="h-3 w-3" />
+                        Next
                       </Button>
-                      {nextStatus && (
-                        <Button 
-                          size="sm" 
-                          className="bg-[#0050C8] hover:bg-[#003a9b]"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onUpdateStatus(order.id, nextStatus);
-                          }}
-                        >
-                          Next
-                        </Button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
