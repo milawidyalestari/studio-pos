@@ -1,10 +1,9 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Edit, Calendar } from 'lucide-react';
+import { Edit, Calendar, Trash2 } from 'lucide-react';
 
 interface Order {
   id: string;
@@ -12,7 +11,7 @@ interface Order {
   customer: string;
   items: string[];
   total: string;
-  status: 'pending' | 'in-progress' | 'ready' | 'done';
+  status: string;
   date: string;
   estimatedDate: string;
   designer?: {
@@ -28,9 +27,10 @@ interface OrderCardProps {
   snapshot?: any;
   onOrderClick?: (order: Order) => void;
   onEditOrder?: (order: Order) => void;
+  onDeleteOrder?: (orderId: string) => void;
 }
 
-const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder }: OrderCardProps) => {
+const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDeleteOrder }: OrderCardProps) => {
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -43,14 +43,18 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder }: Ord
   const getResponsiblePerson = () => {
     // Based on status, determine who's responsible
     switch (order.status) {
-      case 'pending':
-        return { name: 'Admin', avatar: undefined, role: 'Processing' };
-      case 'in-progress':
+      case 'Design':
         return order.designer || { name: 'Designer', avatar: undefined, role: 'Designing' };
-      case 'ready':
-        return { name: 'Production', avatar: undefined, role: 'Ready for pickup' };
-      case 'done':
-        return { name: 'Completed', avatar: undefined, role: 'Delivered' };
+      case 'Cek File':
+        return { name: 'QC Team', avatar: undefined, role: 'Quality Check' };
+      case 'Konfirmasi':
+        return { name: 'Admin', avatar: undefined, role: 'Confirming' };
+      case 'Export':
+        return { name: 'Pre-Press', avatar: undefined, role: 'Exporting Files' };
+      case 'Proses Cetak':
+        return { name: 'Production', avatar: undefined, role: 'Printing' };
+      case 'Done':
+        return { name: 'Completed', avatar: undefined, role: 'Ready for pickup' };
       default:
         return { name: 'Unassigned', avatar: undefined, role: 'Pending' };
     }
@@ -95,6 +99,13 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder }: Ord
     }
   };
 
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onDeleteOrder) {
+      onDeleteOrder(order.id);
+    }
+  };
+
   const responsiblePerson = getResponsiblePerson();
 
   return (
@@ -104,7 +115,7 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder }: Ord
         {...(provided?.draggableProps || {})}
         {...(provided?.dragHandleProps || {})}
         className={`cursor-pointer hover:shadow-md transition-all duration-200 hover:scale-[1.02] ${
-          snapshot?.isDragging ? 'shadow-lg rotate-2' : ''
+          snapshot?.isDragging ? 'shadow-lg rotate-2 opacity-90' : ''
         }`}
         onClick={handleCardClick}
       >
@@ -121,7 +132,7 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder }: Ord
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               {/* Responsible Person Avatar */}
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -146,7 +157,7 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder }: Ord
                   <Button 
                     size="sm" 
                     variant="ghost" 
-                    className="h-7 w-7 p-0 hover:bg-gray-100 transition-colors"
+                    className="h-6 w-6 p-0 hover:bg-gray-100 transition-colors"
                     onClick={handleEditClick}
                   >
                     <Edit className="h-3 w-3" />
@@ -154,6 +165,23 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder }: Ord
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Edit order</p>
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Delete Button */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="h-6 w-6 p-0 hover:bg-red-100 hover:text-red-600 transition-colors"
+                    onClick={handleDeleteClick}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Delete order</p>
                 </TooltipContent>
               </Tooltip>
             </div>

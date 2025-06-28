@@ -1,76 +1,129 @@
 
-import React from 'react';
-import { Badge } from '@/components/ui/badge';
-import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
-import OrderCard from './OrderCard';
+import React, { useState } from 'react';
+import { DragDropContext, DropResult } from 'react-beautiful-dnd';
+import { useToast } from '@/hooks/use-toast';
+import KanbanColumn from './kanban/KanbanColumn';
+import AddColumnDialog from './kanban/AddColumnDialog';
+import AddColumnButton from './kanban/AddColumnButton';
+import { 
+  Order, 
+  KanbanColumn as KanbanColumnType, 
+  KanbanBoardProps, 
+  DEFAULT_COLUMNS 
+} from './kanban/KanbanTypes';
 
-interface Order {
-  id: string;
-  orderNumber: string;
-  customer: string;
-  items: string[];
-  total: string;
-  status: 'pending' | 'in-progress' | 'ready' | 'done';
-  date: string;
-  estimatedDate: string;
-  designer?: {
-    name: string;
-    avatar?: string;
-    assignedBy?: string;
+const KanbanBoard = ({ 
+  orders, 
+  onDragEnd, 
+  onOrderClick, 
+  onEditOrder, 
+  onDeleteOrder,
+  onUpdateOrderStatus 
+}: KanbanBoardProps) => {
+  const [columns, setColumns] = useState<KanbanColumnType[]>(DEFAULT_COLUMNS);
+  const [showAddColumn, setShowAddColumn] = useState(false);
+  const [newColumnTitle, setNewColumnTitle] = useState('');
+  const { toast } = useToast();
+
+  const handleDragEnd = (result: DropResult) => {
+    const { destination, source, draggableId } = result;
+
+    // If no destination or same position, do nothing
+    if (!destination) return;
+    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+
+    const newStatus = destination.droppableId;
+    const sourceStatus = source.droppableId;
+    
+    console.log(`Moving order ${draggableId} from ${sourceStatus} to ${newStatus}`);
+    
+    // Update the order status in the system
+    if (onUpdateOrderStatus && newStatus !== sourceStatus) {
+      onUpdateOrderStatus(draggableId, newStatus);
+      
+      // Show success message
+      const targetColumn = columns.find(col => col.status === newStatus);
+      toast({
+        title: "Order moved",
+        description: `Order moved to ${targetColumn?.title || newStatus}`,
+      });
+    }
+    
+    // Call the parent's onDragEnd handler
+    onDragEnd(result);
   };
-}
 
-interface KanbanBoardProps {
-  orders: Order[];
-  onDragEnd: (result: DropResult) => void;
-  onOrderClick?: (order: Order) => void;
-  onEditOrder?: (order: Order) => void;
-}
+  const handleAddColumn = () => {
+    if (!newColumnTitle.trim()) return;
+    
+    const newColumn: KanbanColumnType = {
+      id: newColumnTitle.toLowerCase().replace(/\s+/g, '-'),
+      title: newColumnTitle,
+      status: newColumnTitle.toLowerCase().replace(/\s+/g, '-'),
+      // Don't set any background color for new columns
+    };
+    
+    setColumns([...columns, newColumn]);
+    setNewColumnTitle('');
+    setShowAddColumn(false);
+    
+    toast({
+      title: "Status added",
+      description: `New status "${newColumnTitle}" has been added`,
+    });
+  };
 
-const KanbanBoard = ({ orders, onDragEnd, onOrderClick, onEditOrder }: KanbanBoardProps) => {
-  const kanbanColumns = [
-    { status: 'pending' as const, title: 'Pending', orders: orders.filter(o => o.status === 'pending') },
-    { status: 'in-progress' as const, title: 'In Progress', orders: orders.filter(o => o.status === 'in-progress') },
-    { status: 'ready' as const, title: 'Ready', orders: orders.filter(o => o.status === 'ready') },
-  ];
+  const handleDeleteOrder = (orderId: string) => {
+    if (onDeleteOrder) {
+      onDeleteOrder(orderId);
+      toast({
+        title: "Order deleted",
+        description: "Order has been permanently deleted from the system",
+      });
+    }
+  };
+
+  const getColumnOrders = (status: string) => {
+    return orders.filter(order => order.status === status);
+  };
+
+  const handleCloseAddColumn = () => {
+    setShowAddColumn(false);
+    setNewColumnTitle('');
+  };
 
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
-      <div className="grid grid-cols-3 gap-6">
-        {kanbanColumns.map((column) => (
-          <div key={column.status} className="bg-gray-50 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900">{column.title}</h3>
-              <Badge variant="secondary">{column.orders.length}</Badge>
-            </div>
-            <Droppable droppableId={column.status}>
-              {(provided) => (
-                <div
-                  ref={provided.innerRef}
-                  {...provided.droppableProps}
-                  className="space-y-3 min-h-[200px]"
-                >
-                  {column.orders.map((order, index) => (
-                    <Draggable key={order.id} draggableId={order.id} index={index}>
-                      {(provided, snapshot) => (
-                        <OrderCard 
-                          order={order}
-                          provided={provided}
-                          snapshot={snapshot}
-                          onOrderClick={onOrderClick}
-                          onEditOrder={onEditOrder}
-                        />
-                      )}
-                    </Draggable>
-                  ))}
-                  {provided.placeholder}
-                </div>
-              )}
-            </Droppable>
-          </div>
-        ))}
-      </div>
-    </DragDropContext>
+    <div className="w-full">
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <div className="flex gap-6 overflow-x-auto pb-4 min-h-[600px]">
+          {columns.map((column) => {
+            const columnOrders = getColumnOrders(column.status);
+            
+            return (
+              <KanbanColumn
+                key={column.id}
+                column={column}
+                orders={columnOrders}
+                onOrderClick={onOrderClick}
+                onEditOrder={onEditOrder}
+                onDeleteOrder={handleDeleteOrder}
+              />
+            );
+          })}
+          
+          <AddColumnButton onClick={() => setShowAddColumn(true)} />
+        </div>
+      </DragDropContext>
+
+      <AddColumnDialog
+        open={showAddColumn}
+        newColumnTitle={newColumnTitle}
+        onOpenChange={setShowAddColumn}
+        onTitleChange={setNewColumnTitle}
+        onAdd={handleAddColumn}
+        onCancel={handleCloseAddColumn}
+      />
+    </div>
   );
 };
 
