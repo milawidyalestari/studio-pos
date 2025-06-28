@@ -13,15 +13,21 @@ interface Order {
   status: 'pending' | 'in-progress' | 'ready' | 'done';
   date: string;
   estimatedDate: string;
+  designer?: {
+    name: string;
+    avatar?: string;
+    assignedBy?: string;
+  };
 }
 
 interface KanbanBoardProps {
   orders: Order[];
   onDragEnd: (result: DropResult) => void;
   onOrderClick?: (order: Order) => void;
+  onEditOrder?: (order: Order) => void;
 }
 
-const KanbanBoard = ({ orders, onDragEnd, onOrderClick }: KanbanBoardProps) => {
+const KanbanBoard = ({ orders, onDragEnd, onOrderClick, onEditOrder }: KanbanBoardProps) => {
   const kanbanColumns = [
     { status: 'pending' as const, title: 'Pending', orders: orders.filter(o => o.status === 'pending') },
     { status: 'in-progress' as const, title: 'In Progress', orders: orders.filter(o => o.status === 'in-progress') },
@@ -52,6 +58,7 @@ const KanbanBoard = ({ orders, onDragEnd, onOrderClick }: KanbanBoardProps) => {
                           provided={provided}
                           snapshot={snapshot}
                           onOrderClick={onOrderClick}
+                          onEditOrder={onEditOrder}
                         />
                       )}
                     </Draggable>

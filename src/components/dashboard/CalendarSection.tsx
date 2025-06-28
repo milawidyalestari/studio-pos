@@ -13,18 +13,18 @@ interface CalendarSectionProps {
 const CalendarSection: React.FC<CalendarSectionProps> = ({ selectedDate, onDateSelect }) => {
   return (
     <>
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-3 px-4">
         <CardTitle className="text-lg flex items-center">
           <CalendarIcon className="h-5 w-5 mr-2 text-[#0050C8]" />
           {format(new Date(), 'MMMM yyyy')}
         </CardTitle>
       </CardHeader>
-      <CardContent className="pt-0 pb-4">
+      <CardContent className="pt-0 pb-4 px-4">
         <Calendar
           mode="single"
           selected={selectedDate}
           onSelect={onDateSelect}
-          className="w-full"
+          className="w-full mx-auto"
         />
       </CardContent>
     </>
