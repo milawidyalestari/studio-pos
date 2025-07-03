@@ -88,13 +88,14 @@ const CustomerModal = ({ open, onClose, onCustomerCreated }: CustomerModalProps)
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="kode">Customer Code</Label>
+          <div >
+            <Label htmlFor="kode" >Customer Code</Label>
             <Input
               id="kode"
               value={formData.kode}
               onChange={(e) => handleInputChange('kode', e.target.value)}
-              placeholder="Auto-generated if empty (reuses deleted codes)"
+              placeholder="Auto"
+              disabled={true}
             />
           </div>
           

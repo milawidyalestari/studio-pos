@@ -37,23 +37,23 @@ const KanbanColumn = ({
 }: KanbanColumnProps) => {
   return (
     <div 
-      className={`flex-shrink-0 w-80 rounded-lg p-4 border-2 ${column.color || 'bg-white border-gray-200'}`}
+      className={`flex-shrink-0 w-80 rounded-lg p-3 mt-4 border-2 ${column.color || 'bg-white border-gray-200'}`}
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-gray-900">{column.title}</h3>
         <Badge variant="secondary">{orders.length}</Badge>
       </div>
       
-      <Droppable droppableId={column.status}>
-        {(provided, snapshot) => (
-          <div
-            ref={provided.innerRef}
-            {...provided.droppableProps}
-            className={`space-y-3 min-h-[200px] rounded-lg p-2 transition-colors ${
-              snapshot.isDraggingOver ? 'bg-blue-50 border-2 border-blue-200 border-dashed' : ''
-            }`}
-          >
-            <div>
+      <div className="flex flex-col h-full">
+        <Droppable droppableId={column.status}>
+          {(provided, snapshot) => (
+            <div
+              ref={provided.innerRef}
+              {...provided.droppableProps}
+              className={`flex-1 flex flex-col space-y-3 rounded-lg p-2 mb-10 transition-colors ${
+                snapshot.isDraggingOver ? 'bg-blue-50 border-2 border-blue-200 border-dashed' : ''
+              }`}
+            >
               {orders.map((order, index) => (
                 <Draggable key={order.id} draggableId={order.id} index={index}>
                   {(provided, snapshot) => (
@@ -70,9 +70,9 @@ const KanbanColumn = ({
               ))}
               {provided.placeholder}
             </div>
-          </div>
-        )}
-      </Droppable>
+          )}
+        </Droppable>
+      </div>
     </div>
   );
 };

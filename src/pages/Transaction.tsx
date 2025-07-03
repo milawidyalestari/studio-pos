@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -131,7 +130,7 @@ const TransactionPage = () => {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center sticky top-0 z-10 bg-white mb-p4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Riwayat Transaksi</h1>
           <p className="text-gray-600">Lihat riwayat transaksi yang telah selesai</p>

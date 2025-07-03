@@ -20,7 +20,7 @@ interface CustomerInfoSectionProps {
     estimasi: string;
     estimasiWaktu: string;
   };
-  onFormDataChange: (field: string, value: any) => void;
+  onFormDataChange: (field: string, value: string | boolean) => void;
 }
 
 const CustomerInfoSection = ({ formData, onFormDataChange }: CustomerInfoSectionProps) => {
@@ -44,50 +44,63 @@ const CustomerInfoSection = ({ formData, onFormDataChange }: CustomerInfoSection
     setShowDropdown(value.length > 0);
   };
 
-  const handleCustomerCreated = (newCustomer: any) => {
+  // Show dropdown when input is empty and dialog is open
+  React.useEffect(() => {
+    if (formData.customer.length === 0) {
+      setShowDropdown(true);
+    }
+  }, [formData.customer]);
+
+  const handleCustomerCreated = (newCustomer: { nama: string }) => {
     onFormDataChange('customer', newCustomer.nama);
     // Note: The customerId will be set once the customer list refreshes
   };
 
   const filteredCustomers = customers?.filter(customer => 
-    customer.nama.toLowerCase().includes(formData.customer.toLowerCase())
+    customer.nama.toLowerCase().includes((formData.customer || '').toLowerCase())
   ) || [];
 
   return (
     <>
-      <div className="mb-6">
-        <div className="flex gap-2 mb-4">
+      <div className="mb-4">
+        <div className="flex gap-2 mb-2">
           <div className="flex-1 relative">
             <Label htmlFor="customer" className="text-sm font-medium">Customer</Label>
             <Input
               id="customer"
               value={formData.customer}
               onChange={(e) => handleCustomerInputChange(e.target.value)}
-              onFocus={() => setShowDropdown(formData.customer.length > 0)}
               onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
               placeholder="Enter customer name"
-              className="mt-1"
+              className="mt-1 h-8"
+              autoComplete="off"
             />
             
             {/* Dropdown for customer suggestions */}
-            {showDropdown && filteredCustomers.length > 0 && (
+            {showDropdown && (
               <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
-                {filteredCustomers.map((customer) => (
-                  <div
-                    key={customer.id}
-                    className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
-                    onMouseDown={() => handleCustomerSelect(customer.id)}
-                  >
-                    {customer.nama} ({customer.kode})
+                {filteredCustomers.length > 0 ? (
+                  filteredCustomers.map((customer) => (
+                    <div
+                      key={customer.id}
+                      className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                      onMouseDown={() => handleCustomerSelect(customer.id)}
+                    >
+                      {customer.nama} ({customer.level})
+                    </div>
+                  ))
+                ) : (
+                  <div className="px-3 py-2 text-sm text-gray-500">
+                    {formData.customer.length > 0 ? 'No customers found' : 'Select a customer'}
                   </div>
-                ))}
+                )}
               </div>
             )}
           </div>
           <Button 
             type="button" 
             size="sm" 
-            className="bg-[#0050C8] hover:bg-[#003a9b] mt-6"
+            className="bg-[#0050C8] hover:bg-[#003a9b] mt-7 h-8"
             onClick={() => setShowCustomerModal(true)}
           >
             <Plus className="h-4 w-4" />
@@ -95,14 +108,14 @@ const CustomerInfoSection = ({ formData, onFormDataChange }: CustomerInfoSection
         </div>
         
         
-        <div className="flex items-center space-x-6 mb-4">
+        <div className="flex items-center space-x-6 mb-3">
           <div className="flex items-center space-x-2">
             <Checkbox 
               id="outdoor"
               checked={formData.outdoor}
               onCheckedChange={(checked) => onFormDataChange('outdoor', !!checked)}
             />
-            <Label htmlFor="outdoor" className="text-sm">Outdoor/Indoor</Label>
+            <Label htmlFor="outdoor" className="text-sm text-[#0050C8]">Outdoor/Indoor</Label>
           </div>
           <div className="flex items-center space-x-2">
             <Checkbox 
@@ -110,7 +123,7 @@ const CustomerInfoSection = ({ formData, onFormDataChange }: CustomerInfoSection
               checked={formData.laserPrinting}
               onCheckedChange={(checked) => onFormDataChange('laserPrinting', !!checked)}
             />
-            <Label htmlFor="laser" className="text-sm">Laser Printing</Label>
+            <Label htmlFor="laser" className="text-sm text-[#0050C8]">Laser Printing</Label>
           </div>
           <div className="flex items-center space-x-2">
             <Checkbox 
@@ -118,7 +131,7 @@ const CustomerInfoSection = ({ formData, onFormDataChange }: CustomerInfoSection
               checked={formData.mugNota}
               onCheckedChange={(checked) => onFormDataChange('mugNota', !!checked)}
             />
-            <Label htmlFor="mug" className="text-sm">Mug/Nota/Stemple</Label>
+            <Label htmlFor="mug" className="text-sm text-[#0050C8]">Mug/Nota/Stemple</Label>
           </div>
         </div>
 
@@ -130,7 +143,7 @@ const CustomerInfoSection = ({ formData, onFormDataChange }: CustomerInfoSection
               type="date"
               value={formData.tanggal}
               onChange={(e) => onFormDataChange('tanggal', e.target.value)}
-              className="mt-1"
+              className="mt-1 h-8 pl-2"
             />
           </div>
           <div>
@@ -140,7 +153,7 @@ const CustomerInfoSection = ({ formData, onFormDataChange }: CustomerInfoSection
               type="time"
               value={formData.waktu}
               onChange={(e) => onFormDataChange('waktu', e.target.value)}
-              className="mt-1"
+              className="mt-1 h-8"
             />
           </div>
           <div>
@@ -150,7 +163,7 @@ const CustomerInfoSection = ({ formData, onFormDataChange }: CustomerInfoSection
               type="date"
               value={formData.estimasi}
               onChange={(e) => onFormDataChange('estimasi', e.target.value)}
-              className="mt-1"
+              className="mt-1 h-8 p"
             />
           </div>
           <div>
@@ -160,7 +173,7 @@ const CustomerInfoSection = ({ formData, onFormDataChange }: CustomerInfoSection
               type="time"
               value={formData.estimasiWaktu}
               onChange={(e) => onFormDataChange('estimasiWaktu', e.target.value)}
-              className="mt-1"
+              className="mt-1 h-8"
             />
           </div>
         </div>

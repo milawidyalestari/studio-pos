@@ -20,6 +20,7 @@ interface Order {
     avatar?: string;
     assignedBy?: string;
   };
+  created_at?: string;
 }
 
 interface OrderCardProps {
@@ -29,6 +30,18 @@ interface OrderCardProps {
   onOrderClick?: (order: Order) => void;
   onEditOrder?: (order: Order) => void;
   onDeleteOrder?: (orderId: string) => void;
+}
+
+function safeLocaleDateString(dateValue: string | undefined) {
+  if (!dateValue) return '-';
+  const d = new Date(dateValue);
+  return isNaN(d.getTime()) ? '-' : d.toLocaleDateString();
+}
+
+function formatCreatedAt(dateStr: string) {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '-';
+  return d.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
 
 const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDeleteOrder }: OrderCardProps) => {
@@ -142,25 +155,41 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
         
         <CardContent className="pt-0">
           {/* Items */}
-          <div className="space-y-1 mb-3">
-            {order.items.slice(0, 2).map((item, index) => (
+          <div className="space-y-1 mb-1">
+            {(order.items || []).slice(0, 2).map((item, index) => (
               <span key={index} className="text-xs bg-gray-100 px-2 py-1 rounded mr-1 inline-block">
                 {item}
               </span>
             ))}
-            {order.items.length > 2 && (
+            {(order.items || []).length > 2 && (
               <span className="text-xs text-gray-500 px-2 py-1">
-                +{order.items.length - 2} more
+                +{(order.items || []).length - 2} more
               </span>
             )}
           </div>
           
-          {/* Price */}
+          {/* deadline */}
           <div className="flex justify-between items-center">
-            <span className="text-sm font-semibold text-[#0050C8]">{order.total}</span>
-            <span className="text-xs text-gray-500">
-              {new Date(order.date).toLocaleDateString()}
-            </span>
+            <div className="text-[12px] text-gray-500 mb-1 pt-4">
+              Dibuat: {order.created_at ? formatCreatedAt(order.created_at) : '-'}
+            </div>
+
+            {order.designer && (
+              <Avatar className="ml-2 h-7 w-7">
+                {order.designer.avatar ? (
+                  <AvatarImage src={order.designer.avatar} alt={order.designer.name} />
+                ) : (
+                  <AvatarFallback>
+                    {order.designer.name
+                      .split(' ')
+                      .map((n) => n[0])
+                      .join('')
+                      .toUpperCase()
+                      .slice(0, 2)}
+                  </AvatarFallback>
+                )}
+              </Avatar>
+            )}
           </div>
         </CardContent>
       </Card>

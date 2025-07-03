@@ -11,7 +11,8 @@ import { useOrders } from '@/hooks/useOrders';
 import { formatCurrency } from '@/services/masterData';
 import { useToast } from '@/hooks/use-toast';
 import { deleteOrderFromDatabase } from '@/services/deleteOrderService';
-import { Order, OrderWithItems } from '@/types';
+import { Order, OrderWithItems, Employee } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
 // FIX: Temporarily comment out or remove the import that causes an error if the module does not exist
 // import { getStatusIdByName } from '@/utils/getStatusId';
 
@@ -23,20 +24,39 @@ const Orderan = () => {
   const { orders: dbOrders, isLoading, updateOrder, deleteOrder } = useOrders();
   const orders = dbOrders || [];
   const { toast } = useToast();
+  const [employees, setEmployees] = useState<Employee[]>([]);
   
+  React.useEffect(() => {
+    supabase
+      .from('employees')
+      .select('id, nama')
+      .then(({ data }) => {
+        setEmployees(data || []);
+      });
+  }, []);
+
   const handleOrderModalSubmit = (orderData: object) => {
     // The order is automatically saved through the RequestOrderModal using useOrders hook
     // The order list will automatically refresh due to React Query invalidation
     console.log('Order submitted:', orderData);
   };
 
-  const updateOrderStatus = async (orderId: string, status_id: number) => {
+  const updateOrderStatus = async (orderId: string, status_id: string) => {
     try {
-      await updateOrder({ orderId, orderData: { status_id }, items: [] }); // items kosong jika hanya update status
-      toast({
-        title: 'Status Updated',
-        description: `Order status changed`,
+      // Cari order lama dari state
+      const oldOrder = orders.find(order => order.id === orderId);
+      if (!oldOrder) throw new Error('Order not found');
+
+      // Kirim order_items lama ke parameter items
+      await updateOrder({
+        orderId,
+        orderData: { status_id: parseInt(status_id) },
+        items: oldOrder.order_items || [],
       });
+      // toast({
+      //   title: 'Status Updated',
+      //   description: `Order status changed`,
+      // });
     } catch (error) {
       toast({
         title: 'Error',
@@ -89,8 +109,8 @@ const Orderan = () => {
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
+      <div className="flex justify-between items-center sticky top-0 z-10 bg-white mb-4">
+        <div className="mb-4">
           <h1 className="text-2xl font-bold text-gray-900">Orderan</h1>
           <p className="text-gray-600">Manage customer orders and requests</p>
         </div>
@@ -150,6 +170,7 @@ const Orderan = () => {
               onEditOrder={handleEditOrder}
               onDeleteOrder={handleDeleteOrder}
               onUpdateOrderStatus={updateOrderStatus}
+              employees={employees}
             />
           ) : (
             <OrderTable orders={orders} onUpdateStatus={updateOrderStatus} onOrderClick={handleOrderClick} onEditOrder={handleEditOrder} />
@@ -206,6 +227,18 @@ const Orderan = () => {
               <div>
                 <label className="font-semibold">Estimated Date:</label>
                 <p>{selectedOrder.estimatedDate}</p>
+              </div>
+              <div>
+                <label className="font-semibold">Admin:</label>
+                <p>
+                  {selectedOrder.admin?.nama || 'Not assigned'}
+                </p>
+              </div>
+              <div>
+                <label className="font-semibold">Designer:</label>
+                <p>
+                  {selectedOrder.desainer?.nama || 'Not assigned'}
+                </p>
               </div>
             </div>
           </DialogContent>
