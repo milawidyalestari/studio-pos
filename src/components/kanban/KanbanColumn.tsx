@@ -26,6 +26,7 @@ interface KanbanColumnProps {
   onOrderClick?: (order: Order) => void;
   onEditOrder?: (order: Order) => void;
   onDeleteOrder?: (orderId: string) => void;
+  isOptimisticallyMoved?: (orderId: string) => boolean;
 }
 
 const KanbanColumn = ({ 
@@ -33,40 +34,42 @@ const KanbanColumn = ({
   orders, 
   onOrderClick, 
   onEditOrder, 
-  onDeleteOrder 
+  onDeleteOrder,
+  isOptimisticallyMoved
 }: KanbanColumnProps) => {
   return (
     <div 
-      className={`flex-shrink-0 w-80 rounded-lg border-2 mt-4 ${column.color || 'bg-white border-gray-200'} flex flex-col`}
+      className={`flex-shrink-0 w-80 rounded-lg border-2 mt-4 ${column.color || 'bg-white border-gray-200'} flex flex-col max-h-[calc(100vh-120px)]`}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-200 rounded-t-lg">
+      {/* Sticky Header */}
+      <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-3 border-b border-gray-200 rounded-t-lg">
         <h3 className="font-semibold text-gray-900">{column.title}</h3>
         <Badge variant="secondary">{orders.length}</Badge>
       </div>
       
-      {/* Content */}
-      <div className="flex-1">
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto">
         <Droppable droppableId={column.status}>
           {(provided, snapshot) => (
             <div
               ref={provided.innerRef}
               {...provided.droppableProps}
-              className={`flex flex-col space-y-3 p-3 transition-colors ${
+              className={`flex flex-col space-y-3 p-3 min-h-full transition-colors ${
                 snapshot.isDraggingOver ? 'bg-blue-50 border-2 border-blue-200 border-dashed' : ''
               }`}
             >
               {orders.map((order, index) => (
                 <Draggable key={order.id} draggableId={order.id} index={index}>
                   {(provided, snapshot) => (
-                    <OrderCard 
-                      order={order}
-                      provided={provided}
-                      snapshot={snapshot}
-                      onOrderClick={onOrderClick}
-                      onEditOrder={onEditOrder}
-                      onDeleteOrder={onDeleteOrder}
-                    />
+                     <OrderCard 
+                       order={order}
+                       provided={provided}
+                       snapshot={snapshot}
+                       onOrderClick={onOrderClick}
+                       onEditOrder={onEditOrder}
+                       onDeleteOrder={onDeleteOrder}
+                       isOptimisticallyMoved={isOptimisticallyMoved?.(order.id)}
+                     />
                   )}
                 </Draggable>
               ))}
