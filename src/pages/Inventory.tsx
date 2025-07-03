@@ -36,8 +36,8 @@ const Inventory = () => {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
+      <div className="flex justify-between items-center sticky top-0 z-10 bg-white mb-6">
+        <div className="mb-4">
           <h1 className="text-2xl font-bold text-gray-900">Inventory</h1>
           <p className="text-gray-600">Manage your stock and inventory items</p>
         </div>

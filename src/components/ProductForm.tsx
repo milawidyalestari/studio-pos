@@ -148,7 +148,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   return (
     <div className="space-y-6">
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           <div className="space-y-2">
             <Label htmlFor="nama" className="text-sm font-medium">
               Product Name <span className="text-red-500">*</span>
@@ -158,7 +158,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               type="text"
               value={formData.nama}
               onChange={(e) => handleInputChange('nama', e.target.value)}
-              className={errors.nama ? 'border-red-500' : ''}
+              className={`h-8${errors.nama ? ' border-red-500' : ''}`}
               placeholder="Enter product name"
             />
             {errors.nama && (
@@ -176,9 +176,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                 type="text"
                 value={formData.kode}
                 onChange={(e) => handleInputChange('kode', e.target.value)}
-                className={errors.kode ? 'border-red-500' : ''}
+                className={`h-8${errors.kode ? ' border-red-500' : ''}`}
                 placeholder={isEditing ? "Enter product code" : "Auto-generated code"}
-                readOnly={!isEditing && isGenerating}
+                readOnly={true}
               />
               {!isEditing && (
                 <Button
@@ -187,7 +187,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                   size="sm"
                   onClick={handleRegenerateCode}
                   disabled={isGenerating}
-                  className="px-3"
+                  className="px-3 h-8"
                 >
                   <RefreshCw className={`h-4 w-4 ${isGenerating ? 'animate-spin' : ''}`} />
                 </Button>
@@ -212,7 +212,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               type="text"
               value={formData.jenis}
               onChange={(e) => handleInputChange('jenis', e.target.value)}
-              className={errors.jenis ? 'border-red-500' : ''}
+              className={`h-8${errors.jenis ? ' border-red-500' : ''}`}
               placeholder="Enter product type"
             />
             {errors.jenis && (
@@ -234,7 +234,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               }}
               disabled={unitsLoading}
             >
-              <SelectTrigger className={unitsError ? 'border-red-500' : ''}>
+              <SelectTrigger className={`${unitsError ? 'border-red-500' : ''} h-8`}>
                 <SelectValue placeholder={
                   unitsLoading ? "Loading units..." : 
                   unitsError ? "Error loading units" :
@@ -283,7 +283,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               }}
               disabled={categoriesLoading}
             >
-              <SelectTrigger className={categoriesError ? 'border-red-500' : ''}>
+              <SelectTrigger className={`${categoriesError ? 'border-red-500' : ''} h-8`}>
                 <SelectValue placeholder={
                   categoriesLoading ? "Loading categories..." : 
                   categoriesError ? "Error loading categories" :
@@ -329,7 +329,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               step="0.01"
               value={formData.harga_beli === 0 ? '' : formData.harga_beli}
               onChange={(e) => handleInputChange('harga_beli', e.target.value === '' ? '' : parseFloat(e.target.value))}
-              className={errors.harga_beli ? 'border-red-500' : ''}
+              className={`h-8${errors.harga_beli ? ' border-red-500' : ''}`}
               placeholder="0.00"
             />
             {errors.harga_beli && (
@@ -348,7 +348,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               step="0.01"
               value={formData.harga_jual === 0 ? '' : formData.harga_jual}
               onChange={(e) => handleInputChange('harga_jual', e.target.value === '' ? '' : parseFloat(e.target.value))}
-              className={errors.harga_jual ? 'border-red-500' : ''}
+              className={`h-8${errors.harga_jual ? ' border-red-500' : ''}`}
               placeholder="0.00"
             />
             {errors.harga_jual && (
@@ -366,6 +366,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               min="0"
               value={formData.stok_opname === 0 ? '' : formData.stok_opname}
               onChange={(e) => handleInputChange('stok_opname', e.target.value === '' ? '' : parseInt(e.target.value))}
+              className="h-8"
               placeholder="0"
             />
           </div>
@@ -380,6 +381,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               min="0"
               value={formData.stok_minimum === 0 ? '' : formData.stok_minimum}
               onChange={(e) => handleInputChange('stok_minimum', e.target.value === '' ? '' : parseInt(e.target.value))}
+              className="h-8"
               placeholder="0"
             />
           </div>
@@ -394,6 +396,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               min="0"
               value={formData.stok_awal === 0 ? '' : formData.stok_awal}
               onChange={(e) => handleInputChange('stok_awal', e.target.value === '' ? '' : parseInt(e.target.value))}
+              className="h-8"
               placeholder="0"
             />
           </div>
@@ -408,6 +411,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               min="0"
               value={formData.stok_masuk === 0 ? '' : formData.stok_masuk}
               onChange={(e) => handleInputChange('stok_masuk', e.target.value === '' ? '' : parseInt(e.target.value))}
+              className="h-8"
               placeholder="0"
             />
           </div>
@@ -422,6 +426,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               min="0"
               value={formData.stok_keluar === 0 ? '' : formData.stok_keluar}
               onChange={(e) => handleInputChange('stok_keluar', e.target.value === '' ? '' : parseInt(e.target.value))}
+              className="h-8"
               placeholder="0"
             />
           </div>

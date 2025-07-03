@@ -163,7 +163,7 @@ const Suppliers = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center sticky top-0 z-10 bg-white mb-p4">
           <h1 className="text-3xl font-bold text-gray-800">Suppliers Management</h1>
           <Button onClick={handleAddSupplier} className="bg-[#0050C8] hover:bg-[#0040A0]">
             <Plus className="h-4 w-4 mr-2" />

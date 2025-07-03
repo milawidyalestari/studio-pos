@@ -1,37 +1,32 @@
-
 import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { formatCurrency } from '@/services/masterData';
+import { Employee } from '@/types';
 
-interface ServiceCostSectionProps {
-  formData: {
-    notes: string;
-    jasaDesain: string;
-    biayaLain: string;
-    admin: string;
-    desainer: string;
-    komputer: string;
-  };
-  totalPrice: number;
-  onFormDataChange: (field: string, value: any) => void;
+interface ServiceCostSectionFormData {
+  notes: string;
+  jasaDesain: string;
+  biayaLain: string;
+  admin: string;
+  desainer: string;
+  komputer: string;
 }
 
-const ServiceCostSection = ({ formData, totalPrice, onFormDataChange }: ServiceCostSectionProps) => {
+interface ServiceCostSectionProps {
+  formData: ServiceCostSectionFormData;
+  totalPrice: number;
+  onFormDataChange: (field: keyof ServiceCostSectionFormData, value: string) => void;
+  designers: Employee[];
+  loadingDesigners?: boolean;
+  admins: Employee[];
+  loadingAdmins?: boolean;
+}
+
+const ServiceCostSection = ({ formData, totalPrice, onFormDataChange, designers, loadingDesigners, admins, loadingAdmins }: ServiceCostSectionProps) => {
   return (
     <>
-      <div className="mb-4">
-        <Label htmlFor="notes" className="text-sm font-medium">Notes</Label>
-        <Textarea
-          id="notes"
-          value={formData.notes}
-          onChange={(e) => onFormDataChange('notes', e.target.value)}
-          placeholder="Order notes..."
-          className="mt-1 h-20 resize-none"
-        />
-      </div>
-
       <div className="grid grid-cols-3 gap-4 mb-4">
         <div>
           <Label htmlFor="jasaDesain" className="text-sm font-medium">Design Service</Label>
@@ -40,7 +35,7 @@ const ServiceCostSection = ({ formData, totalPrice, onFormDataChange }: ServiceC
             value={formData.jasaDesain}
             onChange={(e) => onFormDataChange('jasaDesain', e.target.value)}
             placeholder="Design fee"
-            className="mt-1"
+            className="mt-1 h-8"
           />
         </div>
         <div>
@@ -50,7 +45,7 @@ const ServiceCostSection = ({ formData, totalPrice, onFormDataChange }: ServiceC
             value={formData.biayaLain}
             onChange={(e) => onFormDataChange('biayaLain', e.target.value)}
             placeholder="Other costs"
-            className="mt-1"
+            className="mt-1 h-8"
           />
         </div>
         <div>
@@ -59,7 +54,7 @@ const ServiceCostSection = ({ formData, totalPrice, onFormDataChange }: ServiceC
             id="subTotal"
             value={formatCurrency(totalPrice)}
             readOnly
-            className="mt-1 bg-gray-100"
+            className="mt-1 bg-gray-100 h-8"
           />
         </div>
       </div>
@@ -67,23 +62,39 @@ const ServiceCostSection = ({ formData, totalPrice, onFormDataChange }: ServiceC
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div>
           <Label htmlFor="admin" className="text-sm font-medium">Admin</Label>
-          <Input
+          <select
             id="admin"
             value={formData.admin}
-            onChange={(e) => onFormDataChange('admin', e.target.value)}
-            placeholder="Admin name"
-            className="mt-1"
-          />
+            onChange={e => onFormDataChange('admin', e.target.value)}
+              className="border rounded-md p-1 mt-1 min-w-[120px] w-full text-gray-700 text-sm h-8"
+          >
+            <option value="">Admin Name</option>
+            {loadingAdmins ? (
+              <option disabled>Loading...</option>
+            ) : (
+              admins.map(emp => (
+                <option key={emp.id} value={emp.id}>{emp.nama}</option>
+              ))
+            )}
+          </select>
         </div>
         <div>
           <Label htmlFor="desainer" className="text-sm font-medium">Designer</Label>
-          <Input
+          <select
             id="desainer"
             value={formData.desainer}
-            onChange={(e) => onFormDataChange('desainer', e.target.value)}
-            placeholder="Designer name"
-            className="mt-1"
-          />
+            onChange={e => onFormDataChange('desainer', e.target.value)}
+            className="border rounded-md p-1 mt-1 min-w-[120px] w-full text-gray-700 text-sm h-8"
+          >
+            <option value="">Designer Name</option>
+            {loadingDesigners ? (
+              <option disabled>Loading...</option>
+            ) : (
+              designers.map(emp => (
+                <option key={emp.id} value={emp.id}>{emp.nama}</option>
+              ))
+            )}
+          </select>
         </div>
         <div>
           <Label htmlFor="komputer" className="text-sm font-medium">Computer</Label>
@@ -92,7 +103,7 @@ const ServiceCostSection = ({ formData, totalPrice, onFormDataChange }: ServiceC
             value={formData.komputer}
             onChange={(e) => onFormDataChange('komputer', e.target.value)}
             placeholder="Computer info"
-            className="mt-1"
+            className="mt-1 h-8"
           />
         </div>
       </div>

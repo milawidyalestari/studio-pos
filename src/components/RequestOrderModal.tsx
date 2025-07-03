@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatCurrency } from '@/services/productPricing';
 import { useToast } from '@/hooks/use-toast';
-import { generateOrderNumber } from '@/services/orderService';
+import { generateOrderNumber, fetchNextOrderNumber } from '@/services/orderService';
 import { useOrders } from '@/hooks/useOrders';
 import { useProducts, Product } from '@/hooks/useProducts';
 import { calculateProductPrice } from '@/services/productPricing';
@@ -14,60 +14,85 @@ import ServiceCostSection from './order/ServiceCostSection';
 import PriceSummarySection from './order/PriceSummarySection';
 import OrderActionButtons from './order/OrderActionButtons';
 import { Order } from '@/types';
-import { useOrderStatus } from '@/hooks/useOrderStatus';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useOrderStatus, OrderStatus as DBOrderStatus } from '@/hooks/useOrderStatus';
+import { supabase } from '@/integrations/supabase/client';
+import { Employee } from '@/types';
+
+type PaymentType = string;
+
+const initialFormData = {
+  orderNumber: '',
+  customer: '',
+  customerId: '',
+  tanggal: new Date().toISOString().split('T')[0],
+  waktu: new Date().toTimeString().slice(0, 5),
+  estimasi: '',
+  estimasiWaktu: '',
+  outdoor: false,
+  laserPrinting: false,
+  mugNota: false,
+  jasaDesain: '',
+  biayaLain: '',
+  subTotal: '',
+  discount: 0,
+  ppn: 10,
+  paymentType: '' as PaymentType | '',
+  bank: '',
+  admin: '',
+  desainer: '',
+  komputer: '',
+  notes: '',
+  status_id: null as number | null,
+};
+
+type FormData = typeof initialFormData;
 
 interface OrderItem {
   id: string;
-  productCode: string;
+  bahan: string;
   item: string;
   ukuran: { panjang: string; lebar: string };
   quantity: string;
   finishing: string;
   subTotal: number;
+  notes?: string;
+}
+
+type SubmittedOrderData = FormData & {
+  items: OrderItem[];
+  totalPrice: string;
 }
 
 interface RequestOrderModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (orderData: any) => void;
+  onSubmit: (orderData: SubmittedOrderData) => void;
   editingOrder?: Order | null;
+}
+
+// Helper to safely parse and format a date string, defaulting to today if missing/invalid
+function safeDateString(dateValue: unknown): string {
+  const today = new Date().toISOString().split('T')[0];
+  if (!dateValue) return today;
+  const d = new Date(dateValue as string);
+  return isNaN(d.getTime()) ? today : d.toISOString().split('T')[0];
 }
 
 const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrderModalProps) => {
   const { toast } = useToast();
-  const { createOrder, isCreatingOrder, updateOrder } = useOrders();
+  const { createOrder, isCreatingOrder, updateOrder, isUpdatingOrder } = useOrders();
   const { data: products } = useProducts();
-  const { statuses } = useOrderStatus();
+  const { statuses, loading: statusesLoading } = useOrderStatus();
   
-  const [formData, setFormData] = useState({
-    orderNumber: generateOrderNumber(),
-    customer: '',
-    customerId: '',
-    tanggal: new Date().toISOString().split('T')[0],
-    waktu: new Date().toTimeString().slice(0, 5),
-    estimasi: '',
-    estimasiWaktu: '',
-    outdoor: false,
-    laserPrinting: false,
-    mugNota: false,
-    jasaDesain: '',
-    biayaLain: '',
-    subTotal: '',
-    discount: 0,
-    ppn: 10,
-    paymentType: '',
-    bank: '',
-    admin: '',
-    desainer: '',
-    komputer: '',
-    notes: '',
-    status_id: 1
+  const [formData, setFormData] = useState<FormData>({
+    ...initialFormData,
+    orderNumber: '',
   });
+  const [orderNumberLoading, setOrderNumberLoading] = useState(false);
 
   const [currentItem, setCurrentItem] = useState({
     id: '',
-    productCode: '',
+    bahan: '',
     item: '',
     ukuran: { panjang: '', lebar: '' },
     quantity: '',
@@ -79,6 +104,16 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+  const [admins, setAdmins] = useState<Employee[]>([]);
+  const [loadingAdmins, setLoadingAdmins] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [hasEditChanges, setHasEditChanges] = useState(false);
+  const [initialFormDataSnapshot, setInitialFormDataSnapshot] = useState<FormData | null>(null);
+  const [hasFormDataChanges, setHasFormDataChanges] = useState(false);
+  const [hasItemsAdded, setHasItemsAdded] = useState(false);
+
   const generateNextItemId = () => {
     const nextNumber = orderList.length + 1;
     return nextNumber.toString().padStart(3, '0');
@@ -87,7 +122,12 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   useEffect(() => {
     const total = orderList.reduce((sum, item) => sum + item.subTotal, 0);
     setTotalPrice(total);
-  }, [orderList]);
+    
+    // Set hasItemsAdded berdasarkan apakah ada item di orderList
+    if (orderList.length > 0 && !isEditMode) {
+      setHasItemsAdded(true);
+    }
+  }, [orderList, isEditMode]);
 
   useEffect(() => {
     setHasUnsavedChanges(true);
@@ -99,34 +139,35 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
     }
   }, [currentItem, editingItemId]);
 
+  // Deteksi perubahan pada customer, date, dan order action
   useEffect(() => {
-    if (statuses.length > 0 && !formData.status_id) {
-      const designStatus = statuses.find(s => s.name.toLowerCase() === 'design');
-      if (designStatus) {
-        setFormData(prev => ({ ...prev, status_id: designStatus.id }));
-      } else {
-        setFormData(prev => ({ ...prev, status_id: statuses[0].id }));
-      }
+    if (isEditMode && initialFormDataSnapshot) {
+      const hasCustomerChanged = formData.customer !== initialFormDataSnapshot.customer;
+      const hasDateChanged = formData.tanggal !== initialFormDataSnapshot.tanggal;
+      const hasAdminChanged = formData.admin !== initialFormDataSnapshot.admin;
+      const hasDesainerChanged = formData.desainer !== initialFormDataSnapshot.desainer;
+      const hasStatusChanged = formData.status_id !== initialFormDataSnapshot.status_id;
+      
+      setHasFormDataChanges(hasCustomerChanged || hasDateChanged || hasAdminChanged || hasDesainerChanged || hasStatusChanged);
+    } else {
+      setHasFormDataChanges(false);
     }
-  }, [statuses]);
+  }, [formData.customer, formData.tanggal, formData.admin, formData.desainer, formData.status_id, isEditMode, initialFormDataSnapshot]);
 
-  const handleFormDataChange = (field: string, value: any) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleFormDataChange = (field: keyof typeof formData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const updateCurrentItem = (field: string, value: any) => {
-    setCurrentItem(prev => {
-      if (field === 'ukuran') {
-        return { ...prev, [field]: value };
-      }
-      return { ...prev, [field]: value };
-    });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateCurrentItem = (field: keyof typeof currentItem, value: any) => {
+    setCurrentItem(prev => ({ ...prev, [field]: value }));
   };
 
   const resetCurrentItem = () => {
     setCurrentItem({
       id: '',
-      productCode: '',
+      bahan: '',
       item: '',
       ukuran: { panjang: '', lebar: '' },
       quantity: '',
@@ -136,9 +177,9 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   };
 
   const calculateItemSubTotal = (item: typeof currentItem): number => {
-    if (!products || !item.productCode || !item.quantity) return 0;
+    if (!products || !item.bahan || !item.quantity) return 0;
 
-    const product = products.find(p => p.kode === item.productCode);
+    const product = products.find(p => p.kode === item.bahan);
     if (!product) return 0;
 
     const panjang = parseFloat(item.ukuran.panjang) || 0;
@@ -159,7 +200,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   };
 
   const addToOrderList = () => {
-    if (!currentItem.item || !currentItem.quantity || !currentItem.productCode) {
+    if (!currentItem.item || !currentItem.quantity || !currentItem.bahan) {
       toast({
         title: "Error",
         description: "Mohon lengkapi semua field yang diperlukan",
@@ -178,6 +219,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
     };
 
     setOrderList(prev => [...prev, newOrderItem]);
+    setHasItemsAdded(true);
     resetCurrentItem();
   };
 
@@ -192,9 +234,9 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   };
 
   const editOrderItem = (item: OrderItem) => {
-    setCurrentItem(item);
+    setCurrentItem({ ...item, id: item.id });
     setEditingItemId(item.id);
-    deleteFromOrderList(item.id);
+    // Tidak menghapus item dari order list, biarkan tetap ada untuk visual feedback
   };
 
   const calculateOrderTotal = (items: OrderItem[], jasaDesain: number = 0, biayaLain: number = 0, discount: number = 0, ppn: number = 10) => {
@@ -215,7 +257,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
 
   const handleSave = async () => {
     try {
-      if (editingItemId && currentItem.item && currentItem.quantity && currentItem.productCode) {
+      if (editingItemId && currentItem.item && currentItem.quantity && currentItem.bahan) {
         const subTotal = calculateItemSubTotal(currentItem);
 
         const updatedItem: OrderItem = {
@@ -224,7 +266,10 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
           subTotal
         };
 
-        setOrderList(prev => [...prev, updatedItem]);
+        // Update item yang ada secara langsung tanpa mengubah urutan
+        setOrderList(prev => 
+          prev.map(item => item.id === editingItemId ? updatedItem : item)
+        );
         resetCurrentItem();
       }
       
@@ -237,7 +282,6 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
       );
 
       const orderData = {
-        order_number: formData.orderNumber,
         customer_id: formData.customerId || null,
         customer_name: formData.customer,
         tanggal: formData.tanggal,
@@ -256,33 +300,27 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
         payment_type: formData.paymentType || null,
         bank: formData.bank || null,
         komputer: formData.komputer || null,
-        notes: formData.notes || null,
-        status_id: formData.status_id || 1
+        notes: (editingOrder && 'notes' in editingOrder && editingOrder.notes) ? editingOrder.notes : '',
+        status_id: formData.status_id,
+        admin_id: formData.admin || null,
+        desainer_id: formData.desainer || null,
       };
 
       const items = orderList.map((item) => ({
         item_name: item.item,
-        bahan: item.productCode || null,
+        bahan: item.bahan || null,
         panjang: parseFloat(item.ukuran?.panjang) || null,
         lebar: parseFloat(item.ukuran?.lebar) || null,
         quantity: parseInt(item.quantity) || 0,
         finishing: item.finishing || null,
-        sub_total: item.subTotal || 0
+        sub_total: item.subTotal || 0,
+        description: item.notes || null
       }));
 
       if (editingOrder) {
-        // UPDATE order
-        updateOrder({
-          orderId: editingOrder.id,
-          orderData,
-          items
-        });
+        updateOrder({ orderId: editingOrder.id, orderData, items });
       } else {
-        // CREATE order
-        createOrder({
-          orderData,
-          items
-        });
+        createOrder({ orderData: { ...orderData, order_number: formData.orderNumber }, items });
       }
       
       onSubmit({
@@ -292,6 +330,10 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
       });
       
       setHasUnsavedChanges(false);
+      setHasEditChanges(false);
+      setHasFormDataChanges(false);
+      setHasItemsAdded(false);
+      setInitialFormDataSnapshot(null);
       resetForm();
       onClose();
       
@@ -305,35 +347,26 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
     console.log('Print Receipt clicked - functionality to be implemented');
   };
 
-  const resetForm = () => {
+  const resetForm = async () => {
+    let defaultStatusId = null;
+    const designStatus = statuses.find(s => s.name.toLowerCase() === 'design');
+    if (designStatus) defaultStatusId = designStatus.id;
+    setOrderNumberLoading(true);
+    const num = await fetchNextOrderNumber();
     setFormData({
-      orderNumber: generateOrderNumber(),
-      customer: '',
-      customerId: '',
-      tanggal: new Date().toISOString().split('T')[0],
-      waktu: new Date().toTimeString().slice(0, 5),
-      estimasi: '',
-      estimasiWaktu: '',
-      outdoor: false,
-      laserPrinting: false,
-      mugNota: false,
-      jasaDesain: '',
-      biayaLain: '',
-      subTotal: '',
-      discount: 0,
-      ppn: 10,
-      paymentType: '',
-      bank: '',
-      admin: '',
-      desainer: '',
-      komputer: '',
-      notes: '',
-      status_id: 1
+      ...initialFormData,
+      orderNumber: num,
+      status_id: defaultStatusId,
     });
     setOrderList([]);
     resetCurrentItem();
     setTotalPrice(0);
     setHasUnsavedChanges(false);
+    setHasEditChanges(false);
+    setHasFormDataChanges(false);
+    setHasItemsAdded(false);
+    setInitialFormDataSnapshot(null);
+    setOrderNumberLoading(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -344,11 +377,13 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   // Pre-fill form with editing order data
   useEffect(() => {
     if (editingOrder && open) {
-      setFormData({
-        orderNumber: editingOrder.orderNumber,
+      setIsEditMode(true);
+      setHasEditChanges(false);
+      const newFormData = {
+        orderNumber: (editingOrder as any).order_number || editingOrder.orderNumber || '',
         customer: editingOrder.customer,
-        customerId: '', // We'll need to map this properly if editing existing orders
-        tanggal: new Date(editingOrder.date).toISOString().split('T')[0],
+        customerId: (editingOrder as Order & { customer_id?: string }).customer_id || '',
+        tanggal: safeDateString(editingOrder.date),
         waktu: new Date().toTimeString().slice(0, 5),
         estimasi: editingOrder.estimatedDate,
         estimasiWaktu: '',
@@ -362,37 +397,121 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
         ppn: 10,
         paymentType: '',
         bank: '',
-        admin: '',
-        desainer: editingOrder.designer?.name || '',
+        admin: (editingOrder as any).admin_id || '',
+        desainer: (editingOrder as any).desainer_id || '',
         komputer: '',
-        notes: '',
-        status_id: editingOrder.status_id || 1
-      });
+        notes: (editingOrder as any).notes || '',
+        status_id: editingOrder.status_id || null,
+      };
+      
+      setFormData(newFormData);
+      // Simpan snapshot data awal untuk perbandingan
+      setInitialFormDataSnapshot(newFormData);
       
       // Set order items if available
-      const mockItems = editingOrder.items.map((item, index) => ({
-        id: (index + 1).toString().padStart(3, '0'),
-        bahan: 'vinyl',
-        item: item,
-        ukuran: { panjang: '1000', lebar: '500' },
-        quantity: '1',
-        finishing: 'laminating',
-        subTotal: 50000
-      }));
+      if ('order_items' in editingOrder && editingOrder.order_items) {
+        const realItems = (editingOrder.order_items as any[]).map((item, index) => ({
+          id: (index + 1).toString().padStart(3, '0'),
+          bahan: item.bahan,
+          item: item.item_name,
+          ukuran: { panjang: item.panjang?.toString() || '', lebar: item.lebar?.toString() || '' },
+          quantity: item.quantity?.toString() || '',
+          finishing: item.finishing,
+          subTotal: item.sub_total || 0,
+          notes: item.description || ''
+        }));
+        setOrderList(realItems);
+      }
       
-      setOrderList(mockItems);
+      // Reset item form tanpa mereset order list
+      resetCurrentItem();
     } else if (!editingOrder && open) {
       // Reset form for new order
+      setIsEditMode(false);
+      setHasEditChanges(false);
+      setHasItemsAdded(false);
+      setInitialFormDataSnapshot(null);
       resetForm();
     }
   }, [editingOrder, open]);
 
+  // Set default status_id to 'Design' when statuses are loaded and not editing
+  useEffect(() => {
+    if (!editingOrder && statuses && statuses.length > 0 && open) {
+      const designStatus = statuses.find(s => s.name.toLowerCase() === 'design');
+      if (designStatus && formData.status_id !== designStatus.id) {
+        setFormData(prev => ({ ...prev, status_id: designStatus.id }));
+      }
+    }
+  }, [statuses, editingOrder, open]);
+
+  // Fetch a new order number when opening the modal for a new order
+  useEffect(() => {
+    const fetchOrderNumber = async () => {
+      setOrderNumberLoading(true);
+      const num = await fetchNextOrderNumber();
+      setFormData(prev => ({ ...prev, orderNumber: num }));
+      setOrderNumberLoading(false);
+    };
+    if (open && !editingOrder) {
+      fetchOrderNumber();
+    }
+  }, [open, editingOrder]);
+
+  // Fungsi untuk update item saja, tanpa menutup modal utama
+  const handleUpdateItem = () => {
+    if (editingItemId && currentItem.item && currentItem.quantity && currentItem.bahan) {
+      const subTotal = calculateItemSubTotal(currentItem);
+
+      const updatedItem: OrderItem = {
+        ...currentItem,
+        id: editingItemId,
+        subTotal
+      };
+
+      // Update item yang ada secara langsung tanpa mengubah urutan
+      setOrderList(prev => 
+        prev.map(item => item.id === editingItemId ? updatedItem : item)
+      );
+      resetCurrentItem();
+      setHasEditChanges(true);
+      // Tidak menutup modal utama
+    }
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    setLoadingEmployees(true);
+    supabase
+      .from('employees')
+      .select('*')
+      .eq('posisi', 'Desainer')
+      .then(({ data, error }) => {
+        if (!error && data) setEmployees(data as Employee[]);
+        setLoadingEmployees(false);
+      });
+    setLoadingAdmins(true);
+    supabase
+      .from('employees')
+      .select('*')
+      .eq('posisi', 'Admin')
+      .then(({ data, error }) => {
+        if (!error && data) setAdmins(data as Employee[]);
+        setLoadingAdmins(false);
+      });
+  }, [open]);
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl h-[95vh] max-h-[95vh] p-0 flex flex-col">
+      <DialogContent 
+        className="max-w-7xl h-[95vh] max-h-[95vh] p-0 flex flex-col"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
           <DialogTitle className="text-xl font-bold">
-            {editingOrder ? `Edit Order ${formData.orderNumber}` : `Request Order ${formData.orderNumber}`}
+            {editingOrder
+              ? `Edit Order${formData.orderNumber ? ` ${formData.orderNumber}` : ''}`
+              : `Request Order${formData.orderNumber ? ` ${formData.orderNumber}` : ''}`}
           </DialogTitle>
         </DialogHeader>
         
@@ -413,7 +532,8 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
                       editingItemId={editingItemId}
                       onSave={handleSave}
                       onAddItem={addToOrderList}
-                      isSaving={isCreatingOrder}
+                      onUpdateItem={handleUpdateItem}
+                      isSaving={isCreatingOrder || isUpdatingOrder}
                       nextItemId={generateNextItemId()}
                     />
                   </div>
@@ -427,11 +547,16 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
                       orderList={orderList}
                       onEditItem={editOrderItem}
                       onDeleteItem={deleteFromOrderList}
+                      editingItemId={editingItemId}
                     />
                     <ServiceCostSection
                       formData={formData}
                       totalPrice={totalPrice}
                       onFormDataChange={handleFormDataChange}
+                      designers={employees}
+                      loadingDesigners={loadingEmployees}
+                      admins={admins}
+                      loadingAdmins={loadingAdmins}
                     />
                   </div>
                 </ScrollArea>
@@ -448,22 +573,31 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
               onNew={resetForm}
               onSave={handleSave}
               onSubmit={handlePrintReceipt}
-              isSaving={isCreatingOrder}
+              isSaving={isCreatingOrder || isUpdatingOrder}
               hasUnsavedChanges={hasUnsavedChanges}
+              disabledPrintSPK={!formData.admin || !formData.desainer}
+              disabledSaveOrder={orderList.length === 0}
+              isEditingItem={!!editingItemId}
+              isEditMode={isEditMode}
+              hasEditChanges={hasEditChanges || hasFormDataChanges || hasItemsAdded}
             >
-              <Select
-                value={formData.status_id?.toString() || ''}
-                onValueChange={val => setFormData(prev => ({ ...prev, status_id: Number(val) }))}
-              >
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Pilih Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {statuses.map(status => (
-                    <SelectItem key={status.id} value={status.id.toString()}>{status.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2 mr-2">
+                {statusesLoading ? (
+                  <span>Loading statuses...</span>
+                ) : (
+                  <select
+                    id="status_id"
+                    value={formData.status_id ?? ''}
+                    onChange={e => handleFormDataChange('status_id', e.target.value ? Number(e.target.value) : null)}
+                    className="border rounded-md p-2 min-w-[120px]"
+                  >
+                    <option value="">Pilih Status</option>
+                    {statuses.map(status => (
+                      <option key={status.id} value={status.id}>{status.name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
             </OrderActionButtons>
           </form>
         </div>

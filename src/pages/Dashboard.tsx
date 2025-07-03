@@ -34,7 +34,7 @@ const Dashboard = () => {
   return (
     <div className="p-6 h-screen flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex-shrink-0">
+      <div className="flex-shrink-0 sticky top-0 z-10 bg-white mb-p4">
         <DashboardHeader showInbox={showInbox} onToggleInbox={() => setShowInbox(!showInbox)} />
       </div>
 

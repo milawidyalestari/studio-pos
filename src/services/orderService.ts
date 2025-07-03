@@ -277,3 +277,9 @@ export const saveOrderToDatabase = async (orderData: any) => {
     throw error;
   }
 };
+
+export const fetchNextOrderNumber = async () => {
+  const { data, error } = await supabase.rpc('get_next_order_number');
+  if (error) throw error;
+  return data; // Pastikan data adalah nomor urut yang benar, misal: "ORD-00123"
+};
