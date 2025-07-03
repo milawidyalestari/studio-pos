@@ -26,6 +26,7 @@ interface KanbanColumnProps {
   onOrderClick?: (order: Order) => void;
   onEditOrder?: (order: Order) => void;
   onDeleteOrder?: (orderId: string) => void;
+  isOptimisticallyMoved?: (orderId: string) => boolean;
 }
 
 const KanbanColumn = ({ 
@@ -33,7 +34,8 @@ const KanbanColumn = ({
   orders, 
   onOrderClick, 
   onEditOrder, 
-  onDeleteOrder 
+  onDeleteOrder,
+  isOptimisticallyMoved
 }: KanbanColumnProps) => {
   return (
     <div 
@@ -59,14 +61,15 @@ const KanbanColumn = ({
               {orders.map((order, index) => (
                 <Draggable key={order.id} draggableId={order.id} index={index}>
                   {(provided, snapshot) => (
-                    <OrderCard 
-                      order={order}
-                      provided={provided}
-                      snapshot={snapshot}
-                      onOrderClick={onOrderClick}
-                      onEditOrder={onEditOrder}
-                      onDeleteOrder={onDeleteOrder}
-                    />
+                     <OrderCard 
+                       order={order}
+                       provided={provided}
+                       snapshot={snapshot}
+                       onOrderClick={onOrderClick}
+                       onEditOrder={onEditOrder}
+                       onDeleteOrder={onDeleteOrder}
+                       isOptimisticallyMoved={isOptimisticallyMoved?.(order.id)}
+                     />
                   )}
                 </Draggable>
               ))}
