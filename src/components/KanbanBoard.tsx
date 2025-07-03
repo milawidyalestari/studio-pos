@@ -11,7 +11,6 @@ import {
   DEFAULT_COLUMNS 
 } from './kanban/KanbanTypes';
 import { useOrderStatus } from '@/hooks/useOrderStatus';
-import { useOptimisticKanban } from '@/hooks/useOptimisticKanban';
 import { Employee, OrderWithItems } from '@/types';
 
 interface KanbanBoardWithEmployeesProps extends KanbanBoardProps {
@@ -32,7 +31,6 @@ const KanbanBoard = ({
   const [newColumnTitle, setNewColumnTitle] = useState('');
   const { toast } = useToast();
   const { statuses } = useOrderStatus();
-  const { addOptimisticMove, getOptimisticStatus, isOptimisticallyMoved } = useOptimisticKanban();
 
   const handleDragEnd = (result: DropResult) => {
     const { destination, source, draggableId } = result;
@@ -51,19 +49,7 @@ const KanbanBoard = ({
       // Find the status_id for the newStatus name
       const statusObj = statuses.find(s => s.name === newStatus);
       if (statusObj) {
-        // Create optimistic update promise
-        const updatePromise = new Promise<void>((resolve, reject) => {
-          try {
-            onUpdateOrderStatus(draggableId, String(statusObj.id));
-            // Simulate async operation completion
-            setTimeout(resolve, 100);
-          } catch (error) {
-            reject(error);
-          }
-        });
-
-        // Add optimistic move
-        addOptimisticMove(draggableId, sourceStatus, newStatus, updatePromise);
+        onUpdateOrderStatus(draggableId, String(statusObj.id));
       } else {
         toast({
           title: 'Error',
@@ -109,11 +95,12 @@ const KanbanBoard = ({
 
   const getColumnOrders = (status: string) => {
     return orders.filter(order => {
-      // Get the current status (could be optimistic)
-      const currentStatus = order.order_statuses?.name || order.status;
-      const optimisticStatus = getOptimisticStatus(order.id, currentStatus);
-      
-      return optimisticStatus === status;
+      // Prefer the joined status name from order_statuses
+      if (order.order_statuses && order.order_statuses.name) {
+        return order.order_statuses.name === status;
+      }
+      // Fallback to legacy status string if present
+      return order.status === status;
     });
   };
 
@@ -156,7 +143,6 @@ const KanbanBoard = ({
                 onOrderClick={(order: Order) => onOrderClick(order as OrderWithItems)}
                 onEditOrder={(order: Order) => onEditOrder(order as OrderWithItems)}
                 onDeleteOrder={handleDeleteOrder}
-                isOptimisticallyMoved={isOptimisticallyMoved}
               />
             );
           })}
