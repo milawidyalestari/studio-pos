@@ -26,6 +26,7 @@ interface KanbanColumnProps {
   onOrderClick?: (order: Order) => void;
   onEditOrder?: (order: Order) => void;
   onDeleteOrder?: (orderId: string) => void;
+  isOptimisticallyMoved?: (orderId: string) => boolean;
 }
 
 const KanbanColumn = ({ 
@@ -33,7 +34,8 @@ const KanbanColumn = ({
   orders, 
   onOrderClick, 
   onEditOrder, 
-  onDeleteOrder
+  onDeleteOrder,
+  isOptimisticallyMoved
 }: KanbanColumnProps) => {
   return (
     <div 
@@ -66,6 +68,7 @@ const KanbanColumn = ({
                        onOrderClick={onOrderClick}
                        onEditOrder={onEditOrder}
                        onDeleteOrder={onDeleteOrder}
+                       isOptimisticallyMoved={isOptimisticallyMoved?.(order.id)}
                      />
                   )}
                 </Draggable>

@@ -30,6 +30,7 @@ interface OrderCardProps {
   onOrderClick?: (order: Order) => void;
   onEditOrder?: (order: Order) => void;
   onDeleteOrder?: (orderId: string) => void;
+  isOptimisticallyMoved?: boolean;
 }
 
 function safeLocaleDateString(dateValue: string | undefined) {
@@ -44,7 +45,7 @@ function formatCreatedAt(dateStr: string) {
   return d.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
 
-const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDeleteOrder }: OrderCardProps) => {
+const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDeleteOrder, isOptimisticallyMoved }: OrderCardProps) => {
   const formatDeadline = (dateString: string) => {
     if (!dateString) return 'No deadline';
     const date = new Date(dateString);
@@ -99,6 +100,8 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
         {...(provided?.dragHandleProps || {})}
         className={`cursor-pointer hover:shadow-md transition-all duration-500 hover:scale-[1.02] ${
           snapshot?.isDragging ? 'shadow-lg rotate-2 opacity-90' : ''
+        } ${
+          isOptimisticallyMoved ? 'ring-2 ring-blue-400 ring-opacity-50 shadow-lg' : ''
         }`}
         onClick={handleCardClick}
       >
