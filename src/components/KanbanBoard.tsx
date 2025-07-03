@@ -11,6 +11,7 @@ import {
   DEFAULT_COLUMNS 
 } from './kanban/KanbanTypes';
 import { useOrderStatus } from '@/hooks/useOrderStatus';
+import { useOptimisticKanban } from '@/hooks/useOptimisticKanban';
 import { Employee, OrderWithItems } from '@/types';
 
 interface KanbanBoardWithEmployeesProps extends KanbanBoardProps {
@@ -31,6 +32,7 @@ const KanbanBoard = ({
   const [newColumnTitle, setNewColumnTitle] = useState('');
   const { toast } = useToast();
   const { statuses } = useOrderStatus();
+  const { addOptimisticMove, getOptimisticStatus, isOptimisticallyMoved } = useOptimisticKanban();
 
   const handleDragEnd = (result: DropResult) => {
     const { destination, source, draggableId } = result;
@@ -44,30 +46,24 @@ const KanbanBoard = ({
     
     console.log(`Moving order ${draggableId} from ${sourceStatus} to ${newStatus}`);
     
-    // Find the order and update its status immediately
-    const orderToUpdate = orders.find(order => order.id === draggableId);
-    if (orderToUpdate && newStatus !== sourceStatus) {
+    // Update the order status in the system
+    if (onUpdateOrderStatus && newStatus !== sourceStatus) {
       // Find the status_id for the newStatus name
       const statusObj = statuses.find(s => s.name === newStatus);
       if (statusObj) {
-        // Update the order status immediately in the background
-        if (onUpdateOrderStatus) {
+        // Create optimistic update promise
+        const updatePromise = new Promise<void>((resolve, reject) => {
           try {
             onUpdateOrderStatus(draggableId, String(statusObj.id));
-            toast({
-              title: 'Status Updated',
-              description: `Order moved to ${newStatus}`,
-              variant: 'default',
-            });
+            // Simulate async operation completion
+            setTimeout(resolve, 100);
           } catch (error) {
-            console.error('Failed to update order status:', error);
-            toast({
-              title: 'Warning',
-              description: `Order moved to ${newStatus} but status update failed`,
-              variant: 'destructive',
-            });
+            reject(error);
           }
-        }
+        });
+
+        // Add optimistic move
+        addOptimisticMove(draggableId, sourceStatus, newStatus, updatePromise);
       } else {
         toast({
           title: 'Error',
@@ -77,7 +73,7 @@ const KanbanBoard = ({
       }
     }
     
-    // Call the parent's onDragEnd handler for UI updates
+    // Call the parent's onDragEnd handler
     onDragEnd(result);
   };
 
@@ -113,9 +109,11 @@ const KanbanBoard = ({
 
   const getColumnOrders = (status: string) => {
     return orders.filter(order => {
-      // Get the current status directly from the order
+      // Get the current status (could be optimistic)
       const currentStatus = order.order_statuses?.name || order.status;
-      return currentStatus === status;
+      const optimisticStatus = getOptimisticStatus(order.id, currentStatus);
+      
+      return optimisticStatus === status;
     });
   };
 
@@ -158,6 +156,7 @@ const KanbanBoard = ({
                 onOrderClick={(order: Order) => onOrderClick(order as OrderWithItems)}
                 onEditOrder={(order: Order) => onEditOrder(order as OrderWithItems)}
                 onDeleteOrder={handleDeleteOrder}
+                isOptimisticallyMoved={isOptimisticallyMoved}
               />
             );
           })}
