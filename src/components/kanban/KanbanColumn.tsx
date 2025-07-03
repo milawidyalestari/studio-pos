@@ -37,20 +37,22 @@ const KanbanColumn = ({
 }: KanbanColumnProps) => {
   return (
     <div 
-      className={`flex-shrink-0 w-80 rounded-lg p-3 mt-4 border-2 ${column.color || 'bg-white border-gray-200'}`}
+      className={`flex-shrink-0 w-80 rounded-lg border-2 mt-4 ${column.color || 'bg-white border-gray-200'} flex flex-col max-h-[calc(100vh-120px)]`}
     >
-      <div className="flex items-center justify-between mb-4">
+      {/* Sticky Header */}
+      <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-3 border-b border-gray-200 rounded-t-lg">
         <h3 className="font-semibold text-gray-900">{column.title}</h3>
         <Badge variant="secondary">{orders.length}</Badge>
       </div>
       
-      <div className="flex flex-col h-full">
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto">
         <Droppable droppableId={column.status}>
           {(provided, snapshot) => (
             <div
               ref={provided.innerRef}
               {...provided.droppableProps}
-              className={`flex-1 flex flex-col space-y-3 rounded-lg p-2 mb-10 transition-colors ${
+              className={`flex flex-col space-y-3 p-3 min-h-full transition-colors ${
                 snapshot.isDraggingOver ? 'bg-blue-50 border-2 border-blue-200 border-dashed' : ''
               }`}
             >
