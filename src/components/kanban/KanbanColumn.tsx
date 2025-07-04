@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Droppable, Draggable } from 'react-beautiful-dnd';
 import { Badge } from '@/components/ui/badge';
@@ -54,8 +55,8 @@ const KanbanColumn = ({
             <div
               ref={provided.innerRef}
               {...provided.droppableProps}
-              className={`flex flex-col space-y-3 p-3 min-h-full transition-colors ${
-                snapshot.isDraggingOver ? 'bg-blue-50 border-2 border-blue-200 border-dashed' : ''
+              className={`flex flex-col space-y-3 p-3 min-h-full transition-all duration-200 ease-out ${
+                snapshot.isDraggingOver ? 'bg-blue-50 border-2 border-blue-300 border-dashed rounded-lg' : ''
               }`}
             >
               {orders.map((order, index) => (
