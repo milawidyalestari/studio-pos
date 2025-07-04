@@ -1,4 +1,3 @@
-// Improved KanbanColumn.tsx
 import React from 'react';
 import { Droppable, Draggable } from 'react-beautiful-dnd';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +13,6 @@ interface Order {
   status: string;
   date: string;
   estimatedDate: string;
-  created_at?: string;
   designer?: {
     name: string;
     avatar?: string;
@@ -28,6 +26,7 @@ interface KanbanColumnProps {
   onOrderClick?: (order: Order) => void;
   onEditOrder?: (order: Order) => void;
   onDeleteOrder?: (orderId: string) => void;
+  isOptimisticallyMoved?: (orderId: string) => boolean;
 }
 
 const KanbanColumn = ({ 
@@ -35,24 +34,17 @@ const KanbanColumn = ({
   orders, 
   onOrderClick, 
   onEditOrder, 
-  onDeleteOrder
+  onDeleteOrder,
+  isOptimisticallyMoved
 }: KanbanColumnProps) => {
-  // Default styling if no color is provided
-  const columnStyle = column.color || 'bg-gray-50 border-gray-200';
-  
   return (
     <div 
-      className={`flex-shrink-0 w-80 rounded-lg border-2 mt-4 ${columnStyle} flex flex-col max-h-[calc(100vh-120px)]`}
+      className={`flex-shrink-0 w-80 rounded-lg border-2 mt-4 ${column.color || 'bg-white border-gray-200'} flex flex-col max-h-[calc(100vh-120px)]`}
     >
       {/* Sticky Header */}
-      <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-3 border-b border-gray-200 rounded-t-lg shadow-sm">
-        <h3 className="font-semibold text-gray-900 truncate">{column.title}</h3>
-        <Badge 
-          variant="secondary"
-          className="ml-2 flex-shrink-0"
-        >
-          {orders.length}
-        </Badge>
+      <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-3 border-b border-gray-200 rounded-t-lg">
+        <h3 className="font-semibold text-gray-900">{column.title}</h3>
+        <Badge variant="secondary">{orders.length}</Badge>
       </div>
       
       {/* Scrollable Content */}
@@ -62,32 +54,25 @@ const KanbanColumn = ({
             <div
               ref={provided.innerRef}
               {...provided.droppableProps}
-              className={`flex flex-col space-y-3 p-3 min-h-full transition-colors duration-200 ${
-                snapshot.isDraggingOver 
-                  ? 'bg-blue-50 border-2 border-blue-200 border-dashed rounded-lg' 
-                  : ''
+              className={`flex flex-col space-y-3 p-3 min-h-full transition-colors ${
+                snapshot.isDraggingOver ? 'bg-blue-50 border-2 border-blue-200 border-dashed' : ''
               }`}
             >
-              {orders.length === 0 ? (
-                <div className="text-center text-gray-500 py-8">
-                  <div className="text-sm">No orders in this status</div>
-                </div>
-              ) : (
-                orders.map((order, index) => (
-                  <Draggable key={order.id} draggableId={order.id} index={index}>
-                    {(provided, snapshot) => (
-                       <OrderCard 
-                         order={order}
-                         provided={provided}
-                         snapshot={snapshot}
-                         onOrderClick={onOrderClick}
-                         onEditOrder={onEditOrder}
-                         onDeleteOrder={onDeleteOrder}
-                       />
-                    )}
-                  </Draggable>
-                ))
-              )}
+              {orders.map((order, index) => (
+                <Draggable key={order.id} draggableId={order.id} index={index}>
+                  {(provided, snapshot) => (
+                     <OrderCard 
+                       order={order}
+                       provided={provided}
+                       snapshot={snapshot}
+                       onOrderClick={onOrderClick}
+                       onEditOrder={onEditOrder}
+                       onDeleteOrder={onDeleteOrder}
+                       isOptimisticallyMoved={isOptimisticallyMoved?.(order.id)}
+                     />
+                  )}
+                </Draggable>
+              ))}
               {provided.placeholder}
             </div>
           )}
