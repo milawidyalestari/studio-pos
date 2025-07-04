@@ -48,10 +48,10 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
   const formatDeadline = (dateString: string) => {
     if (!dateString) return 'No deadline';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'No deadline';
     const today = new Date();
     const diffTime = date.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
     if (diffDays < 0) return `Overdue by ${Math.abs(diffDays)} days`;
     if (diffDays === 0) return 'Due today';
     if (diffDays === 1) return 'Due tomorrow';
