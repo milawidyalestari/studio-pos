@@ -28,7 +28,6 @@ interface KanbanColumnProps {
   onOrderClick?: (order: Order) => void;
   onEditOrder?: (order: Order) => void;
   onDeleteOrder?: (orderId: string) => void;
-  isOptimisticallyMoved?: (orderId: string) => boolean;
 }
 
 const KanbanColumn = ({ 
@@ -36,8 +35,7 @@ const KanbanColumn = ({
   orders, 
   onOrderClick, 
   onEditOrder, 
-  onDeleteOrder,
-  isOptimisticallyMoved
+  onDeleteOrder
 }: KanbanColumnProps) => {
   // Default styling if no color is provided
   const columnStyle = column.color || 'bg-gray-50 border-gray-200';
