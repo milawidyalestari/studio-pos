@@ -98,11 +98,15 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
         ref={provided?.innerRef}
         {...(provided?.draggableProps || {})}
         {...(provided?.dragHandleProps || {})}
-        className={`cursor-pointer hover:shadow-md transition-all duration-500 hover:scale-[1.02] ${
-          snapshot?.isDragging ? 'shadow-lg rotate-2 opacity-90' : ''
+        className={`cursor-pointer hover:shadow-md transition-all duration-300 ease-in-out hover:scale-[1.02] ${
+          snapshot?.isDragging ? 'shadow-lg rotate-2 opacity-90 z-50' : ''
         } ${
-          isOptimisticallyMoved ? 'ring-2 ring-blue-400 ring-opacity-50 shadow-lg' : ''
+          isOptimisticallyMoved ? 'ring-2 ring-blue-400 ring-opacity-50 shadow-lg transform-gpu' : ''
         }`}
+        style={{
+          transform: isOptimisticallyMoved ? 'translateZ(0)' : undefined,
+          willChange: snapshot?.isDragging || isOptimisticallyMoved ? 'transform' : 'auto'
+        }}
         onClick={handleCardClick}
       >
         <CardHeader className="pb-3">
