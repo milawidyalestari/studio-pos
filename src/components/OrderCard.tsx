@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -98,14 +99,16 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
         ref={provided?.innerRef}
         {...(provided?.draggableProps || {})}
         {...(provided?.dragHandleProps || {})}
-        className={`cursor-pointer hover:shadow-md transition-all duration-300 ease-in-out hover:scale-[1.02] ${
-          snapshot?.isDragging ? 'shadow-lg rotate-2 opacity-90 z-50' : ''
+        className={`cursor-pointer transition-all duration-200 ease-out hover:shadow-md hover:scale-[1.02] ${
+          snapshot?.isDragging ? 'shadow-xl rotate-1 scale-105 z-50 opacity-95' : ''
         } ${
-          isOptimisticallyMoved ? 'ring-2 ring-blue-400 ring-opacity-50 shadow-lg transform-gpu' : ''
+          isOptimisticallyMoved ? 'ring-2 ring-blue-400 ring-opacity-60 shadow-md bg-blue-50/30' : ''
         }`}
         style={{
-          transform: isOptimisticallyMoved ? 'translateZ(0)' : undefined,
-          willChange: snapshot?.isDragging || isOptimisticallyMoved ? 'transform' : 'auto'
+          transform: snapshot?.isDragging ? 'rotate(1deg) scale(1.05)' : isOptimisticallyMoved ? 'translateZ(0)' : 'none',
+          transition: snapshot?.isDragging ? 'none' : 'all 0.2s ease-out',
+          willChange: snapshot?.isDragging || isOptimisticallyMoved ? 'transform, box-shadow' : 'auto',
+          ...provided?.draggableProps?.style
         }}
         onClick={handleCardClick}
       >
