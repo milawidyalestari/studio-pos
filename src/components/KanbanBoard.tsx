@@ -51,15 +51,9 @@ const KanbanBoard = ({
       // Find the status_id for the newStatus name
       const statusObj = statuses.find(s => s.name === newStatus);
       if (statusObj) {
-        // Create optimistic update promise
-        const updatePromise = new Promise<void>((resolve, reject) => {
-          try {
-            onUpdateOrderStatus(draggableId, String(statusObj.id));
-            // Simulate async operation completion
-            setTimeout(resolve, 100);
-          } catch (error) {
-            reject(error);
-          }
+        // Create optimistic update promise that resolves immediately
+        const updatePromise = Promise.resolve().then(() => {
+          onUpdateOrderStatus(draggableId, String(statusObj.id));
         });
 
         // Add optimistic move
@@ -73,8 +67,8 @@ const KanbanBoard = ({
       }
     }
     
-    // Call the parent's onDragEnd handler
-    onDragEnd(result);
+    // Don't call parent's onDragEnd to avoid position reset
+    // onDragEnd(result);
   };
 
   const handleAddColumn = () => {

@@ -58,16 +58,18 @@ export const useOptimisticKanban = () => {
     // Handle the update result
     updatePromise
       .then(() => {
-        // Success - remove from optimistic moves (card stays in new position)
-        setOptimisticMoves(prev => {
-          const newMap = new Map(prev);
-          const move = newMap.get(orderId);
-          if (move) {
-            clearTimeout(move.timeoutId);
-            newMap.delete(orderId);
-          }
-          return newMap;
-        });
+        // Success - remove from optimistic moves immediately (card stays in new position)
+        setTimeout(() => {
+          setOptimisticMoves(prev => {
+            const newMap = new Map(prev);
+            const move = newMap.get(orderId);
+            if (move) {
+              clearTimeout(move.timeoutId);
+              newMap.delete(orderId);
+            }
+            return newMap;
+          });
+        }, 200); // Short delay to ensure smooth transition
       })
       .catch(() => {
         // Error - revert to original position
