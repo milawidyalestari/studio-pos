@@ -21,6 +21,7 @@ export interface Order {
     avatar?: string;
     assignedBy?: string;
   };
+  created_at?: string;
 }
 
 export interface Supplier {

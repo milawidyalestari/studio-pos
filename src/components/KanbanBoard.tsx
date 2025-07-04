@@ -1,20 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { DragDropContext, DropResult } from 'react-beautiful-dnd';
 import { useToast } from '@/hooks/use-toast';
 import KanbanColumn from './kanban/KanbanColumn';
 import AddColumnDialog from './kanban/AddColumnDialog';
 import AddColumnButton from './kanban/AddColumnButton';
-import { 
-  Order, 
-  KanbanColumn as KanbanColumnType, 
-  KanbanBoardProps, 
-  DEFAULT_COLUMNS 
-} from './kanban/KanbanTypes';
+import { KanbanColumn as KanbanColumnType, KanbanBoardProps, DEFAULT_COLUMNS } from './kanban/KanbanTypes';
 import { useOrderStatus } from '@/hooks/useOrderStatus';
-import { Employee, OrderWithItems } from '@/types';
+import { Employee, OrderWithItems, Order } from '@/types';
 
 interface KanbanBoardWithEmployeesProps extends KanbanBoardProps {
   employees?: Employee[];
+}
+
+function getOrderStatus(order: OrderWithItems): string {
+  if (typeof order === 'object' && order !== null) {
+    if ('order_statuses' in order && order.order_statuses && typeof order.order_statuses === 'object' && 'name' in order.order_statuses && typeof order.order_statuses.name === 'string') {
+      return order.order_statuses.name;
+    } else if ('status' in order && typeof (order as { status?: string }).status === 'string') {
+      return (order as { status?: string }).status || 'Design';
+    }
+  }
+  return 'Design';
+}
+
+function mapOrderWithItemsToOrder(order: OrderWithItems, employeeMap: Map<string, Employee>): Order {
+  const designer = order.desainer_id && employeeMap.has(order.desainer_id)
+    ? { name: employeeMap.get(order.desainer_id)!.nama }
+    : undefined;
+  const status = getOrderStatus(order);
+  return {
+    id: order.id,
+    orderNumber: order.order_number || '-',
+    customer: order.customer_name || '-',
+    items: order.order_items ? order.order_items.map(item => item.item_name || 'Unknown Item') : [],
+    total: order.total_amount?.toString() || '-',
+    status: status as Order['status'],
+    date: order.created_at || order.tanggal || '-',
+    estimatedDate: order.estimasi || '-',
+    designer,
+    created_at: order.created_at || '-',
+  };
 }
 
 const KanbanBoard = ({ 
@@ -29,143 +54,160 @@ const KanbanBoard = ({
   const [columns, setColumns] = useState<KanbanColumnType[]>(DEFAULT_COLUMNS);
   const [showAddColumn, setShowAddColumn] = useState(false);
   const [newColumnTitle, setNewColumnTitle] = useState('');
+  const [columnOrderSequence, setColumnOrderSequence] = useState<{[columnId: string]: string[]}>({});
+  const [optimisticOrders, setOptimisticOrders] = useState<OrderWithItems[]>(orders);
+  const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const { toast } = useToast();
   const { statuses } = useOrderStatus();
 
-  const handleDragEnd = (result: DropResult) => {
-    const { destination, source, draggableId } = result;
+  // Memoize employee lookup
+  const employeeMap = useMemo(() => {
+    return new Map(employees.map(emp => [emp.id, emp]));
+  }, [employees]);
 
-    // If no destination or same position, do nothing
+  // Inisialisasi urutan awal berdasarkan created_at
+  useEffect(() => {
+    if (!isUpdating) {
+      setOptimisticOrders(orders);
+      const sequences: {[columnId: string]: string[]} = {};
+      const statusGroups: {[status: string]: OrderWithItems[]} = {};
+      orders.forEach(order => {
+        const status = getOrderStatus(order);
+        if (!statusGroups[status]) statusGroups[status] = [];
+        statusGroups[status].push(order);
+      });
+      Object.keys(statusGroups).forEach(status => {
+        sequences[status] = statusGroups[status]
+          .sort((a, b) => new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime())
+          .map(order => order.id);
+      });
+      setColumnOrderSequence(sequences);
+    }
+  }, [orders, isUpdating]);
+
+  // Ambil dan urutkan order per kolom
+  const getColumnOrders = useCallback((status: string): Order[] => {
+    const sequence = columnOrderSequence[status] || [];
+    const statusOrders = optimisticOrders.filter(order => getOrderStatus(order) === status);
+    // Urutkan sesuai sequence, fallback ke created_at jika belum pernah di-drag
+    return statusOrders.sort((a, b) => {
+      const aIndex = sequence.indexOf(a.id);
+      const bIndex = sequence.indexOf(b.id);
+      if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+      if (aIndex !== -1) return -1;
+      if (bIndex !== -1) return 1;
+      return new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime();
+    }).map(order => mapOrderWithItemsToOrder(order, employeeMap));
+  }, [optimisticOrders, columnOrderSequence, employeeMap]);
+
+  // Drag and drop logic
+  const handleDragEnd = useCallback(async (result: DropResult) => {
+    const { destination, source, draggableId } = result;
     if (!destination) return;
     if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
-    const newStatus = destination.droppableId;
     const sourceStatus = source.droppableId;
-    
-    console.log(`Moving order ${draggableId} from ${sourceStatus} to ${newStatus}`);
-    
-    // Find the order and update its status immediately
-    const orderToUpdate = orders.find(order => order.id === draggableId);
-    if (orderToUpdate && newStatus !== sourceStatus) {
-      // Find the status_id for the newStatus name
-      const statusObj = statuses.find(s => s.name === newStatus);
-      if (statusObj) {
-        // Update the order status immediately in the background
-        if (onUpdateOrderStatus) {
-          try {
-            onUpdateOrderStatus(draggableId, String(statusObj.id));
-            toast({
-              title: 'Status Updated',
-              description: `Order moved to ${newStatus}`,
-              variant: 'default',
-            });
-          } catch (error) {
-            console.error('Failed to update order status:', error);
-            toast({
-              title: 'Warning',
-              description: `Order moved to ${newStatus} but status update failed`,
-              variant: 'destructive',
-            });
-          }
-        }
-      } else {
-        toast({
-          title: 'Error',
-          description: `Status "${newStatus}" not found in database`,
-          variant: 'destructive',
-        });
-      }
-    }
-    
-    // Call the parent's onDragEnd handler for UI updates
-    onDragEnd(result);
-  };
+    const newStatus = destination.droppableId;
+    const newSequences = { ...columnOrderSequence };
 
-  const handleAddColumn = () => {
+    if (sourceStatus === newStatus) {
+      // Reorder dalam kolom yang sama
+      const columnSequence = [...(newSequences[sourceStatus] || [])];
+      const [movedId] = columnSequence.splice(source.index, 1);
+      columnSequence.splice(destination.index, 0, movedId);
+      newSequences[sourceStatus] = columnSequence;
+    } else {
+      // Pindah antar kolom
+      const sourceSequence = [...(newSequences[sourceStatus] || [])];
+      const destSequence = [...(newSequences[newStatus] || [])];
+      const [movedId] = sourceSequence.splice(source.index, 1);
+      destSequence.splice(destination.index, 0, movedId);
+      newSequences[sourceStatus] = sourceSequence;
+      newSequences[newStatus] = destSequence;
+    }
+
+    // Optimistic update
+    setColumnOrderSequence(newSequences);
+    setOptimisticOrders(prev =>
+      prev.map(order => {
+        if (order.id === draggableId && sourceStatus !== newStatus) {
+          let prevStatuses: Record<string, unknown> = {};
+          if ('order_statuses' in order && order.order_statuses && typeof order.order_statuses === 'object') {
+            prevStatuses = order.order_statuses as Record<string, unknown>;
+          }
+          return { ...order, status: newStatus, order_statuses: { ...prevStatuses, name: newStatus } };
+        }
+        return order;
+      })
+    );
+    setIsUpdating(draggableId);
+    toast({ title: 'Order Moved', description: 'Order berhasil dipindahkan', variant: 'default' });
+
+    // Update status ke server jika pindah kolom
+    try {
+      if (sourceStatus !== newStatus && onUpdateOrderStatus) {
+        const statusObj = statuses.find(s => s.name === newStatus);
+        if (statusObj) {
+          await onUpdateOrderStatus(draggableId, String(statusObj.id));
+        }
+      }
+      setIsUpdating(null);
+      onDragEnd(result);
+    } catch (error) {
+      // Rollback
+      setColumnOrderSequence(columnOrderSequence);
+      setOptimisticOrders(orders);
+      setIsUpdating(null);
+      toast({ title: 'Error', description: 'Gagal memindahkan order. Perubahan dibatalkan.', variant: 'destructive' });
+    }
+  }, [columnOrderSequence, orders, onUpdateOrderStatus, statuses, toast, onDragEnd]);
+
+  const handleAddColumn = useCallback(() => {
     if (!newColumnTitle.trim()) return;
-    
     const newColumn: KanbanColumnType = {
       id: newColumnTitle.toLowerCase().replace(/\s+/g, '-'),
       title: newColumnTitle,
       status: newColumnTitle.toLowerCase().replace(/\s+/g, '-'),
-      // Don't set any background color for new columns
+      color: 'bg-gray-50 border-gray-200',
     };
-    
-    setColumns([...columns, newColumn]);
+    setColumns(prev => [...prev, newColumn]);
     setNewColumnTitle('');
     setShowAddColumn(false);
-    
-    toast({
-      title: "Status added",
-      description: `New status "${newColumnTitle}" has been added`,
-    });
-  };
+    toast({ title: 'Status added', description: `New status "${newColumnTitle}" has been added` });
+  }, [newColumnTitle, toast]);
 
-  const handleDeleteOrder = (orderId: string) => {
+  const handleDeleteOrder = useCallback((orderId: string) => {
     if (onDeleteOrder) {
       onDeleteOrder(orderId);
-      toast({
-        title: "Order deleted",
-        description: "Order has been permanently deleted from the system",
-      });
+      toast({ title: 'Order deleted', description: 'Order has been permanently deleted from the system' });
     }
-  };
+  }, [onDeleteOrder, toast]);
 
-  const getColumnOrders = (status: string) => {
-    return orders.filter(order => {
-      // Get the current status directly from the order
-      const currentStatus = order.order_statuses?.name || order.status;
-      return currentStatus === status;
-    });
-  };
-
-  const handleCloseAddColumn = () => {
+  const handleCloseAddColumn = useCallback(() => {
     setShowAddColumn(false);
     setNewColumnTitle('');
-  };
+  }, []);
 
   return (
     <div className="w-full">
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex gap-6 overflow-x-auto overflow-y-hidden pb-4 min-h-[600px]">
+        <div className="flex gap-2 overflow-x-auto overflow-y-hidden pb-4 min-h-[600px]">
           {columns.map((column) => {
-            const columnOrders = getColumnOrders(column.status).map(order => {
-              // Cari employee desainer berdasarkan desainer_id
-              let designer = undefined;
-              if (order.desainer_id && Array.isArray(employees)) {
-                const emp = employees.find(e => e.id === order.desainer_id);
-                if (emp) {
-                  designer = { name: emp.nama };
-                }
-              }
-              return {
-                ...order,
-                customer: order.customer_name || order.customer || 'Unknown',
-                estimatedDate: order.estimasi || order.estimatedDate || '',
-                items: order.items || (order.order_items
-                  ? order.order_items.map(item => item.item_name || item.name || item.title || 'Unknown Item')
-                  : []),
-                created_at: order.created_at,
-                designer
-              };
-            });
-            
+            const columnOrders = getColumnOrders(column.status);
             return (
               <KanbanColumn
                 key={column.id}
                 column={column}
-                orders={columnOrders as Order[]}
-                onOrderClick={(order: Order) => onOrderClick(order as OrderWithItems)}
-                onEditOrder={(order: Order) => onEditOrder(order as OrderWithItems)}
+                orders={columnOrders}
+                onOrderClick={onOrderClick ? (order) => onOrderClick(order as unknown as OrderWithItems) : undefined}
+                onEditOrder={onEditOrder ? (order) => onEditOrder(order as unknown as OrderWithItems) : undefined}
                 onDeleteOrder={handleDeleteOrder}
               />
             );
           })}
-          
           <AddColumnButton onClick={() => setShowAddColumn(true)} />
         </div>
       </DragDropContext>
-
       <AddColumnDialog
         open={showAddColumn}
         newColumnTitle={newColumnTitle}
