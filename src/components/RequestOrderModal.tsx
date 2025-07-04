@@ -100,6 +100,11 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   });
 
   const [orderList, setOrderList] = useState<OrderItem[]>([]);
+  
+  // Debug orderList changes
+  useEffect(() => {
+    console.log('OrderList state changed:', orderList.length, orderList);
+  }, [orderList]);
   const [totalPrice, setTotalPrice] = useState(0);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -348,6 +353,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   };
 
   const resetForm = async () => {
+    console.log('resetForm() called - clearing orderList');
     let defaultStatusId = null;
     const designStatus = statuses.find(s => s.name.toLowerCase() === 'design');
     if (designStatus) defaultStatusId = designStatus.id;
@@ -425,13 +431,20 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
       
       // Reset item form tanpa mereset order list
       resetCurrentItem();
-    } else if (!editingOrder && open) {
-      // Reset form for new order
+    } else if (!editingOrder && open && orderList.length === 0) {
+      // Reset form for new order ONLY if there are no items yet
+      console.log('New order modal opened - resetting form');
       setIsEditMode(false);
       setHasEditChanges(false);
       setHasItemsAdded(false);
       setInitialFormDataSnapshot(null);
       resetForm();
+    } else if (!editingOrder && open && orderList.length > 0) {
+      // Modal opened for new order but items exist - don't reset
+      console.log('New order modal opened but items exist - preserving orderList');
+      setIsEditMode(false);
+      setHasEditChanges(false);
+      setInitialFormDataSnapshot(null);
     }
   }, [editingOrder, open]);
 
