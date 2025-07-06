@@ -109,7 +109,7 @@ const Orderan = () => {
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="flex justify-between items-center sticky top-0 z-10 bg-white mb-4">
+      <div className="flex justify-between items-center mb-4">
         <div className="mb-4">
           <h1 className="text-2xl font-bold text-gray-900">Orderan</h1>
           <p className="text-gray-600">Manage customer orders and requests</p>

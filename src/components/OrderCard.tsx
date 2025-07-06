@@ -30,6 +30,7 @@ interface OrderCardProps {
   onOrderClick?: (order: Order) => void;
   onEditOrder?: (order: Order) => void;
   onDeleteOrder?: (orderId: string) => void;
+  isOptimisticallyMoved?: boolean;
 }
 
 function safeLocaleDateString(dateValue: string | undefined) {
@@ -44,14 +45,14 @@ function formatCreatedAt(dateStr: string) {
   return d.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
 
-const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDeleteOrder }: OrderCardProps) => {
+const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDeleteOrder, isOptimisticallyMoved }: OrderCardProps) => {
   const formatDeadline = (dateString: string) => {
     if (!dateString) return 'No deadline';
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'No deadline';
     const today = new Date();
     const diffTime = date.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
     if (diffDays < 0) return `Overdue by ${Math.abs(diffDays)} days`;
     if (diffDays === 0) return 'Due today';
     if (diffDays === 1) return 'Due tomorrow';
@@ -97,9 +98,17 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
         ref={provided?.innerRef}
         {...(provided?.draggableProps || {})}
         {...(provided?.dragHandleProps || {})}
-        className={`cursor-pointer hover:shadow-md transition-all duration-500 hover:scale-[1.02] ${
-          snapshot?.isDragging ? 'shadow-lg rotate-2 opacity-90' : ''
+        className={`cursor-pointer transition-all duration-200 ease-out hover:shadow-md hover:scale-[1.02] ${
+          snapshot?.isDragging ? 'shadow-xl rotate-1 scale-105 z-50 opacity-95' : ''
+        } ${
+          isOptimisticallyMoved ? 'ring-2 ring-blue-400 ring-opacity-60 shadow-md bg-blue-50/30' : ''
         }`}
+        style={{
+          transform: snapshot?.isDragging ? 'rotate(1deg) scale(1.05)' : isOptimisticallyMoved ? 'translateZ(0)' : 'none',
+          transition: snapshot?.isDragging ? 'none' : 'all 0.2s ease-out',
+          willChange: snapshot?.isDragging || isOptimisticallyMoved ? 'transform, box-shadow' : 'auto',
+          ...provided?.draggableProps?.style
+        }}
         onClick={handleCardClick}
       >
         <CardHeader className="pb-3">

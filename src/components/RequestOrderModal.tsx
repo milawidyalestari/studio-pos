@@ -377,11 +377,15 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   // Pre-fill form with editing order data
   useEffect(() => {
     if (editingOrder && open) {
+      console.log('editingOrder:', editingOrder);
+      if ('order_items' in editingOrder && editingOrder.order_items) {
+        console.log('order_items:', editingOrder.order_items);
+      }
       setIsEditMode(true);
       setHasEditChanges(false);
       const newFormData = {
         orderNumber: (editingOrder as any).order_number || editingOrder.orderNumber || '',
-        customer: editingOrder.customer,
+        customer: editingOrder.customer_name || editingOrder.customer || (editingOrder.customer && editingOrder.customer.name) || '',
         customerId: (editingOrder as Order & { customer_id?: string }).customer_id || '',
         tanggal: safeDateString(editingOrder.date),
         waktu: new Date().toTimeString().slice(0, 5),
