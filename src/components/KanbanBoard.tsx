@@ -1,12 +1,12 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { DragDropContext, DropResult } from 'react-beautiful-dnd';
+import { DragDropContext, DropResult, DragUpdate } from 'react-beautiful-dnd';
 import { useToast } from '@/hooks/use-toast';
 import KanbanColumn from './kanban/KanbanColumn';
 import AddColumnDialog from './kanban/AddColumnDialog';
 import AddColumnButton from './kanban/AddColumnButton';
-import { KanbanColumn as KanbanColumnType, KanbanBoardProps, DEFAULT_COLUMNS } from './kanban/KanbanTypes';
+import { Order, KanbanColumn as KanbanColumnType, KanbanBoardProps, DEFAULT_COLUMNS } from './kanban/KanbanTypes';
 import { useOrderStatus } from '@/hooks/useOrderStatus';
-import { Employee, OrderWithItems, Order } from '@/types';
+import { Employee, OrderWithItems} from '@/types';
 
 interface KanbanBoardWithEmployeesProps extends KanbanBoardProps {
   employees?: Employee[];
@@ -189,10 +189,40 @@ const KanbanBoard = ({
     setNewColumnTitle('');
   }, []);
 
+  // Ref untuk container scrollable
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll horizontal hanya saat drag card
+  const handleDragUpdate = useCallback((update: DragUpdate) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    // Hanya aktif jika sedang drag card (ada destination)
+    if (!update.destination) return;
+    // Ambil posisi mouse
+    const x = window.event?.clientX;
+    if (typeof x === 'number') {
+      const { left, right } = container.getBoundingClientRect();
+      const scrollThreshold = 80; // px dari tepi
+      const scrollAmount = 30; // px per tick
+      if (x - left < scrollThreshold) {
+        container.scrollLeft -= scrollAmount;
+      } else if (right - x < scrollThreshold) {
+        container.scrollLeft += scrollAmount;
+      }
+    }
+  }, []);
+
   return (
     <div className="w-full">
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex gap-2 overflow-x-auto overflow-y-hidden pb-4 min-h-[600px]">
+      <DragDropContext
+        onDragEnd={handleDragEnd}
+        onDragUpdate={handleDragUpdate}
+      >
+        <div
+          ref={scrollContainerRef}
+          className="kanban-scroll-container flex gap-2 overflow-x-auto overflow-y-hidden pb-2 min-h-[600px]"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           {columns.map((column) => {
             const columnOrders = getColumnOrders(column.status);
             return (
@@ -200,8 +230,14 @@ const KanbanBoard = ({
                 key={column.id}
                 column={column}
                 orders={columnOrders}
-                onOrderClick={onOrderClick ? (order) => onOrderClick(order as unknown as OrderWithItems) : undefined}
-                onEditOrder={onEditOrder ? (order) => onEditOrder(order as unknown as OrderWithItems) : undefined}
+                onOrderClick={onOrderClick ? (order) => {
+                  const original = orders.find(o => o.id === order.id);
+                  if (original) onOrderClick(original);
+                } : undefined}
+                onEditOrder={onEditOrder ? (order) => {
+                  const original = orders.find(o => o.id === order.id);
+                  if (original) onEditOrder(original);
+                } : undefined}
                 onDeleteOrder={handleDeleteOrder}
               />
             );
