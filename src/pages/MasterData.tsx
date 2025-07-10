@@ -27,6 +27,8 @@ import { useGroups, useCreateGroup, useUpdateGroup, useDeleteGroup } from '@/hoo
 import { useUnits, useCreateUnit, useUpdateUnit, useDeleteUnit } from '@/hooks/useUnits';
 import { usePaymentTypes, useCreatePaymentType, useUpdatePaymentType, useDeletePaymentType } from '@/hooks/usePaymentTypes';
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, Product } from '@/hooks/useProducts';
+import { useCustomers } from '@/hooks/useCustomers';
+import { useSuppliers } from '@/hooks/useSuppliers';
 import { ProductForm } from '@/components/ProductForm';
 import { useToast } from '@/hooks/use-toast';
 import { useMasterDataState } from '@/hooks/useMasterDataState';
@@ -76,6 +78,12 @@ const MasterData = () => {
   const createPaymentTypeMutation = useCreatePaymentType();
   const updatePaymentTypeMutation = useUpdatePaymentType();
   const deletePaymentTypeMutation = useDeletePaymentType();
+  
+  // Customers hooks
+  const { customers = [], isLoading: customersLoading, createCustomer, updateCustomer, deleteCustomer } = useCustomers();
+  
+  // Suppliers hooks
+  const { suppliers = [], isLoading: suppliersLoading, createSupplier, updateSupplier, deleteSupplier } = useSuppliers();
   
   // Master data state
   const {
@@ -299,6 +307,72 @@ const MasterData = () => {
           ]
         };
         break;
+      case 'customers':
+        config = {
+          isOpen: true,
+          type: 'customers',
+          title: 'Customer Data Management',
+          columns: [
+            { key: 'kode', label: 'Code' },
+            { key: 'nama', label: 'Name' },
+            { key: 'email', label: 'Email' },
+            { key: 'whatsapp', label: 'WhatsApp' },
+            { key: 'level', label: 'Level' }
+          ],
+          data: customers.map(customer => ({
+            id: customer.id,
+            kode: customer.kode,
+            nama: customer.nama,
+            email: customer.email || '',
+            whatsapp: customer.whatsapp || '',
+            level: customer.level || 'Regular',
+            address: customer.address || ''
+          })),
+          formFields: [
+            { key: 'nama', label: 'Name', type: 'text' as const, required: true },
+            { key: 'email', label: 'Email', type: 'text' as const },
+            { key: 'whatsapp', label: 'WhatsApp', type: 'text' as const },
+            { key: 'address', label: 'Address', type: 'text' as const },
+            { key: 'level', label: 'Level', type: 'select' as const, options: [
+              { value: 'Regular', label: 'Regular' },
+              { value: 'Premium', label: 'Premium' },
+              { value: 'VIP', label: 'VIP' }
+            ]}
+          ]
+        };
+        break;
+      case 'suppliers':
+        config = {
+          isOpen: true,
+          type: 'suppliers',
+          title: 'Supplier Data Management',
+          columns: [
+            { key: 'name', label: 'Name' },
+            { key: 'contact_person', label: 'Contact Person' },
+            { key: 'phone', label: 'Phone' },
+            { key: 'email', label: 'Email' },
+            { key: 'address', label: 'Address' }
+          ],
+          data: suppliers.map(supplier => ({
+            id: supplier.id,
+            kode: supplier.id, // Use id as kode since suppliers don't have kode
+            name: supplier.name,
+            contact_person: supplier.contact_person || '',
+            phone: supplier.phone || '',
+            email: supplier.email || '',
+            address: supplier.address || '',
+            payment_terms: supplier.payment_terms || ''
+          })),
+          formFields: [
+            { key: 'name', label: 'Name', type: 'text' as const, required: true },
+            { key: 'contact_person', label: 'Contact Person', type: 'text' as const },
+            { key: 'phone', label: 'Phone', type: 'text' as const },
+            { key: 'email', label: 'Email', type: 'text' as const },
+            { key: 'address', label: 'Address', type: 'text' as const },
+            { key: 'payment_terms', label: 'Payment Terms', type: 'text' as const }
+          ]
+        };
+        break;
       default:
         return;
     }
@@ -360,6 +434,28 @@ const MasterData = () => {
         await supabase.from('positions').insert([{ name: item.name }]);
         fetchPositions();
         toast({ title: 'Success', description: 'Posisi berhasil ditambahkan' });
+        return;
+      } else if (overlayConfig.type === 'customers') {
+        // Generate customer code automatically
+        const { data: customerCode } = await supabase.rpc('generate_customer_code');
+        await createCustomer({
+          kode: customerCode,
+          nama: item.nama as string,
+          email: item.email as string || null,
+          whatsapp: item.whatsapp as string || null,
+          address: item.address as string || null,
+          level: item.level as 'Regular' | 'Premium' | 'VIP' || 'Regular'
+        });
+        return;
+      } else if (overlayConfig.type === 'suppliers') {
+        await createSupplier({
+          name: item.name as string,
+          contact_person: item.contact_person as string || null,
+          phone: item.phone as string || null,
+          email: item.email as string || null,
+          address: item.address as string || null,
+          payment_terms: item.payment_terms as string || null
+        });
         return;
       }
     } catch (error) {
@@ -427,6 +523,27 @@ const MasterData = () => {
         fetchPositions();
         toast({ title: 'Success', description: 'Posisi berhasil diupdate' });
         return;
+      } else if (overlayConfig.type === 'customers') {
+        await updateCustomer({
+          id: item.id!,
+          nama: item.nama as string,
+          email: item.email as string || null,
+          whatsapp: item.whatsapp as string || null,
+          address: item.address as string || null,
+          level: item.level as 'Regular' | 'Premium' | 'VIP' || 'Regular'
+        });
+        return;
+      } else if (overlayConfig.type === 'suppliers') {
+        await updateSupplier({
+          id: item.id!,
+          name: item.name as string,
+          contact_person: item.contact_person as string || null,
+          phone: item.phone as string || null,
+          email: item.email as string || null,
+          address: item.address as string || null,
+          payment_terms: item.payment_terms as string || null
+        });
+        return;
       }
     } catch (error) {
       console.error('Error in handleEdit:', error);
@@ -475,6 +592,12 @@ const MasterData = () => {
         fetchPositions();
         toast({ title: 'Success', description: 'Posisi berhasil dihapus' });
         return;
+      } else if (overlayConfig.type === 'customers') {
+        await deleteCustomer(id);
+        return;
+      } else if (overlayConfig.type === 'suppliers') {
+        await deleteSupplier(id);
+        return;
       }
     } catch (error) {
       console.error('Error in handleDelete:', error);
@@ -489,6 +612,15 @@ const MasterData = () => {
   const handleAction = (action: string, item?: any) => {
     // Handle other actions like view, edit, delete for main tables
     console.log('Action:', action, 'Item:', item);
+    
+    if (action === 'add') {
+      // Determine which type of data to add based on current tab
+      if (activeTab === 'customers') {
+        handleOverlayOpen('customers');
+      } else if (activeTab === 'suppliers') {
+        handleOverlayOpen('suppliers');
+      }
+    }
   };
 
   return (
