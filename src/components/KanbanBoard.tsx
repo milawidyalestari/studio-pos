@@ -6,7 +6,7 @@ import AddColumnDialog from './kanban/AddColumnDialog';
 import AddColumnButton from './kanban/AddColumnButton';
 import { Order, KanbanColumn as KanbanColumnType, KanbanBoardProps, DEFAULT_COLUMNS } from './kanban/KanbanTypes';
 import { useOrderStatus } from '@/hooks/useOrderStatus';
-import { Employee, OrderWithItems} from '@/types';
+import { Employee, OrderWithItems } from '@/types';
 
 interface KanbanBoardWithEmployeesProps extends KanbanBoardProps {
   employees?: Employee[];
@@ -61,12 +61,10 @@ const KanbanBoard = ({
   const { statuses } = useOrderStatus();
   const hasInitialized = useRef(false);
 
-  // Memoize employee lookup
   const employeeMap = useMemo(() => {
     return new Map(employees.map(emp => [emp.id, emp]));
   }, [employees]);
 
-  // Initialize order sequences only once on mount
   useEffect(() => {
     if (!hasInitialized.current && orders.length > 0) {
       const sequences: {[columnId: string]: string[]} = {};
@@ -86,11 +84,9 @@ const KanbanBoard = ({
     }
   }, [orders, isUpdating]);
 
-  // Ambil dan urutkan order per kolom
   const getColumnOrders = useCallback((status: string): Order[] => {
     const sequence = columnOrderSequence[status] || [];
     const statusOrders = optimisticOrders.filter(order => getOrderStatus(order) === status);
-    // Urutkan sesuai sequence, fallback ke created_at jika belum pernah di-drag
     return statusOrders.sort((a, b) => {
       const aIndex = sequence.indexOf(a.id);
       const bIndex = sequence.indexOf(b.id);
@@ -101,7 +97,6 @@ const KanbanBoard = ({
     }).map(order => mapOrderWithItemsToOrder(order, employeeMap));
   }, [optimisticOrders, columnOrderSequence, employeeMap]);
 
-  // Drag and drop logic
   const handleDragEnd = useCallback(async (result: DropResult) => {
     const { destination, source, draggableId } = result;
     if (!destination) return;
@@ -112,13 +107,11 @@ const KanbanBoard = ({
     const newSequences = { ...columnOrderSequence };
 
     if (sourceStatus === newStatus) {
-      // Reorder dalam kolom yang sama
       const columnSequence = [...(newSequences[sourceStatus] || [])];
       const [movedId] = columnSequence.splice(source.index, 1);
       columnSequence.splice(destination.index, 0, movedId);
       newSequences[sourceStatus] = columnSequence;
     } else {
-      // Pindah antar kolom
       const sourceSequence = [...(newSequences[sourceStatus] || [])];
       const destSequence = [...(newSequences[newStatus] || [])];
       const [movedId] = sourceSequence.splice(source.index, 1);
@@ -127,7 +120,6 @@ const KanbanBoard = ({
       newSequences[newStatus] = destSequence;
     }
 
-    // Optimistic update
     setColumnOrderSequence(newSequences);
     setOptimisticOrders(prev =>
       prev.map(order => {
@@ -144,7 +136,6 @@ const KanbanBoard = ({
     setIsUpdating(draggableId);
     toast({ title: 'Order Moved', description: 'Order berhasil dipindahkan', variant: 'default' });
 
-    // Update status ke server jika pindah kolom
     try {
       if (sourceStatus !== newStatus && onUpdateOrderStatus) {
         const statusObj = statuses.find(s => s.name === newStatus);
@@ -155,7 +146,6 @@ const KanbanBoard = ({
       setIsUpdating(null);
       onDragEnd(result);
     } catch (error) {
-      // Rollback
       setColumnOrderSequence(columnOrderSequence);
       setOptimisticOrders(orders);
       setIsUpdating(null);
@@ -169,7 +159,6 @@ const KanbanBoard = ({
       id: newColumnTitle.toLowerCase().replace(/\s+/g, '-'),
       title: newColumnTitle,
       status: newColumnTitle.toLowerCase().replace(/\s+/g, '-'),
-      color: 'bg-gray-50 border-gray-200',
     };
     setColumns(prev => [...prev, newColumn]);
     setNewColumnTitle('');
@@ -177,33 +166,28 @@ const KanbanBoard = ({
     toast({ title: 'Status added', description: `New status "${newColumnTitle}" has been added` });
   }, [newColumnTitle, toast]);
 
-  const handleDeleteOrder = useCallback((orderId: string) => {
+  const handleDeleteOrder = (orderId: string) => {
     if (onDeleteOrder) {
       onDeleteOrder(orderId);
       toast({ title: 'Order deleted', description: 'Order has been permanently deleted from the system' });
     }
-  }, [onDeleteOrder, toast]);
+  };
 
-  const handleCloseAddColumn = useCallback(() => {
+  const handleCloseAddColumn = () => {
     setShowAddColumn(false);
     setNewColumnTitle('');
-  }, []);
+  };
 
-  // Ref untuk container scrollable
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  // Auto-scroll horizontal hanya saat drag card
   const handleDragUpdate = useCallback((update: DragUpdate) => {
     const container = scrollContainerRef.current;
     if (!container) return;
-    // Hanya aktif jika sedang drag card (ada destination)
     if (!update.destination) return;
-    // Ambil posisi mouse
     const x = window.event?.clientX;
     if (typeof x === 'number') {
       const { left, right } = container.getBoundingClientRect();
-      const scrollThreshold = 80; // px dari tepi
-      const scrollAmount = 30; // px per tick
+      const scrollThreshold = 80;
+      const scrollAmount = 30;
       if (x - left < scrollThreshold) {
         container.scrollLeft -= scrollAmount;
       } else if (right - x < scrollThreshold) {
@@ -214,17 +198,33 @@ const KanbanBoard = ({
 
   return (
     <div className="w-full">
-      <DragDropContext
-        onDragEnd={handleDragEnd}
-        onDragUpdate={handleDragUpdate}
-      >
+      <DragDropContext onDragEnd={handleDragEnd} onDragUpdate={handleDragUpdate}>
         <div
           ref={scrollContainerRef}
           className="kanban-scroll-container flex gap-2 overflow-x-auto overflow-y-hidden pb-2 min-h-[600px]"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {columns.map((column) => {
-            const columnOrders = getColumnOrders(column.status);
+            const columnOrders = getColumnOrders(column.status).map(order => {
+              let designer = undefined;
+              if (order.desainer_id && Array.isArray(employees)) {
+                const emp = employees.find(e => e.id === order.desainer_id);
+                if (emp) {
+                  designer = { name: emp.nama };
+                }
+              }
+              return {
+                ...order,
+                customer: order.customer_name || order.customer || 'Unknown',
+                estimatedDate: order.estimasi || order.estimatedDate || '',
+                items: order.items || (order.order_items
+                  ? order.order_items.map(item => item.item_name || item.name || item.title || 'Unknown Item')
+                  : []),
+                created_at: order.created_at,
+                designer
+              };
+            });
+
             return (
               <KanbanColumn
                 key={column.id}
