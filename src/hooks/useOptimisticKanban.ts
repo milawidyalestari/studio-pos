@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -25,7 +26,7 @@ export const useOptimisticKanban = () => {
       clearTimeout(existingMove.timeoutId);
     }
 
-    // Create timeout for rollback
+    // Create timeout for rollback (reduced from 7s to 3s)
     const timeoutId = setTimeout(() => {
       setOptimisticMoves(prev => {
         const newMap = new Map(prev);
@@ -38,7 +39,7 @@ export const useOptimisticKanban = () => {
         description: 'Order status update took too long, reverting to original position',
         variant: 'destructive',
       });
-    }, 7000);
+    }, 3000);
 
     // Add the optimistic move
     setOptimisticMoves(prev => {
@@ -58,7 +59,7 @@ export const useOptimisticKanban = () => {
     // Handle the update result
     updatePromise
       .then(() => {
-        // Success - remove from optimistic moves (card stays in new position)
+        // Success - remove from optimistic moves immediately (no delay)
         setOptimisticMoves(prev => {
           const newMap = new Map(prev);
           const move = newMap.get(orderId);
