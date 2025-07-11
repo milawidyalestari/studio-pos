@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Users } from 'lucide-react';
 import { TableHeader } from './TableHeader';
@@ -8,6 +8,7 @@ import { ActionButtons } from './ActionButtons';
 import { getLevelBadge } from '@/utils/masterDataHelpers';
 import { useCustomers } from '@/hooks/useCustomers';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import CustomerModal from '@/components/CustomerModal';
 
 interface CustomersTabProps {
   searchTerm: string;
@@ -21,6 +22,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
   onAction
 }) => {
   const { customers, isLoading } = useCustomers();
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
 
   // Filter customers based on search term
   const filteredCustomers = customers?.filter(customer =>
@@ -29,14 +31,25 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
     customer.whatsapp?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.email?.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
+
+  const handleAddCustomer = () => {
+    setIsCustomerModalOpen(true);
+  };
+
+  const handleCustomerCreated = () => {
+    setIsCustomerModalOpen(false);
+    // Customer list will automatically refresh due to React Query cache invalidation
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <TableHeader 
-          title="Data Pelanggan" 
-          icon={Users}
-          onAdd={() => onAction('add')}
-        />
+    <>
+      <Card>
+        <CardHeader>
+          <TableHeader 
+            title="Data Pelanggan" 
+            icon={Users}
+            onAdd={handleAddCustomer}
+          />
         <SearchAndFilter 
           searchTerm={searchTerm}
           onSearchChange={onSearchChange}
@@ -87,5 +100,12 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
         )}
       </CardContent>
     </Card>
+    
+    <CustomerModal 
+      open={isCustomerModalOpen}
+      onClose={() => setIsCustomerModalOpen(false)}
+      onCustomerCreated={handleCustomerCreated}
+    />
+  </>
   );
 };
