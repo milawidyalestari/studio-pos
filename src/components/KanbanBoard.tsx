@@ -189,7 +189,7 @@ const KanbanBoard = ({
 
   const handleDragUpdate = useCallback((update: DragUpdate) => {
     const container = scrollContainerRef.current;
-    if (!container || !update.destination) return;
+    if (!container) return;
 
     // Clear any existing scroll interval
     if (scrollIntervalRef.current) {
@@ -197,31 +197,31 @@ const KanbanBoard = ({
       scrollIntervalRef.current = null;
     }
 
-    // Get mouse position from the drag event
-    const mouseX = update.source.index >= 0 ? window.event?.clientX : null;
+    // Get mouse position directly from event
+    const mouseX = (window as any).event?.clientX || (document as any).mouseX;
     if (typeof mouseX !== 'number') return;
 
-    const { left, right } = container.getBoundingClientRect();
-    const scrollThreshold = 100; // Increased threshold for better UX
-    const scrollAmount = 15; // Reduced for smoother scrolling
+    const containerRect = container.getBoundingClientRect();
+    const scrollThreshold = 150; // Larger threshold for easier triggering
+    const scrollAmount = 20; // Faster scroll for better UX
 
-    // Check if we need to scroll
-    const shouldScrollLeft = mouseX - left < scrollThreshold;
-    const shouldScrollRight = right - mouseX < scrollThreshold;
+    // Check if we need to scroll based on mouse position
+    const shouldScrollLeft = mouseX - containerRect.left < scrollThreshold;
+    const shouldScrollRight = containerRect.right - mouseX < scrollThreshold;
 
     if (shouldScrollLeft || shouldScrollRight) {
       scrollIntervalRef.current = setInterval(() => {
         if (!container) return;
         
         if (shouldScrollLeft && container.scrollLeft > 0) {
-          container.scrollLeft -= scrollAmount;
+          container.scrollLeft = Math.max(0, container.scrollLeft - scrollAmount);
         } else if (shouldScrollRight) {
           const maxScroll = container.scrollWidth - container.clientWidth;
           if (container.scrollLeft < maxScroll) {
-            container.scrollLeft += scrollAmount;
+            container.scrollLeft = Math.min(maxScroll, container.scrollLeft + scrollAmount);
           }
         }
-      }, 16); // ~60fps for smooth scrolling
+      }, 50); // Slower interval for smoother experience
     }
   }, []);
 
@@ -254,7 +254,8 @@ const KanbanBoard = ({
           className="kanban-scroll-container flex gap-2 overflow-x-auto overflow-y-hidden pb-2 min-h-[600px]"
           style={{ 
             WebkitOverflowScrolling: 'touch',
-            scrollBehavior: 'auto' // Ensure smooth scrolling is enabled
+            scrollBehavior: 'smooth',
+            overflowX: 'auto' // Explicitly enable horizontal scroll
           }}
         >
           {columns.map((column) => {
