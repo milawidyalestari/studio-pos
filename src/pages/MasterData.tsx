@@ -30,7 +30,7 @@ import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, Prod
 import { useCustomers } from '@/hooks/useCustomers';
 import { useSuppliers } from '@/hooks/useSuppliers';
 import { ProductForm } from '@/components/ProductForm';
-import { CustomerModal } from '@/components/CustomerModal';
+import CustomerModal from '@/components/CustomerModal';
 import { useToast } from '@/hooks/use-toast';
 import { useMasterDataState } from '@/hooks/useMasterDataState';
 import { supabase } from '@/integrations/supabase/client';
