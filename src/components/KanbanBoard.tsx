@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { DragDropContext, DropResult, DragUpdate } from 'react-beautiful-dnd';
 import { useToast } from '@/hooks/use-toast';
@@ -60,6 +61,8 @@ const KanbanBoard = ({
   const { toast } = useToast();
   const { statuses } = useOrderStatus();
   const hasInitialized = useRef(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const employeeMap = useMemo(() => {
     return new Map(employees.map(emp => [emp.id, emp]));
@@ -98,6 +101,12 @@ const KanbanBoard = ({
   }, [optimisticOrders, columnOrderSequence, employeeMap]);
 
   const handleDragEnd = useCallback(async (result: DropResult) => {
+    // Clear any ongoing scroll interval
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      scrollIntervalRef.current = null;
+    }
+
     const { destination, source, draggableId } = result;
     if (!destination) return;
     if (destination.droppableId === source.droppableId && destination.index === source.index) return;
@@ -178,31 +187,75 @@ const KanbanBoard = ({
     setNewColumnTitle('');
   };
 
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const handleDragUpdate = useCallback((update: DragUpdate) => {
     const container = scrollContainerRef.current;
-    if (!container) return;
-    if (!update.destination) return;
-    const x = window.event?.clientX;
-    if (typeof x === 'number') {
-      const { left, right } = container.getBoundingClientRect();
-      const scrollThreshold = 80;
-      const scrollAmount = 30;
-      if (x - left < scrollThreshold) {
-        container.scrollLeft -= scrollAmount;
-      } else if (right - x < scrollThreshold) {
-        container.scrollLeft += scrollAmount;
-      }
+    if (!container || !update.destination) return;
+
+    // Clear any existing scroll interval
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      scrollIntervalRef.current = null;
     }
+
+    // Get mouse position from the drag event
+    const mouseX = update.source.index >= 0 ? window.event?.clientX : null;
+    if (typeof mouseX !== 'number') return;
+
+    const { left, right } = container.getBoundingClientRect();
+    const scrollThreshold = 100; // Increased threshold for better UX
+    const scrollAmount = 15; // Reduced for smoother scrolling
+
+    // Check if we need to scroll
+    const shouldScrollLeft = mouseX - left < scrollThreshold;
+    const shouldScrollRight = right - mouseX < scrollThreshold;
+
+    if (shouldScrollLeft || shouldScrollRight) {
+      scrollIntervalRef.current = setInterval(() => {
+        if (!container) return;
+        
+        if (shouldScrollLeft && container.scrollLeft > 0) {
+          container.scrollLeft -= scrollAmount;
+        } else if (shouldScrollRight) {
+          const maxScroll = container.scrollWidth - container.clientWidth;
+          if (container.scrollLeft < maxScroll) {
+            container.scrollLeft += scrollAmount;
+          }
+        }
+      }, 16); // ~60fps for smooth scrolling
+    }
+  }, []);
+
+  const handleDragStart = useCallback(() => {
+    // Clear any existing scroll interval when drag starts
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      scrollIntervalRef.current = null;
+    }
+  }, []);
+
+  // Cleanup scroll interval on component unmount
+  useEffect(() => {
+    return () => {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+      }
+    };
   }, []);
 
   return (
     <div className="w-full">
-      <DragDropContext onDragEnd={handleDragEnd} onDragUpdate={handleDragUpdate}>
+      <DragDropContext 
+        onDragEnd={handleDragEnd} 
+        onDragUpdate={handleDragUpdate}
+        onDragStart={handleDragStart}
+      >
         <div
           ref={scrollContainerRef}
           className="kanban-scroll-container flex gap-2 overflow-x-auto overflow-y-hidden pb-2 min-h-[600px]"
-          style={{ WebkitOverflowScrolling: 'touch' }}
+          style={{ 
+            WebkitOverflowScrolling: 'touch',
+            scrollBehavior: 'auto' // Ensure smooth scrolling is enabled
+          }}
         >
           {columns.map((column) => {
             const columnOrders = getColumnOrders(column.status).map(order => {
