@@ -30,6 +30,7 @@ import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, Prod
 import { useCustomers } from '@/hooks/useCustomers';
 import { useSuppliers } from '@/hooks/useSuppliers';
 import { ProductForm } from '@/components/ProductForm';
+import { CustomerModal } from '@/components/CustomerModal';
 import { useToast } from '@/hooks/use-toast';
 import { useMasterDataState } from '@/hooks/useMasterDataState';
 import { supabase } from '@/integrations/supabase/client';
@@ -45,6 +46,7 @@ const MasterData = () => {
   const [activeTab, setActiveTab] = useState('products');
   const [searchTerm, setSearchTerm] = useState('');
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deleteProductId, setDeleteProductId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -616,11 +618,19 @@ const MasterData = () => {
     if (action === 'add') {
       // Determine which type of data to add based on current tab
       if (activeTab === 'customers') {
-        handleOverlayOpen('customers');
+        setIsCustomerModalOpen(true);
       } else if (activeTab === 'suppliers') {
         handleOverlayOpen('suppliers');
       }
     }
+  };
+
+  const handleCustomerCreated = (customer: any) => {
+    console.log('Customer created:', customer);
+    toast({
+      title: "Success",
+      description: "Customer created successfully",
+    });
   };
 
   return (
@@ -707,6 +717,13 @@ const MasterData = () => {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Customer Modal */}
+      <CustomerModal
+        open={isCustomerModalOpen}
+        onClose={() => setIsCustomerModalOpen(false)}
+        onCustomerCreated={handleCustomerCreated}
+      />
 
       {/* Delete Product Confirmation */}
       <AlertDialog open={!!deleteProductId} onOpenChange={() => setDeleteProductId(null)}>
