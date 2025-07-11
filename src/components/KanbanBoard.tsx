@@ -197,13 +197,28 @@ const KanbanBoard = ({
       scrollIntervalRef.current = null;
     }
 
-    // Get mouse position directly from event
-    const mouseX = (window as any).event?.clientX || (document as any).mouseX;
+    // Get mouse position from the drag update or mouse event
+    let mouseX: number | undefined;
+    
+    // Try to get mouse position from various sources
+    if ((window as any).event?.clientX) {
+      mouseX = (window as any).event.clientX;
+    } else if ((document as any).mouseX) {
+      mouseX = (document as any).mouseX;
+    } else {
+      // Fallback: use mouse event listener to track position
+      const handleMouseMove = (e: MouseEvent) => {
+        mouseX = e.clientX;
+      };
+      document.addEventListener('mousemove', handleMouseMove);
+      setTimeout(() => document.removeEventListener('mousemove', handleMouseMove), 100);
+    }
+    
     if (typeof mouseX !== 'number') return;
 
     const containerRect = container.getBoundingClientRect();
-    const scrollThreshold = 150; // Larger threshold for easier triggering
-    const scrollAmount = 20; // Faster scroll for better UX
+    const scrollThreshold = 100; // Distance from edge to trigger scroll
+    const scrollAmount = 15; // Scroll speed
 
     // Check if we need to scroll based on mouse position
     const shouldScrollLeft = mouseX - containerRect.left < scrollThreshold;
@@ -211,17 +226,18 @@ const KanbanBoard = ({
 
     if (shouldScrollLeft || shouldScrollRight) {
       scrollIntervalRef.current = setInterval(() => {
-        if (!container) return;
+        const currentContainer = scrollContainerRef.current;
+        if (!currentContainer) return;
         
-        if (shouldScrollLeft && container.scrollLeft > 0) {
-          container.scrollLeft = Math.max(0, container.scrollLeft - scrollAmount);
+        if (shouldScrollLeft && currentContainer.scrollLeft > 0) {
+          currentContainer.scrollLeft = Math.max(0, currentContainer.scrollLeft - scrollAmount);
         } else if (shouldScrollRight) {
-          const maxScroll = container.scrollWidth - container.clientWidth;
-          if (container.scrollLeft < maxScroll) {
-            container.scrollLeft = Math.min(maxScroll, container.scrollLeft + scrollAmount);
+          const maxScroll = currentContainer.scrollWidth - currentContainer.clientWidth;
+          if (currentContainer.scrollLeft < maxScroll) {
+            currentContainer.scrollLeft = Math.min(maxScroll, currentContainer.scrollLeft + scrollAmount);
           }
         }
-      }, 50); // Slower interval for smoother experience
+      }, 30); // Faster interval for more responsive scrolling
     }
   }, []);
 
