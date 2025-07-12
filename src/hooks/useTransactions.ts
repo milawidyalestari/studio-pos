@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 export interface Transaction {
   id: string;
   order_id?: string;
+  order_number?: string; // Add order_number from joined orders table
   customer_name?: string;
   transaction_date: string;
   amount: number;
@@ -12,6 +13,7 @@ export interface Transaction {
   category?: string;
   notes?: string;
   created_at: string;
+  status?: string; // Add status for payment info (lunas/belum lunas)
 }
 
 export const useTransactions = () => {
@@ -22,7 +24,12 @@ export const useTransactions = () => {
       
       const { data, error } = await supabase
         .from('transactions')
-        .select('*')
+        .select(`
+          *,
+          orders!transactions_order_id_fkey (
+            order_number
+          )
+        `)
         .order('transaction_date', { ascending: false });
 
       if (error) {
@@ -33,7 +40,13 @@ export const useTransactions = () => {
       console.log('Transactions fetched successfully:', data);
       console.log('Total transactions found:', data?.length || 0);
       
-      return data as Transaction[];
+      // Transform the data to flatten the order_number
+      const transformedData = data?.map(transaction => ({
+        ...transaction,
+        order_number: transaction.orders?.order_number || null
+      })) || [];
+      
+      return transformedData as Transaction[];
     },
     staleTime: 30000, // 30 seconds
     refetchOnMount: true,

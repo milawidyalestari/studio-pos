@@ -62,17 +62,6 @@ const PriceSummarySection: React.FC<PriceSummarySectionProps> = ({ formData, tot
           <Input value={formatCurrency(totalPrice)} readOnly className="mt-1 bg-gray-100 h-8" />
         </div>
       </div>
-
-      <div className="mb-4">
-        <Label htmlFor="notes" className="text-sm font-medium">Notes</Label>
-        <Textarea
-          id="notes"
-          value={formData.notes}
-          onChange={(e) => onFormDataChange('notes', e.target.value as string)}
-          placeholder="Order notes..."
-          className="mt-1 resize-none"
-        />
-      </div>
     </div>
   );
 };
