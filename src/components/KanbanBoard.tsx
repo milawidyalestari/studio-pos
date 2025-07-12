@@ -303,14 +303,15 @@ const KanbanBoard = ({
 
     if (shouldScrollLeft || shouldScrollRight) {
       scrollIntervalRef.current = setInterval(() => {
-        if (!container) return;
+        const currentContainer = scrollContainerRef.current;
+        if (!currentContainer) return;
         
-        if (shouldScrollLeft && container.scrollLeft > 0) {
-          container.scrollLeft = Math.max(0, container.scrollLeft - scrollAmount);
+        if (shouldScrollLeft && currentContainer.scrollLeft > 0) {
+          currentContainer.scrollLeft = Math.max(0, currentContainer.scrollLeft - scrollAmount);
         } else if (shouldScrollRight) {
-          const maxScroll = container.scrollWidth - container.clientWidth;
-          if (container.scrollLeft < maxScroll) {
-            container.scrollLeft = Math.min(maxScroll, container.scrollLeft + scrollAmount);
+          const maxScroll = currentContainer.scrollWidth - currentContainer.clientWidth;
+          if (currentContainer.scrollLeft < maxScroll) {
+            currentContainer.scrollLeft = Math.min(maxScroll, currentContainer.scrollLeft + scrollAmount);
           }
         }
       }, 100); // Slower interval for smoother experience
