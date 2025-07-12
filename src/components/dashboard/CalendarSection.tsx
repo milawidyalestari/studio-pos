@@ -3,6 +3,8 @@ import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
+import { useOrders } from '@/hooks/useOrders';
+import { isSameDay, parseISO } from 'date-fns';
 
 interface CalendarSectionProps {
   selectedDate: Date | undefined;
@@ -12,6 +14,33 @@ interface CalendarSectionProps {
 }
 
 const CalendarSection: React.FC<CalendarSectionProps> = ({ selectedDate, onDateSelect, collapsed, onToggleCollapse }) => {
+  const { orders } = useOrders();
+
+  // Ambil semua tanggal deadline dari order (field estimasi)
+  const deadlineDates = (orders || [])
+    .map(order => order.estimasi)
+    .filter(Boolean)
+    .map(dateStr => {
+      // Pastikan format Date
+      try {
+        return parseISO(dateStr);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+
+  // Modifier: hari yang ada deadline
+  const modifiers = {
+    hasDeadline: (date: Date) => deadlineDates.some(deadline => isSameDay(deadline as Date, date)),
+  };
+
+  // Modifier class: biru jika ada deadline, abu-abu jika tidak
+  const modifiersClassNames = {
+    hasDeadline: 'text-blue-600 font-bold',
+    day: 'text-gray-400', // default abu-abu
+  };
+
   return (
     <>
       <CardHeader className="pb-3 px-4 cursor-pointer select-none" onClick={onToggleCollapse}>
@@ -27,6 +56,8 @@ const CalendarSection: React.FC<CalendarSectionProps> = ({ selectedDate, onDateS
             selected={selectedDate}
             onSelect={onDateSelect}
             className="w-full mx-auto"
+            modifiers={modifiers}
+            modifiersClassNames={modifiersClassNames}
           />
         </CardContent>
       )}

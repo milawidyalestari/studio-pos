@@ -8,7 +8,7 @@ import CalendarSection from '@/components/dashboard/CalendarSection';
 import InboxSection from '@/components/dashboard/InboxSection';
 
 const Dashboard = () => {
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedDeadline, setSelectedDeadline] = useState<string>('all');
   const [showInbox, setShowInbox] = useState(false);
   const [calendarCollapsed, setCalendarCollapsed] = useState(false);

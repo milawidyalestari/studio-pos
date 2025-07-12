@@ -7,6 +7,7 @@ interface ProductOverlayCardsProps {
   sampleCategories: any[];
   sampleUnits: any[];
   samplePaymentTypes: any[];
+  samplePositions?: any[];
   categoriesLoading: boolean;
   onOverlayOpen: (type: string) => void;
 }
@@ -16,6 +17,7 @@ export const ProductOverlayCards: React.FC<ProductOverlayCardsProps> = ({
   sampleCategories,
   sampleUnits,
   samplePaymentTypes,
+  samplePositions = [],
   categoriesLoading,
   onOverlayOpen
 }) => {
@@ -84,7 +86,7 @@ export const ProductOverlayCards: React.FC<ProductOverlayCardsProps> = ({
             <div>
               <h3 className="font-semibold">Data Posisi</h3>
               <p className="text-sm text-gray-600">
-                -
+                {categoriesLoading ? 'Loading...' : `${samplePositions.length} positions`}
               </p>
             </div>
           </div>

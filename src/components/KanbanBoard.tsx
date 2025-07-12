@@ -1,13 +1,12 @@
-
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { DragDropContext, DropResult, DragUpdate } from 'react-beautiful-dnd';
 import { useToast } from '@/hooks/use-toast';
 import KanbanColumn from './kanban/KanbanColumn';
 import AddColumnDialog from './kanban/AddColumnDialog';
 import AddColumnButton from './kanban/AddColumnButton';
-import { Order, KanbanColumn as KanbanColumnType, KanbanBoardProps, DEFAULT_COLUMNS } from './kanban/KanbanTypes';
+import { KanbanColumn as KanbanColumnType, KanbanBoardProps, DEFAULT_COLUMNS } from './kanban/KanbanTypes';
 import { useOrderStatus } from '@/hooks/useOrderStatus';
-import { Employee, OrderWithItems } from '@/types';
+import { Employee, OrderWithItems, Order } from '@/types';
 
 interface KanbanBoardWithEmployeesProps extends KanbanBoardProps {
   employees?: Employee[];
@@ -63,6 +62,7 @@ const KanbanBoard = ({
   const hasInitialized = useRef(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isDraggingRef = useRef(false);
 
   const employeeMap = useMemo(() => {
     return new Map(employees.map(emp => [emp.id, emp]));
@@ -187,6 +187,95 @@ const KanbanBoard = ({
     setNewColumnTitle('');
   };
 
+  // --- SMOOTH AUTO SCROLL LOGIC DENGAN AKSELERASI ---
+  const scrollDirectionRef = useRef<'left' | 'right' | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const SCROLL_THRESHOLD = 10; // px dari kiri/kanan layar
+  const SCROLL_SPEED_INITIAL = 30; // px per frame (awal)
+  const SCROLL_SPEED_ACCEL = 10; // px per frame (tambah per frame)
+  const SCROLL_SPEED_MAX = 150; // px per frame (maksimal)
+  const currentScrollSpeedRef = useRef<number>(SCROLL_SPEED_INITIAL);
+
+  // Fungsi animasi scroll dengan akselerasi
+  const smoothScroll = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container || !scrollDirectionRef.current) return;
+    // Scroll sesuai arah dan kecepatan saat ini
+    if (scrollDirectionRef.current === 'left') {
+      container.scrollLeft = Math.max(0, container.scrollLeft - currentScrollSpeedRef.current);
+    } else if (scrollDirectionRef.current === 'right') {
+      const maxScroll = container.scrollWidth - container.clientWidth;
+      container.scrollLeft = Math.min(maxScroll, container.scrollLeft + currentScrollSpeedRef.current);
+    }
+    // Tambah kecepatan (akselerasi) hingga batas maksimal
+    currentScrollSpeedRef.current = Math.min(
+      currentScrollSpeedRef.current + SCROLL_SPEED_ACCEL,
+      SCROLL_SPEED_MAX
+    );
+    animationFrameRef.current = requestAnimationFrame(smoothScroll);
+  }, []);
+
+  // Mousemove handler untuk deteksi arah scroll
+  const handleAutoScrollEdge = useCallback((e: MouseEvent) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const containerRect = container.getBoundingClientRect();
+    const mouseX = e.clientX;
+    // Deteksi arah
+    if (mouseX - containerRect.left < SCROLL_THRESHOLD) {
+      if (scrollDirectionRef.current !== 'left') {
+        scrollDirectionRef.current = 'left';
+        currentScrollSpeedRef.current = SCROLL_SPEED_INITIAL;
+        if (!animationFrameRef.current) {
+          animationFrameRef.current = requestAnimationFrame(smoothScroll);
+        }
+      }
+    } else if (containerRect.right - mouseX < SCROLL_THRESHOLD) {
+      if (scrollDirectionRef.current !== 'right') {
+        scrollDirectionRef.current = 'right';
+        currentScrollSpeedRef.current = SCROLL_SPEED_INITIAL;
+        if (!animationFrameRef.current) {
+          animationFrameRef.current = requestAnimationFrame(smoothScroll);
+        }
+      }
+    } else {
+      // Kursor keluar area trigger, stop scroll dan reset kecepatan
+      scrollDirectionRef.current = null;
+      currentScrollSpeedRef.current = SCROLL_SPEED_INITIAL;
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    }
+  }, [smoothScroll]);
+
+  // Pasang event listener mousemove saat drag
+  const handleDragStart = useCallback(() => {
+    isDraggingRef.current = true;
+    window.addEventListener('mousemove', handleAutoScrollEdge);
+    // Bersihkan animasi lama jika ada
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    scrollDirectionRef.current = null;
+    currentScrollSpeedRef.current = SCROLL_SPEED_INITIAL;
+  }, [handleAutoScrollEdge]);
+
+  // Lepas event listener dan animasi saat drag selesai
+  const handleDragEndWrapper = useCallback(async (result: DropResult) => {
+    isDraggingRef.current = false;
+    window.removeEventListener('mousemove', handleAutoScrollEdge);
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    scrollDirectionRef.current = null;
+    currentScrollSpeedRef.current = SCROLL_SPEED_INITIAL;
+    await handleDragEnd(result);
+  }, [handleDragEnd, handleAutoScrollEdge]);
+
+  // handleDragUpdate tetap untuk fallback (tidak dihapus)
   const handleDragUpdate = useCallback((update: DragUpdate) => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -197,28 +286,16 @@ const KanbanBoard = ({
       scrollIntervalRef.current = null;
     }
 
-    // Get mouse position from the drag update or mouse event
-    let mouseX: number | undefined;
-    
-    // Try to get mouse position from various sources
-    if ((window as any).event?.clientX) {
-      mouseX = (window as any).event.clientX;
-    } else if ((document as any).mouseX) {
-      mouseX = (document as any).mouseX;
-    } else {
-      // Fallback: use mouse event listener to track position
-      const handleMouseMove = (e: MouseEvent) => {
-        mouseX = e.clientX;
-      };
-      document.addEventListener('mousemove', handleMouseMove);
-      setTimeout(() => document.removeEventListener('mousemove', handleMouseMove), 100);
+    // Ambil posisi mouse dari window event, tanpa 'any'
+    let mouseX: number | undefined = undefined;
+    if (typeof window !== 'undefined' && window.event && typeof (window.event as MouseEvent).clientX === 'number') {
+      mouseX = (window.event as MouseEvent).clientX;
     }
-    
     if (typeof mouseX !== 'number') return;
 
     const containerRect = container.getBoundingClientRect();
-    const scrollThreshold = 100; // Distance from edge to trigger scroll
-    const scrollAmount = 15; // Scroll speed
+    const scrollThreshold = 150; // Larger threshold for easier triggering
+    const scrollAmount = 100; // Faster scroll for better UX
 
     // Check if we need to scroll based on mouse position
     const shouldScrollLeft = mouseX - containerRect.left < scrollThreshold;
@@ -237,31 +314,26 @@ const KanbanBoard = ({
             currentContainer.scrollLeft = Math.min(maxScroll, currentContainer.scrollLeft + scrollAmount);
           }
         }
-      }, 30); // Faster interval for more responsive scrolling
+      }, 100); // Slower interval for smoother experience
     }
   }, []);
 
-  const handleDragStart = useCallback(() => {
-    // Clear any existing scroll interval when drag starts
-    if (scrollIntervalRef.current) {
-      clearInterval(scrollIntervalRef.current);
-      scrollIntervalRef.current = null;
-    }
-  }, []);
-
-  // Cleanup scroll interval on component unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (scrollIntervalRef.current) {
-        clearInterval(scrollIntervalRef.current);
+      window.removeEventListener('mousemove', handleAutoScrollEdge);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
       }
+      scrollDirectionRef.current = null;
+      currentScrollSpeedRef.current = SCROLL_SPEED_INITIAL;
     };
-  }, []);
+  }, [handleAutoScrollEdge]);
 
   return (
     <div className="w-full">
       <DragDropContext 
-        onDragEnd={handleDragEnd} 
+        onDragEnd={handleDragEndWrapper} 
         onDragUpdate={handleDragUpdate}
         onDragStart={handleDragStart}
       >
@@ -271,7 +343,7 @@ const KanbanBoard = ({
           style={{ 
             WebkitOverflowScrolling: 'touch',
             scrollBehavior: 'smooth',
-            overflowX: 'auto' // Explicitly enable horizontal scroll
+            overflowX: 'auto'
           }}
         >
           {columns.map((column) => {
