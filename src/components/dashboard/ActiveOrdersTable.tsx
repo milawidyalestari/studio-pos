@@ -3,6 +3,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { isSameDay } from 'date-fns';
 import OrdersTableHeader from './OrdersTableHeader';
 import OrdersTableContent from './OrdersTableContent';
+import { useOrders } from '@/hooks/useOrders';
+import { formatCurrency } from '@/services/productPricing';
 
 interface Order {
   id: string;
@@ -24,85 +26,41 @@ const ActiveOrdersTable: React.FC<ActiveOrdersTableProps> = ({
   selectedDeadline,
   onDeadlineFilterChange
 }) => {
-  const activeOrders: Order[] = [
-    {
-      id: '1',
-      customer: 'Pak Tut Lanji',
-      tanggal: 'June 26, 2025',
-      deadline: 'June 26, 2025',
-      status: 'Desain',
-      total: 'IDR 35.000'
-    },
-    {
-      id: '2',
-      customer: 'Sri Asri',
-      tanggal: 'June 26, 2025',
-      deadline: 'June 26, 2025',
-      status: 'Konfirmasi',
-      total: 'IDR 25.000'
-    },
-    {
-      id: '3',
-      customer: 'Choirull',
-      tanggal: 'June 26, 2025',
-      deadline: 'June 27, 2025',
-      status: 'Cek File',
-      total: 'IDR 20.000'
-    },
-    {
-      id: '4',
-      customer: 'Matteo',
-      tanggal: 'June 26, 2025',
-      deadline: 'June 28, 2025',
-      status: 'Cek File',
-      total: 'IDR 75.000'
-    },
-    {
-      id: '5',
-      customer: 'Srimulyadi',
-      tanggal: 'June 26, 2025',
-      deadline: 'June 29, 2025',
-      status: 'Desain',
-      total: 'IDR 105.000'
-    },
-    {
-      id: '6',
-      customer: 'Unggul Madani',
-      tanggal: 'June 26, 2025',
-      deadline: 'June 29, 2025',
-      status: 'Desain',
-      total: 'IDR 87.000'
-    }
-  ];
+  const { orders, isLoading } = useOrders();
 
-  const filteredOrders = activeOrders.filter(order => {
-    if (selectedDate) {
-      const orderDate = new Date(order.deadline);
-      const isDateMatch = isSameDay(orderDate, selectedDate);
-      if (!isDateMatch) return false;
-    }
-    
-    if (selectedDeadline !== 'all') {
-      const today = new Date();
-      const orderDeadline = new Date(order.deadline);
-      
-      switch (selectedDeadline) {
-        case 'today':
-          return isSameDay(orderDeadline, today);
-        case 'tomorrow': {
-          const tomorrow = new Date(today);
-          tomorrow.setDate(tomorrow.getDate() + 1);
-          return isSameDay(orderDeadline, tomorrow);
-        }
-        case 'overdue':
-          return orderDeadline < today;
-        default:
-          return true;
+  // Mapping dan filter order dari database
+  const filteredOrders = (orders || [])
+    .filter(order => {
+      // Pastikan status tersedia
+      const statusName = order.order_statuses?.name || '';
+      return statusName.toLowerCase() !== 'export' && statusName.toLowerCase() !== 'done';
+    })
+    .filter(order => {
+      // Filter berdasarkan tanggal dan deadline seperti sebelumnya
+      if (selectedDate) {
+        const orderDate = order.estimasi ? new Date(order.estimasi) : null;
+        const isDateMatch = orderDate && isSameDay(orderDate, selectedDate);
+        if (!isDateMatch) return false;
       }
-    }
-    
-    return true;
-  });
+      if (selectedDeadline !== 'all') {
+        const today = new Date();
+        const orderDeadline = order.estimasi ? new Date(order.estimasi) : null;
+        switch (selectedDeadline) {
+          case 'today':
+            return orderDeadline && isSameDay(orderDeadline, today);
+          case 'tomorrow': {
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            return orderDeadline && isSameDay(orderDeadline, tomorrow);
+          }
+          case 'overdue':
+            return orderDeadline && orderDeadline < today;
+          default:
+            return true;
+        }
+      }
+      return true;
+    });
 
   return (
     <Card className="flex flex-col h-full min-h-0">
@@ -113,7 +71,11 @@ const ActiveOrdersTable: React.FC<ActiveOrdersTableProps> = ({
         />
       </div>
       <CardContent className="flex-1 min-h-0 pt-0 pb-6">
-        <OrdersTableContent orders={filteredOrders} />
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full">Loading...</div>
+        ) : (
+          <OrdersTableContent orders={filteredOrders} />
+        )}
       </CardContent>
     </Card>
   );

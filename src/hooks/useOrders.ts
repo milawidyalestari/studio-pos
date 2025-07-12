@@ -169,10 +169,10 @@ export const useOrders = () => {
   return {
     orders,
     isLoading,
-    createOrder: createOrderMutation.mutate,
+    createOrder: createOrderMutation.mutateAsync,
     isCreatingOrder: createOrderMutation.isPending,
-    updateOrder: updateOrderMutation.mutate,
+    updateOrder: updateOrderMutation.mutateAsync,
     isUpdatingOrder: updateOrderMutation.isPending,
-    deleteOrder: deleteOrderMutation.mutate,
+    deleteOrder: deleteOrderMutation.mutateAsync,
   };
 };

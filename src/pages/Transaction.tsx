@@ -61,6 +61,18 @@ const TransactionPage = () => {
       )
     },
     {
+      key: 'order_number',
+      label: 'Nomor Orderan',
+      width: '160px',
+      render: (value) => (
+        <div className="font-mono text-sm">
+          <span className="font-medium text-gray-700 bg-orange-50 px-3 py-1 rounded-md border border-orange-200">
+            {value || 'N/A'}
+          </span>
+        </div>
+      )
+    },
+    {
       key: 'customer_name',
       label: 'Nama Customer',
       width: '250px',
@@ -73,7 +85,7 @@ const TransactionPage = () => {
     },
     {
       key: 'transaction_date',
-      label: 'Tanggal Selesai',
+      label: 'Tanggal',
       width: '160px',
       render: (value) => (
         <div className="text-center">
@@ -97,7 +109,7 @@ const TransactionPage = () => {
     },
     {
       key: 'payment_method',
-      label: 'Metode Pembayaran',
+      label: 'Metode',
       width: '160px',
       render: (value) => (
         <div className="text-center">
@@ -114,6 +126,20 @@ const TransactionPage = () => {
           </span>
         </div>
       )
+    },
+    {
+      key: 'status',
+      label: 'Keterangan',
+      width: '140px',
+      render: (value) => {
+        const status = (value || '').toLowerCase();
+        const isLunas = status === 'completed' || status === 'done';
+        return (
+          <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${isLunas ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+            {isLunas ? 'Lunas' : 'Belum Lunas'}
+          </span>
+        );
+      }
     }
   ];
 

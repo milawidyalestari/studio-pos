@@ -18,6 +18,7 @@ interface SearchAndFilterProps {
   posisiFilter: string;
   onPosisiFilterChange: (value: string) => void;
   posisiOptions: string[];
+  hideFilterButton?: boolean;
 }
 
 export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({ 
@@ -27,7 +28,8 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
   onStatusFilterChange,
   posisiFilter,
   onPosisiFilterChange,
-  posisiOptions = []
+  posisiOptions = [],
+  hideFilterButton = false
 }) => (
   <div className="flex items-center gap-3 mb-4">
     <div className="relative flex-1 max-w-md">
@@ -39,10 +41,12 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
         onChange={(e) => onSearchChange(e.target.value)}
       />
     </div>
-    <Button variant="outline" className="gap-2">
-      <Filter className="h-4 w-4" />
-      Filter
-    </Button>
+    {!hideFilterButton && (
+      <Button variant="outline" className="gap-2">
+        <Filter className="h-4 w-4" />
+        Filter
+      </Button>
+    )}
     <Select value={statusFilter} onValueChange={onStatusFilterChange}>
       <SelectTrigger className="w-[150px]">
         <SelectValue placeholder="Status" />
