@@ -3,10 +3,15 @@ import type { Employee } from '@/types';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Users } from 'lucide-react';
 import { TableHeader } from './TableHeader';
-import { SearchAndFilter } from './SearchAndFilter';
 import { ActionButtons } from './ActionButtons';
 import { getStatusBadge } from '@/utils/masterDataHelpers';
 import { supabase } from '@/integrations/supabase/client';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { SearchInput } from '@/components/common/SearchInput';
+import { SearchAndFilter } from './SearchAndFilter';
+import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
+import { Button } from '@/components/ui/button';
 
 interface EmployeesTabProps {
   searchTerm: string;
@@ -57,6 +62,9 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [posisiFilter, setPosisiFilter] = useState<string>('all');
   const [viewedEmployee, setViewedEmployee] = useState<Employee | null>(null);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [importedData, setImportedData] = useState<any[]>([]);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const fetchEmployees = async () => {
     setLoading(true);
@@ -147,13 +155,78 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
     }
   };
 
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setImportError(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (ext === 'csv') {
+      Papa.parse(file, {
+        header: true,
+        complete: (results) => {
+          setImportedData(results.data as any[]);
+        },
+        error: (err) => setImportError(err.message),
+      });
+    } else if (ext === 'xlsx') {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const data = new Uint8Array(evt.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(sheet);
+        setImportedData(json as any[]);
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      setImportError('File type not supported. Please upload CSV or XLSX.');
+    }
+  };
+
+  const handleImportData = async () => {
+    try {
+      for (const row of importedData) {
+        // Ganti dengan createEmployee jika ada, atau insert ke supabase
+        await supabase.from('employees').insert([row]);
+      }
+      setIsImportOpen(false);
+      setImportedData([]);
+      setImportError(null);
+    } catch (err: any) {
+      setImportError(err.message || 'Import failed');
+    }
+  };
+
+  // Export Handlers
+  const handleExportCSV = () => {
+    const csv = Papa.unparse(employees);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'employees.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportXLSX = () => {
+    const ws = XLSX.utils.json_to_sheet(employees);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Employees');
+    XLSX.writeFile(wb, 'employees.xlsx');
+  };
+
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="sticky top-0 z-20 bg-white">
         <TableHeader 
           title="Data Karyawan" 
           icon={Users}
           onAdd={handleAdd}
+          onImport={() => setIsImportOpen(true)}
+          onExportCSV={handleExportCSV}
+          onExportXLSX={handleExportXLSX}
         />
         <SearchAndFilter 
           searchTerm={searchTerm}
@@ -162,11 +235,12 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
           onStatusFilterChange={setStatusFilter}
           posisiFilter={posisiFilter}
           onPosisiFilterChange={setPosisiFilter}
-          posisiOptions={[...new Set(employees.map(e => e.posisi).filter(Boolean))]}
+          posisiOptions={positions.map(pos => pos.name)}
+          hideFilterButton
         />
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto overflow-y-auto max-h-[60vh]">
+        <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b sticky top-0 z-10">
               <tr>
@@ -218,44 +292,44 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
             </tbody>
           </table>
         </div>
-        {showModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-            <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-              <h2 className="text-lg font-semibold mb-4">Tambah Karyawan</h2>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">ID Karyawan</label>
-                  <input name="kode" value={form.kode} readOnly className="border rounded px-3 py-2 w-full bg-gray-100 cursor-not-allowed" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Nama</label>
-                  <input name="nama" value={form.nama} onChange={handleFormChange} className="border rounded px-3 py-2 w-full" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Posisi</label>
-                  <select name="posisi" value={form.posisi} onChange={handleFormChange} className="border rounded px-3 py-2 w-full">
-                    <option value="">Pilih Posisi</option>
-                    {positions.map(pos => (
-                      <option key={pos.id} value={pos.name}>{pos.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Status</label>
-                  <select name="status" value={form.status} onChange={handleFormChange} className="border rounded px-3 py-2 w-full">
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
-                </div>
-                {error && <div className="text-red-500 text-sm">{error}</div>}
-                <div className="flex justify-end gap-2">
-                  <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 rounded bg-gray-200">Batal</button>
-                  <button type="submit" className="px-4 py-2 rounded bg-blue-600 text-white">Simpan</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        <Dialog open={showModal} onOpenChange={setShowModal}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>{form.id ? 'Edit Karyawan' : 'Tambah Karyawan'}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">ID Karyawan</label>
+                <input name="kode" value={form.kode} readOnly className="border rounded px-3 py-2 w-full bg-gray-100 cursor-not-allowed" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Nama</label>
+                <input name="nama" value={form.nama} onChange={handleFormChange} className="border rounded px-3 py-2 w-full" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Posisi</label>
+                <select name="posisi" value={form.posisi} onChange={handleFormChange} className="border rounded px-3 py-2 w-full">
+                  <option value="">Pilih Posisi</option>
+                  {positions.map(pos => (
+                    <option key={pos.id} value={pos.name}>{pos.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Status</label>
+                <select name="status" value={form.status} onChange={handleFormChange} className="border rounded px-3 py-2 w-full">
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+              {error && <div className="text-red-500 text-sm">{error}</div>}
+              <div className="flex justify-end gap-2 pt-4">
+                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 rounded bg-gray-200">Batal</button>
+                <button type="submit" className="px-4 py-2 rounded bg-[#0050C8] text-white">Simpan</button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
         {/* View Modal */}
         {viewedEmployee && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
@@ -273,6 +347,47 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
             </div>
           </div>
         )}
+      {/* Import Dialog */}
+      <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Import Karyawan (CSV/XLSX)</DialogTitle>
+          </DialogHeader>
+          <input
+            type="file"
+            accept=".csv,.xlsx"
+            onChange={handleImportFile}
+            className="mb-4"
+          />
+          {importError && <div className="text-red-600 text-sm mb-2">{importError}</div>}
+          {importedData.length > 0 && (
+            <div className="max-h-48 overflow-auto border rounded mb-2">
+              <table className="min-w-full text-xs">
+                <thead>
+                  <tr>
+                    {Object.keys(importedData[0]).map((key) => (
+                      <th key={key} className="px-2 py-1 border-b bg-gray-50">{key}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {importedData.map((row, i) => (
+                    <tr key={i}>
+                      {Object.keys(importedData[0]).map((key) => (
+                        <td key={key} className="px-2 py-1 border-b">{row[key]}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsImportOpen(false)}>Cancel</Button>
+            <Button onClick={handleImportData} disabled={importedData.length === 0}>Import</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       </CardContent>
     </Card>
   );

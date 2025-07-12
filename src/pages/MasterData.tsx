@@ -30,10 +30,12 @@ import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, Prod
 import { useCustomers } from '@/hooks/useCustomers';
 import { useSuppliers } from '@/hooks/useSuppliers';
 import { ProductForm } from '@/components/ProductForm';
-import { CustomerModal } from '@/components/CustomerModal';
+import CustomerModal from '@/components/CustomerModal';
 import { useToast } from '@/hooks/use-toast';
 import { useMasterDataState } from '@/hooks/useMasterDataState';
 import { supabase } from '@/integrations/supabase/client';
+import SupplierModal from '@/components/SupplierModal';
+import type { Supplier } from '@/types';
 
 // Import refactored components
 import { MasterDataHeader } from '@/components/master-data/MasterDataHeader';
@@ -41,6 +43,7 @@ import { ProductsTab } from '@/components/master-data/ProductsTab';
 import { SuppliersTab } from '@/components/master-data/SuppliersTab';
 import { CustomersTab } from '@/components/master-data/CustomersTab';
 import { EmployeesTab } from '@/components/master-data/EmployeesTab';
+import { ProductOverlayCards } from '@/components/master-data/ProductOverlayCards';
 
 const MasterData = () => {
   const [activeTab, setActiveTab] = useState('products');
@@ -49,6 +52,8 @@ const MasterData = () => {
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deleteProductId, setDeleteProductId] = useState<string | null>(null);
+  const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
+  const [editingSupplier, setEditingSupplier] = useState(null);
   const { toast } = useToast();
   
   // Product hooks
@@ -620,7 +625,8 @@ const MasterData = () => {
       if (activeTab === 'customers') {
         setIsCustomerModalOpen(true);
       } else if (activeTab === 'suppliers') {
-        handleOverlayOpen('suppliers');
+        setEditingSupplier(null);
+        setIsSupplierModalOpen(true);
       }
     }
   };
@@ -633,9 +639,46 @@ const MasterData = () => {
     });
   };
 
+  const handleSupplierCreated = () => {
+    setIsSupplierModalOpen(false);
+    // Refresh supplier list if needed (handled by react-query or hook)
+  };
+
+  // Fungsi untuk menambah supplier ke database
+  const handleSaveSupplier = async (supplierData: Omit<Supplier, 'id'>) => {
+    try {
+      // mapping ke snake_case sesuai definisi tabel
+      const dbSupplier = {
+        name: supplierData.name,
+        contact_person: supplierData.contactPerson,
+        email: supplierData.email,
+        phone: supplierData.phone,
+        address: supplierData.address,
+        payment_terms: supplierData.paymentTerms,
+        outstanding_balance: supplierData.outstandingBalance,
+      };
+      await createSupplier(dbSupplier);
+      setIsSupplierModalOpen(false);
+      toast({ title: 'Success', description: 'Supplier berhasil ditambahkan' });
+    } catch (error) {
+      toast({ title: 'Error', description: 'Gagal menambah supplier', variant: 'destructive' });
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       <MasterDataHeader />
+
+      {/* Product Overlay Cards dipindah ke atas Tabs */}
+      <ProductOverlayCards
+        sampleGroups={groups}
+        sampleCategories={dbCategories}
+        sampleUnits={units}
+        samplePaymentTypes={paymentTypes}
+        samplePositions={positions}
+        categoriesLoading={dbCategoriesLoading || groupsLoading || unitsLoading || paymentTypesLoading}
+        onOverlayOpen={handleOverlayOpen}
+      />
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -723,6 +766,14 @@ const MasterData = () => {
         open={isCustomerModalOpen}
         onClose={() => setIsCustomerModalOpen(false)}
         onCustomerCreated={handleCustomerCreated}
+      />
+
+      {/* Supplier Modal */}
+      <SupplierModal
+        isOpen={isSupplierModalOpen}
+        onClose={() => setIsSupplierModalOpen(false)}
+        onSave={handleSaveSupplier}
+        supplier={editingSupplier}
       />
 
       {/* Delete Product Confirmation */}
