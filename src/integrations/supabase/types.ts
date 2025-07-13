@@ -283,14 +283,12 @@ export type Database = {
           notes: string | null
           order_number: string
           outdoor: boolean | null
-          payment_type: string | null
-          pelunasan: number | null
+          payment_type: Database["public"]["Enums"]["payment_type"] | null
           ppn: number | null
           remaining_payment: number | null
           status_id: number | null
           sub_total: number | null
           tanggal: string
-          tax_checked: boolean | null
           total_amount: number | null
           updated_at: string | null
           waktu: string | null
@@ -315,14 +313,12 @@ export type Database = {
           notes?: string | null
           order_number: string
           outdoor?: boolean | null
-          payment_type?: string | null
-          pelunasan?: number | null
+          payment_type?: Database["public"]["Enums"]["payment_type"] | null
           ppn?: number | null
           remaining_payment?: number | null
           status_id?: number | null
           sub_total?: number | null
           tanggal: string
-          tax_checked?: boolean | null
           total_amount?: number | null
           updated_at?: string | null
           waktu?: string | null
@@ -347,14 +343,12 @@ export type Database = {
           notes?: string | null
           order_number?: string
           outdoor?: boolean | null
-          payment_type?: string | null
-          pelunasan?: number | null
+          payment_type?: Database["public"]["Enums"]["payment_type"] | null
           ppn?: number | null
           remaining_payment?: number | null
           status_id?: number | null
           sub_total?: number | null
           tanggal?: string
-          tax_checked?: boolean | null
           total_amount?: number | null
           updated_at?: string | null
           waktu?: string | null
@@ -365,13 +359,6 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_orders_payment_type"
-            columns: ["payment_type"]
-            isOneToOne: false
-            referencedRelation: "payment_types"
             referencedColumns: ["id"]
           },
           {
