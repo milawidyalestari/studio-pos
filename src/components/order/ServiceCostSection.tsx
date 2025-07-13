@@ -2,6 +2,7 @@ import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatCurrency } from '@/services/masterData';
 import { Employee } from '@/types';
 
@@ -32,9 +33,12 @@ const ServiceCostSection = ({ formData, totalPrice, onFormDataChange, designers,
           <Label htmlFor="jasaDesain" className="text-sm font-medium">Design Service</Label>
           <Input
             id="jasaDesain"
-            value={formData.jasaDesain}
-            onChange={(e) => onFormDataChange('jasaDesain', e.target.value)}
-            placeholder="Design fee"
+            value={formData.jasaDesain ? `IDR ${parseFloat(formData.jasaDesain).toLocaleString('id-ID')}` : ''}
+            onChange={(e) => {
+              const rawValue = e.target.value.replace(/[^\d]/g, '');
+              onFormDataChange('jasaDesain', rawValue);
+            }}
+            placeholder="IDR 0"
             className="mt-1 h-8"
           />
         </div>
@@ -42,9 +46,12 @@ const ServiceCostSection = ({ formData, totalPrice, onFormDataChange, designers,
           <Label htmlFor="biayaLain" className="text-sm font-medium">Other Costs</Label>
           <Input
             id="biayaLain"
-            value={formData.biayaLain}
-            onChange={(e) => onFormDataChange('biayaLain', e.target.value)}
-            placeholder="Other costs"
+            value={formData.biayaLain ? `IDR ${parseFloat(formData.biayaLain).toLocaleString('id-ID')}` : ''}
+            onChange={(e) => {
+              const rawValue = e.target.value.replace(/[^\d]/g, '');
+              onFormDataChange('biayaLain', rawValue);
+            }}
+            placeholder="IDR 0"
             className="mt-1 h-8"
           />
         </div>
@@ -62,39 +69,37 @@ const ServiceCostSection = ({ formData, totalPrice, onFormDataChange, designers,
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div>
           <Label htmlFor="admin" className="text-sm font-medium">Admin</Label>
-          <select
-            id="admin"
-            value={formData.admin}
-            onChange={e => onFormDataChange('admin', e.target.value)}
-              className="border rounded-md p-1 mt-1 min-w-[120px] w-full text-gray-700 text-sm h-8"
-          >
-            <option value="">Admin Name</option>
-            {loadingAdmins ? (
-              <option disabled>Loading...</option>
-            ) : (
-              admins.map(emp => (
-                <option key={emp.id} value={emp.id}>{emp.nama}</option>
-              ))
-            )}
-          </select>
+          <Select value={formData.admin} onValueChange={(value) => onFormDataChange('admin', value)}>
+            <SelectTrigger className="mt-1 h-8">
+              <SelectValue placeholder="Pilih Admin" />
+            </SelectTrigger>
+            <SelectContent>
+              {loadingAdmins ? (
+                <SelectItem value="loading" disabled>Loading...</SelectItem>
+              ) : (
+                admins.map(emp => (
+                  <SelectItem key={emp.id} value={emp.id}>{emp.nama}</SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
         </div>
         <div>
           <Label htmlFor="desainer" className="text-sm font-medium">Designer</Label>
-          <select
-            id="desainer"
-            value={formData.desainer}
-            onChange={e => onFormDataChange('desainer', e.target.value)}
-            className="border rounded-md p-1 mt-1 min-w-[120px] w-full text-gray-700 text-sm h-8"
-          >
-            <option value="">Designer Name</option>
-            {loadingDesigners ? (
-              <option disabled>Loading...</option>
-            ) : (
-              designers.map(emp => (
-                <option key={emp.id} value={emp.id}>{emp.nama}</option>
-              ))
-            )}
-          </select>
+          <Select value={formData.desainer} onValueChange={(value) => onFormDataChange('desainer', value)}>
+            <SelectTrigger className="mt-1 h-8">
+              <SelectValue placeholder="Pilih Designer" />
+            </SelectTrigger>
+            <SelectContent>
+              {loadingDesigners ? (
+                <SelectItem value="loading" disabled>Loading...</SelectItem>
+              ) : (
+                designers.map(emp => (
+                  <SelectItem key={emp.id} value={emp.id}>{emp.nama}</SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
         </div>
         <div>
           <Label htmlFor="komputer" className="text-sm font-medium">Computer</Label>

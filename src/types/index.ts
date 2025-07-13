@@ -5,6 +5,10 @@ type DbOrderItem = Database['public']['Tables']['order_items']['Row'];
 
 export interface OrderWithItems extends DbOrder {
   order_items: DbOrderItem[];
+  // Joined fields from database query
+  desainer?: { id: string; nama: string };
+  admin?: { id: string; nama: string };
+  order_statuses?: { id: number; name: string };
 }
 
 export interface Order {
@@ -21,6 +25,11 @@ export interface Order {
     avatar?: string;
     assignedBy?: string;
   };
+  // Additional fields from database
+  customer_name?: string;
+  estimasi?: string;
+  order_items?: any[];
+  created_at?: string;
 }
 
 export interface Supplier {

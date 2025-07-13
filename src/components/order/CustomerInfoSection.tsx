@@ -21,12 +21,14 @@ interface CustomerInfoSectionProps {
     estimasiWaktu: string;
   };
   onFormDataChange: (field: string, value: string | boolean) => void;
+  isEditMode?: boolean;
 }
 
-const CustomerInfoSection = ({ formData, onFormDataChange }: CustomerInfoSectionProps) => {
+const CustomerInfoSection = ({ formData, onFormDataChange, isEditMode = false }: CustomerInfoSectionProps) => {
   const { customers, isLoading } = useCustomers();
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
   const handleCustomerSelect = (customerId: string) => {
     const selectedCustomer = customers?.find(c => c.id === customerId);
@@ -41,15 +43,18 @@ const CustomerInfoSection = ({ formData, onFormDataChange }: CustomerInfoSection
     onFormDataChange('customer', value);
     // Clear customer ID when manually typing
     onFormDataChange('customerId', '');
-    setShowDropdown(value.length > 0);
+    // Only show dropdown if input is focused and has content
+    setShowDropdown(isInputFocused && value.length > 0);
   };
 
-  // Show dropdown when input is empty and dialog is open
+  // Show dropdown only when input is focused and has content, or when creating new order with empty input
   React.useEffect(() => {
-    if (formData.customer.length === 0) {
+    if (!isEditMode && formData.customer.length === 0) {
       setShowDropdown(true);
+    } else if (isEditMode) {
+      setShowDropdown(isInputFocused && formData.customer.length > 0);
     }
-  }, [formData.customer]);
+  }, [formData.customer, isInputFocused, isEditMode]);
 
   const handleCustomerCreated = (newCustomer: { nama: string }) => {
     onFormDataChange('customer', newCustomer.nama);
@@ -70,7 +75,11 @@ const CustomerInfoSection = ({ formData, onFormDataChange }: CustomerInfoSection
               id="customer"
               value={formData.customer}
               onChange={(e) => handleCustomerInputChange(e.target.value)}
-              onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+              onFocus={() => setIsInputFocused(true)}
+              onBlur={() => {
+                setIsInputFocused(false);
+                setTimeout(() => setShowDropdown(false), 200);
+              }}
               placeholder="Enter customer name"
               className="mt-1 h-8"
               autoComplete="off"
