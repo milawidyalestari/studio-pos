@@ -24,9 +24,14 @@ function getOrderStatus(order: OrderWithItems): string {
 }
 
 function mapOrderWithItemsToOrder(order: OrderWithItems, employeeMap: Map<string, Employee>): Order {
-  const designer = order.desainer_id && employeeMap.has(order.desainer_id)
-    ? { name: employeeMap.get(order.desainer_id)!.nama }
-    : undefined;
+  // Get designer info from the joined data if available, otherwise fallback to employeeMap
+  let designer = undefined;
+  if (order.desainer && order.desainer.nama) {
+    designer = { name: order.desainer.nama };
+  } else if (order.desainer_id && employeeMap.has(order.desainer_id)) {
+    designer = { name: employeeMap.get(order.desainer_id)!.nama };
+  }
+  
   const status = getOrderStatus(order);
   return {
     id: order.id,
@@ -39,6 +44,9 @@ function mapOrderWithItemsToOrder(order: OrderWithItems, employeeMap: Map<string
     estimatedDate: order.estimasi || '-',
     designer,
     created_at: order.created_at || '-',
+    customer_name: order.customer_name,
+    estimasi: order.estimasi,
+    order_items: order.order_items,
   };
 }
 
@@ -348,13 +356,6 @@ const KanbanBoard = ({
         >
           {columns.map((column) => {
             const columnOrders = getColumnOrders(column.status).map(order => {
-              let designer = undefined;
-              if (order.desainer_id && Array.isArray(employees)) {
-                const emp = employees.find(e => e.id === order.desainer_id);
-                if (emp) {
-                  designer = { name: emp.nama };
-                }
-              }
               return {
                 ...order,
                 customer: order.customer_name || order.customer || 'Unknown',
@@ -363,7 +364,7 @@ const KanbanBoard = ({
                   ? order.order_items.map(item => item.item_name || item.name || item.title || 'Unknown Item')
                   : []),
                 created_at: order.created_at,
-                designer
+                designer: order.designer
               };
             });
 

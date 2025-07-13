@@ -13,24 +13,55 @@ interface PriceSummarySectionProps {
     discount: number;
     ppn: number;
     payment_method: string;
+    paymentType: string;
+    jasaDesain: string;
+    biayaLain: string;
+    downPayment: string;
+    pelunasan: string;
+    taxChecked: boolean;
   };
   totalPrice: number;
-  onFormDataChange: (field: string, value: number | string) => void;
+  subtotal: number;
+  onFormDataChange: (field: string, value: number | string | boolean) => void;
 }
 
-const PriceSummarySection: React.FC<PriceSummarySectionProps> = ({ formData, totalPrice, onFormDataChange }) => {
+const PriceSummarySection: React.FC<PriceSummarySectionProps> = ({ formData, totalPrice, subtotal, onFormDataChange }) => {
   const { data: paymentTypes, isLoading: paymentTypesLoading, error: paymentTypesError } = usePaymentTypes();
-  // Get unique payment_method values (non-cash)
-  const nonCashMethods = paymentTypes
-    ? Array.from(new Set(paymentTypes.map(pt => pt.payment_method).filter(Boolean)))
-    : [];
-  // Controlled value for payment method
-  const paymentMethod = formData.payment_method || 'Cash';
+  
+  // Debug: log payment types data
+  React.useEffect(() => {
+    console.log('Payment types from database:', paymentTypes);
+  }, [paymentTypes]);
+  
+  // Get all payment types from database (including Cash if it exists)
+  const allPaymentTypes = paymentTypes || [];
+  
+  // Add Cash as default option if not in database
+  const availablePaymentTypes = allPaymentTypes.length > 0 
+    ? allPaymentTypes 
+    : [{ id: 'cash', payment_method: 'Cash', code: 'CASH', type: 'Cash' }];
+  
+  // Controlled value for payment method (should be ID)
+  const selectedPaymentTypeId = formData.paymentType || '';
+  
+  // Find the selected payment type for display
+  const selectedPaymentType = availablePaymentTypes.find(pt => pt.id === selectedPaymentTypeId);
+  
+  // Calculate total including service costs
+  const designService = parseFloat(formData.jasaDesain) || 0;
+  const otherCosts = parseFloat(formData.biayaLain) || 0;
+  const totalWithServices = subtotal + designService + otherCosts;
+  
+  // Calculate remaining amount (Sisa)
+  const downPaymentAmount = parseFloat(formData.downPayment) || 0;
+  const pelunasanAmount = parseFloat(formData.pelunasan) || 0;
+  const sisa = totalWithServices - (downPaymentAmount + pelunasanAmount);
+  
   return (
     <div className="border-t bg-white pl-6 pr-6 pt-2 pb-6 flex-shrink-0">
       <div className="flex justify-between items-center mb-4">
         <span className="text-lg font-semibold">TOTAL</span>
-        <span className="text-2xl font-bold text-[#0050C8]">{formatCurrency(totalPrice)}</span>
+        <span className="text-2xl font-bold text-[#0050C8]">{formatCurrency(totalWithServices)}</span>
       </div>
       {/* 2-column grid layout, compact and aligned */}
       <div className="grid grid-cols-2 gap-8 items-start mb-2">
@@ -39,7 +70,7 @@ const PriceSummarySection: React.FC<PriceSummarySectionProps> = ({ formData, tot
           {/* Tax */}
           <div className="flex items-center gap-3">
             <Label className="text-sm font-medium w-16 mr-2">Tax</Label>
-            <Checkbox className="ml-0" />
+            <Checkbox className="ml-0" checked={formData.taxChecked} onCheckedChange={val => onFormDataChange('taxChecked', !!val)} />
             <Input 
               value={formData.ppn}
               onChange={(e) => onFormDataChange('ppn', Number(e.target.value))}
@@ -65,28 +96,47 @@ const PriceSummarySection: React.FC<PriceSummarySectionProps> = ({ formData, tot
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
             <Label className="text-sm font-medium w-28">Down Payment</Label>
-            <Input placeholder="Down payment" className="h-8 px-2 py-1 flex-1" />
+            <Input 
+              value={formData.downPayment ? `IDR ${parseFloat(formData.downPayment).toLocaleString('id-ID')}` : ''}
+              placeholder="IDR 0" 
+              className="h-8 px-2 py-1 flex-1" 
+              onChange={(e) => {
+                const rawValue = e.target.value.replace(/[^\d]/g, '');
+                onFormDataChange('downPayment', rawValue);
+              }}
+            />
           </div>
           <div className="flex items-center gap-3">
             <Label className="text-sm font-medium w-28">Pelunasan</Label>
-            <Input placeholder="Pelunasan" className="h-8 px-2 py-1 flex-1" />
+            <Input 
+              value={formData.pelunasan ? `IDR ${parseFloat(formData.pelunasan).toLocaleString('id-ID')}` : ''}
+              placeholder="IDR 0" 
+              className="h-8 px-2 py-1 flex-1" 
+              onChange={(e) => {
+                const rawValue = e.target.value.replace(/[^\d]/g, '');
+                onFormDataChange('pelunasan', rawValue);
+              }}
+            />
           </div>
           <div className="flex items-center gap-3">
             <Label className="text-sm font-medium w-28">Sisa</Label>
-            <Input value={formatCurrency(totalPrice)} readOnly className="bg-gray-100 h-8 px-2 py-1 flex-1 " />
+            <Input value={formatCurrency(sisa)} readOnly className="bg-gray-100 h-8 px-2 py-1 flex-1 " />
           </div>
           <div className="flex items-center gap-3">
             <Label className="text-sm font-medium w-28">Payment Method</Label>
-            <Select value={paymentMethod} onValueChange={val => onFormDataChange('payment_method', val)}>
+            <Select value={selectedPaymentTypeId} onValueChange={val => onFormDataChange('paymentType', val)}>
               <SelectTrigger className="h-8 flex-1">
-                <SelectValue placeholder="Pilih metode pembayaran" />
+                <SelectValue placeholder="Pilih Metode">
+                  {selectedPaymentType ? selectedPaymentType.payment_method : 'Pilih Metodea'}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Cash">Cash</SelectItem>
-                {paymentTypesLoading && <SelectItem value="loading">Loading...</SelectItem>}
-                {paymentTypesError && <SelectItem value="error">Error loading payment types</SelectItem>}
-                {nonCashMethods.map((method) => (
-                  <SelectItem key={method} value={method}>{method}</SelectItem>
+                {paymentTypesLoading && <SelectItem value="loading" disabled>Loading...</SelectItem>}
+                {paymentTypesError && <SelectItem value="error" disabled>Error loading payment types</SelectItem>}
+                {!paymentTypesLoading && !paymentTypesError && availablePaymentTypes.map((paymentType) => (
+                  <SelectItem key={paymentType.id} value={paymentType.id}>
+                    {paymentType.payment_method}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>

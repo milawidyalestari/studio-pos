@@ -43,6 +43,9 @@ const initialFormData = {
   komputer: '',
   notes: '',
   status_id: null as number | null,
+  downPayment: '',
+  pelunasan: '',
+  taxChecked: false,
 };
 
 type FormData = typeof initialFormData;
@@ -139,7 +142,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
     }
   }, [currentItem, editingItemId]);
 
-  // Deteksi perubahan pada customer, date, dan order action
+  // Deteksi perubahan pada customer, date, service costs, dan order action
   useEffect(() => {
     if (isEditMode && initialFormDataSnapshot) {
       const hasCustomerChanged = formData.customer !== initialFormDataSnapshot.customer;
@@ -147,12 +150,39 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
       const hasAdminChanged = formData.admin !== initialFormDataSnapshot.admin;
       const hasDesainerChanged = formData.desainer !== initialFormDataSnapshot.desainer;
       const hasStatusChanged = formData.status_id !== initialFormDataSnapshot.status_id;
-      
-      setHasFormDataChanges(hasCustomerChanged || hasDateChanged || hasAdminChanged || hasDesainerChanged || hasStatusChanged);
+      const hasJasaDesainChanged = formData.jasaDesain !== initialFormDataSnapshot.jasaDesain;
+      const hasBiayaLainChanged = formData.biayaLain !== initialFormDataSnapshot.biayaLain;
+      const hasDiscountChanged = formData.discount !== initialFormDataSnapshot.discount;
+      const hasPpnChanged = formData.ppn !== initialFormDataSnapshot.ppn;
+      const hasPaymentTypeChanged = formData.paymentType !== initialFormDataSnapshot.paymentType;
+      const hasBankChanged = formData.bank !== initialFormDataSnapshot.bank;
+      const hasKomputerChanged = formData.komputer !== initialFormDataSnapshot.komputer;
+      const hasNotesChanged = formData.notes !== initialFormDataSnapshot.notes;
+      const hasOutdoorChanged = formData.outdoor !== initialFormDataSnapshot.outdoor;
+      const hasLaserPrintingChanged = formData.laserPrinting !== initialFormDataSnapshot.laserPrinting;
+      const hasMugNotaChanged = formData.mugNota !== initialFormDataSnapshot.mugNota;
+      const hasEstimasiChanged = formData.estimasi !== initialFormDataSnapshot.estimasi;
+      const hasEstimasiWaktuChanged = formData.estimasiWaktu !== initialFormDataSnapshot.estimasiWaktu;
+      const hasDownPaymentChanged = formData.downPayment !== initialFormDataSnapshot.downPayment;
+      const hasPelunasanChanged = formData.pelunasan !== initialFormDataSnapshot.pelunasan;
+      const hasTaxCheckedChanged = formData.taxChecked !== initialFormDataSnapshot.taxChecked;
+      setHasFormDataChanges(
+        hasCustomerChanged || hasDateChanged || hasAdminChanged || hasDesainerChanged || 
+        hasStatusChanged || hasJasaDesainChanged || hasBiayaLainChanged || hasDiscountChanged || 
+        hasPpnChanged || hasPaymentTypeChanged || hasBankChanged || hasKomputerChanged || 
+        hasNotesChanged || hasOutdoorChanged || hasLaserPrintingChanged || hasMugNotaChanged ||
+        hasEstimasiChanged || hasEstimasiWaktuChanged || hasDownPaymentChanged || hasPelunasanChanged || hasTaxCheckedChanged
+      );
     } else {
       setHasFormDataChanges(false);
     }
-  }, [formData.customer, formData.tanggal, formData.admin, formData.desainer, formData.status_id, isEditMode, initialFormDataSnapshot]);
+  }, [
+    formData.customer, formData.tanggal, formData.admin, formData.desainer, formData.status_id,
+    formData.jasaDesain, formData.biayaLain, formData.discount, formData.ppn, formData.paymentType,
+    formData.bank, formData.komputer, formData.notes, formData.outdoor, formData.laserPrinting,
+    formData.mugNota, formData.estimasi, formData.estimasiWaktu, formData.downPayment, formData.pelunasan, formData.taxChecked,
+    isEditMode, initialFormDataSnapshot
+  ]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleFormDataChange = (field: keyof typeof formData, value: any) => {
@@ -300,11 +330,14 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
         payment_type: formData.paymentType || null,
         bank: formData.bank || null,
         komputer: formData.komputer || null,
-        notes: (editingOrder && 'notes' in editingOrder && editingOrder.notes) ? editingOrder.notes : '',
+        notes: (editingOrder && 'notes' in editingOrder && editingOrder.notes) ? String(editingOrder.notes) : '',
         status_id: formData.status_id,
         admin_id: formData.admin || null,
         desainer_id: formData.desainer || null,
-      };
+        down_payment: parseFloat(formData.downPayment) || null,
+        pelunasan: parseFloat(formData.pelunasan) || null,
+        tax_checked: formData.taxChecked || false,
+      } as any; // Use type assertion to bypass strict typing for now
 
       const items = orderList.map((item) => ({
         item_name: item.item,
@@ -376,7 +409,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
 
   // Pre-fill form with editing order data
   useEffect(() => {
-    if (editingOrder && open) {
+    if (editingOrder && open && !loadingEmployees && !loadingAdmins) {
       console.log('editingOrder:', editingOrder);
       if ('order_items' in editingOrder && editingOrder.order_items) {
         console.log('order_items:', editingOrder.order_items);
@@ -388,24 +421,27 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
         customer: editingOrder.customer_name || editingOrder.customer || (editingOrder.customer && editingOrder.customer.name) || '',
         customerId: (editingOrder as Order & { customer_id?: string }).customer_id || '',
         tanggal: safeDateString(editingOrder.date),
-        waktu: new Date().toTimeString().slice(0, 5),
-        estimasi: editingOrder.estimatedDate,
-        estimasiWaktu: '',
-        outdoor: false,
-        laserPrinting: false,
-        mugNota: false,
-        jasaDesain: '',
-        biayaLain: '',
+        waktu: (editingOrder as any).waktu || new Date().toTimeString().slice(0, 5),
+        estimasi: editingOrder.estimatedDate || (editingOrder as any).estimasi || '',
+        estimasiWaktu: (editingOrder as any).estimasi_waktu || '',
+        outdoor: (editingOrder as any).outdoor || false,
+        laserPrinting: (editingOrder as any).laser_printing || false,
+        mugNota: (editingOrder as any).mug_nota || false,
+        jasaDesain: (editingOrder as any).jasa_desain?.toString() || '0',
+        biayaLain: (editingOrder as any).biaya_lain?.toString() || '0',
         subTotal: '',
-        discount: 0,
-        ppn: 10,
-        paymentType: '',
-        bank: '',
+        discount: (editingOrder as any).discount || 0,
+        ppn: (editingOrder as any).ppn || 10,
+        paymentType: (editingOrder as any).payment_type || '',
+        bank: (editingOrder as any).bank || '',
         admin: (editingOrder as any).admin_id || '',
         desainer: (editingOrder as any).desainer_id || '',
-        komputer: '',
+        komputer: (editingOrder as any).komputer || '',
         notes: (editingOrder as any).notes || '',
         status_id: editingOrder.status_id || null,
+        downPayment: (editingOrder as any).down_payment || '',
+        pelunasan: (editingOrder as any).pelunasan || '',
+        taxChecked: (editingOrder as any).tax_checked || false,
       };
       
       setFormData(newFormData);
@@ -437,7 +473,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
       setInitialFormDataSnapshot(null);
       resetForm();
     }
-  }, [editingOrder, open]);
+  }, [editingOrder, open, loadingEmployees, loadingAdmins]);
 
   // Set default status_id to 'Design' when statuses are loaded and not editing
   useEffect(() => {
@@ -528,6 +564,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
                     <CustomerInfoSection 
                       formData={formData}
                       onFormDataChange={handleFormDataChange}
+                      isEditMode={isEditMode}
                     />
                     <ItemFormSection
                       currentItem={currentItem}
@@ -566,8 +603,15 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
                 </ScrollArea>
 
                 <PriceSummarySection
-                  formData={formData}
+                  formData={{
+                    ...formData,
+                    payment_method: formData.paymentType,
+                    downPayment: formData.downPayment,
+                    pelunasan: formData.pelunasan,
+                    taxChecked: formData.taxChecked,
+                  }}
                   totalPrice={totalPrice}
+                  subtotal={orderList.reduce((sum, item) => sum + item.subTotal, 0)}
                   onFormDataChange={handleFormDataChange}
                 />
               </div>

@@ -48,8 +48,10 @@ function formatCreatedAt(dateStr: string) {
 
 const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDeleteOrder, isOptimisticallyMoved }: OrderCardProps) => {
   const formatDeadline = (dateString: string) => {
-    if (!dateString) return 'No deadline';
+    if (!dateString || dateString === '-' || dateString === '') return 'No deadline';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'No deadline';
+    
     const today = new Date();
     const diffTime = date.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -61,8 +63,10 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
   };
 
   const getDeadlineColor = (dateString: string) => {
-    if (!dateString) return 'text-gray-500';
+    if (!dateString || dateString === '-' || dateString === '') return 'text-gray-500';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'text-gray-500';
+    
     const today = new Date();
     const diffTime = date.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -178,18 +182,18 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
             )}
           </div>
           
-          {/* deadline */}
-          <div className="flex justify-between items-center">
-            <div className="text-[12px] text-gray-500 mb-1 pt-4">
+          {/* Created date and designer avatar */}
+          <div className="flex justify-between items-center pt-4">
+            <div className="text-[12px] text-gray-500">
               Dibuat: {order.created_at ? formatCreatedAt(order.created_at) : '-'}
             </div>
 
-            {order.designer && (
-              <Avatar className="ml-2 h-7 w-7">
+            {order.designer ? (
+              <Avatar className="h-6 w-6">
                 {order.designer.avatar ? (
                   <AvatarImage src={order.designer.avatar} alt={order.designer.name} />
                 ) : (
-                  <AvatarFallback>
+                  <AvatarFallback className="text-xs bg-blue-100 text-blue-600">
                     {order.designer.name
                       .split(' ')
                       .map((n) => n[0])
@@ -199,6 +203,8 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
                   </AvatarFallback>
                 )}
               </Avatar>
+            ) : (
+              <div className="h-6 w-6 rounded-full bg-gray-100 border border-gray-200"></div>
             )}
           </div>
         </CardContent>
