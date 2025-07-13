@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -39,41 +39,6 @@ export const useOrders = () => {
       return data as OrderWithItemsExtended[];
     },
   });
-
-  // Set up real-time subscriptions
-  useEffect(() => {
-    // Create a unique channel name to avoid conflicts when multiple components use this hook
-    const channelName = `orders-changes-${Math.random().toString(36).substr(2, 9)}`;
-    const ordersChannel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'orders'
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['orders'] });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'order_items'
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['orders'] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(ordersChannel);
-    };
-  }, [queryClient]);
 
   const createOrderMutation = useMutation({
     mutationFn: async ({ orderData, items }: { orderData: OrderInsert; items: OrderItemInsert[] }) => {
