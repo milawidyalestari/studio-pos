@@ -38,6 +38,8 @@ export const useOrders = () => {
       if (error) throw error;
       return data as OrderWithItemsExtended[];
     },
+    refetchInterval: 3000, // polling setiap 3 detik
+    refetchOnWindowFocus: true, // opsional, refetch saat window aktif
   });
 
   const createOrderMutation = useMutation({
