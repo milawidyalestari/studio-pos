@@ -204,7 +204,7 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
                 )}
               </Avatar>
             ) : (
-              <div className="h-6 w-6 rounded-full bg-gray-100 border border-gray-200"></div>
+              <div className="h-6 w-6 rounded-full"></div>
             )}
           </div>
         </CardContent>
