@@ -49,6 +49,9 @@ const ItemFormSection = ({
   const [initialItemData, setInitialItemData] = useState<typeof currentItem | null>(null);
   const [hasItemUnsavedChanges, setHasItemUnsavedChanges] = useState(false);
 
+  // Tambahkan state untuk input manual finishing
+  const [customFinishing, setCustomFinishing] = useState('');
+
   // Set snapshot saat mulai edit item
   useEffect(() => {
     if (editingItemId) {
@@ -266,22 +269,45 @@ const ItemFormSection = ({
       {/* Row 7: Finishing */}
       <div className="mb-2">
         <Label htmlFor="finishing" className="text-sm font-medium">Finishing</Label>
-        <Select value={currentItem.finishing} onValueChange={(value) => updateCurrentItem('finishing', value)}>
-          <SelectTrigger className="mt-1 h-8">
+        <Select
+          value={["Lembaran", "FL", "F.Lipet", "Potong Press", "L. Bambu Kiri-Kanan", "L. Bambu Atas Bawah"].includes(currentItem.finishing) ? currentItem.finishing : 'custom'}
+          onValueChange={(value) => {
+            if (["Lembaran", "FL", "F.Lipet", "Potong Press", "L. Bambu Kiri-Kanan", "L. Bambu Atas Bawah"].includes(value)) {
+              setCustomFinishing('');
+              updateCurrentItem('finishing', value);
+            } else if (value === 'custom') {
+              setCustomFinishing(currentItem.finishing && !["Lembaran", "FL", "F.Lipet", "Potong Press", "L. Bambu Kiri-Kanan", "L. Bambu Atas Bawah"].includes(currentItem.finishing) ? currentItem.finishing : '');
+              updateCurrentItem('finishing', currentItem.finishing && !["Lembaran", "FL", "F.Lipet", "Potong Press", "L. Bambu Kiri-Kanan", "L. Bambu Atas Bawah"].includes(currentItem.finishing) ? currentItem.finishing : '');
+            } else {
+              setCustomFinishing('');
+              updateCurrentItem('finishing', '');
+            }
+          }}
+        >
+        <SelectTrigger className="mt-1 h-8">
             <SelectValue placeholder="Pilih Finishing" />
           </SelectTrigger>
           <SelectContent className="bg-white">
-            {services.filter(s => s.nama.toLowerCase().includes('finishing') || 
-                                s.nama.toLowerCase().includes('laminating') ||
-                                s.nama.toLowerCase().includes('cutting') ||
-                                s.nama.toLowerCase().includes('mounting')).map((service) => (
-              <SelectItem key={service.id} value={service.kode} className="bg-white hover:bg-gray-50">
-                {service.nama} ({formatCurrency(service.harga_jual || 0)})
-              </SelectItem>
-            ))}
-            <SelectItem value="none" className="bg-white hover:bg-gray-50">Tanpa Finishing</SelectItem>
+            <SelectItem value="Lembaran">Lembaran</SelectItem>
+            <SelectItem value="FL">FL</SelectItem>
+            <SelectItem value="F.Lipet">F.Lipet</SelectItem>
+            <SelectItem value="Potong Press">Potong Press</SelectItem>
+            <SelectItem value="L. Bambu Kiri-Kanan">L.Bambu Kiri-Kanan</SelectItem>
+            <SelectItem value="L. Bambu Atas Bawah">L.Bambu Atas Bawah</SelectItem>
+            <SelectItem value="custom">Lainnya (isi manual)</SelectItem>
           </SelectContent>
         </Select>
+        {(!["Lembaran", "FL", "F.Lipet", "Potong Press", "L. Bambu Kiri-Kanan", "L. Bambu Atas Bawah"].includes(currentItem.finishing) || (customFinishing !== '' && !["Lembaran", "FL", "F.Lipet", "Potong Press", "L. Bambu Kiri-Kanan", "L. Bambu Atas Bawah"].includes(customFinishing))) && (
+          <Input
+            className="mt-2 h-8 border-blue-600"
+            placeholder="Isi finishing manual..."
+            value={customFinishing}
+            onChange={e => {
+              setCustomFinishing(e.target.value);
+              updateCurrentItem('finishing', e.target.value);
+            }}
+          />
+        )}
       </div>
 
       {/* Notes: pindahkan ke sini */}

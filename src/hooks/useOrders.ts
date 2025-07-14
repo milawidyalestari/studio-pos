@@ -21,7 +21,7 @@ export const useOrders = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: orders, isLoading } = useQuery({
+  const { data: orders, isLoading, refetch } = useQuery({
     queryKey: ['orders'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -174,5 +174,6 @@ export const useOrders = () => {
     updateOrder: updateOrderMutation.mutateAsync,
     isUpdatingOrder: updateOrderMutation.isPending,
     deleteOrder: deleteOrderMutation.mutateAsync,
+    refetch, // tambahkan refetch di sini
   };
 };
