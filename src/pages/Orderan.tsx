@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Search, Grid, List } from 'lucide-react';
+import { Plus, Search, Grid, List, RefreshCw } from 'lucide-react';
 import { DropResult } from 'react-beautiful-dnd';
 import RequestOrderModal from '@/components/RequestOrderModal';
 import KanbanBoard from '@/components/KanbanBoard';
@@ -21,7 +21,7 @@ const Orderan = () => {
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(null);
   const [editingOrder, setEditingOrder] = useState<OrderWithItems | null>(null);
-  const { orders: dbOrders, isLoading, updateOrder, deleteOrder } = useOrders();
+  const { orders: dbOrders, isLoading, updateOrder, deleteOrder, refetch } = useOrders(); // tambahkan refetch
   const orders = dbOrders || [];
   const { toast } = useToast();
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -131,6 +131,16 @@ const Orderan = () => {
             >
               <Grid className="h-4 w-4 mr-1" />
               Kanban
+            </Button>
+            {/* Tombol Refresh */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              className="flex items-center"
+              title="Refresh Orders"
+            >
+              <RefreshCw className="h-4 w-4" />
             </Button>
             <Button
               variant={viewMode === 'table' ? 'default' : 'outline'}
