@@ -385,7 +385,7 @@ const KanbanBoard = ({
               />
             );
           })}
-          <AddColumnButton onClick={() => setShowAddColumn(true)} />
+          {/* <AddColumnButton onClick={() => setShowAddColumn(true)} /> */}
         </div>
       </DragDropContext>
       <AddColumnDialog

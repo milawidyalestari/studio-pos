@@ -74,13 +74,13 @@ const ServiceCostSection = ({ formData, totalPrice, onFormDataChange, designers,
               <SelectValue placeholder="Pilih Admin" />
             </SelectTrigger>
             <SelectContent>
-              {loadingAdmins ? (
+            {loadingAdmins ? (
                 <SelectItem value="loading" disabled>Loading...</SelectItem>
-              ) : (
-                admins.map(emp => (
+            ) : (
+              admins.map(emp => (
                   <SelectItem key={emp.id} value={emp.id}>{emp.nama}</SelectItem>
-                ))
-              )}
+              ))
+            )}
             </SelectContent>
           </Select>
         </div>
@@ -91,13 +91,13 @@ const ServiceCostSection = ({ formData, totalPrice, onFormDataChange, designers,
               <SelectValue placeholder="Pilih Designer" />
             </SelectTrigger>
             <SelectContent>
-              {loadingDesigners ? (
+            {loadingDesigners ? (
                 <SelectItem value="loading" disabled>Loading...</SelectItem>
-              ) : (
-                designers.map(emp => (
+            ) : (
+              designers.map(emp => (
                   <SelectItem key={emp.id} value={emp.id}>{emp.nama}</SelectItem>
-                ))
-              )}
+              ))
+            )}
             </SelectContent>
           </Select>
         </div>

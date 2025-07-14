@@ -35,6 +35,25 @@ const Orderan = () => {
       });
   }, []);
 
+  // Realtime WebSocket: subscribe ke perubahan tabel orders
+  React.useEffect(() => {
+    const channel = supabase
+      .channel('orders-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        (payload) => {
+          // Bisa cek payload.eventType: 'INSERT' | 'UPDATE' | 'DELETE'
+          refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refetch]);
+
   const handleOrderModalSubmit = (orderData: object) => {
     // The order is automatically saved through the RequestOrderModal using useOrders hook
     // The order list will automatically refresh due to React Query invalidation
