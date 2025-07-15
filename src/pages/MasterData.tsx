@@ -294,7 +294,8 @@ const MasterData = () => {
             { key: 'code', label: 'Code', type: 'text' as const, required: true },
             { key: 'type', label: 'Type', type: 'select' as const, required: true, options: [
               { value: 'Digital', label: 'Digital' },
-              { value: 'Card', label: 'Card' }
+              { value: 'Card', label: 'Card' },
+              { value: 'Tunai', label: 'Tunai' }
             ]},
             { key: 'payment_method', label: 'Payment Method', type: 'text' as const, required: true }
           ]

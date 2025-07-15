@@ -32,6 +32,8 @@ interface OrderCardProps {
   onEditOrder?: (order: Order) => void;
   onDeleteOrder?: (orderId: string) => void;
   isOptimisticallyMoved?: boolean;
+  isDoneColumn?: boolean;
+  onMarkPickedUp?: (orderId: string) => void;
 }
 
 function safeLocaleDateString(dateValue: string | undefined) {
@@ -46,7 +48,7 @@ function formatCreatedAt(dateStr: string) {
   return d.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
 
-const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDeleteOrder, isOptimisticallyMoved }: OrderCardProps) => {
+const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDeleteOrder, isOptimisticallyMoved, isDoneColumn, onMarkPickedUp }: OrderCardProps) => {
   const formatDeadline = (dateString: string) => {
     if (!dateString || dateString === '-' || dateString === '') return 'No deadline';
     const date = new Date(dateString);
@@ -96,6 +98,71 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
       onDeleteOrder(order.id);
     }
   };
+
+  const handleMarkPickedUp = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onMarkPickedUp) {
+      onMarkPickedUp(order.id);
+    }
+  };
+
+  if (isDoneColumn && order.status === 'Done') {
+    return (
+      <Card
+        ref={provided?.innerRef}
+        {...(provided?.draggableProps || {})}
+        {...(provided?.dragHandleProps || {})}
+        className={`cursor-pointer transition-all duration-200 ease-out hover:shadow-md hover:scale-[1.02] ${
+          snapshot?.isDragging ? 'shadow-xl rotate-1 scale-105 z-50 opacity-95' : ''
+        } ${
+          isOptimisticallyMoved ? 'ring-2 ring-blue-400 ring-opacity-60 shadow-md bg-blue-50/30' : ''
+        }`}
+        style={{
+          transform: snapshot?.isDragging ? 'rotate(1deg) scale(1.05)' : isOptimisticallyMoved ? 'translateZ(0)' : 'none',
+          transition: snapshot?.isDragging ? 'none' : 'all 0.2s ease-out',
+          willChange: snapshot?.isDragging || isOptimisticallyMoved ? 'transform, box-shadow' : 'auto',
+          ...provided?.draggableProps?.style
+        }}
+        onClick={handleCardClick}
+      >
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle className="text-sm font-medium text-gray-900 mb-1">
+              {order.customer}
+            </CardTitle>
+            <div className="flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="h-6 w-6 p-0 hover:bg-gray-100 transition-colors"
+                    onClick={handleEditClick}
+                  >
+                    <Edit className="h-3 w-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Edit order</p>
+                </TooltipContent>
+              </Tooltip>
+              {onMarkPickedUp && order.status === 'Done' && order.status !== 'Selesai-Diambil' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 px-2 py-0 text-xs ml-2 hover:bg-green-100"
+                  onClick={handleMarkPickedUp}
+                  disabled={isOptimisticallyMoved}
+                >
+                  Diambil
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+    );
+  }
 
   return (
     <TooltipProvider>

@@ -99,7 +99,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
     item: '',
     ukuran: { panjang: '', lebar: '' },
     quantity: '',
-    finishing: ''
+    finishing: 'Lembaran'
   });
 
   const [orderList, setOrderList] = useState<OrderItem[]>([]);
@@ -201,7 +201,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
       item: '',
       ukuran: { panjang: '', lebar: '' },
       quantity: '',
-      finishing: ''
+      finishing: 'Lembaran'
     });
     setEditingItemId(null);
   };
@@ -325,7 +325,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
         biaya_lain: parseFloat(formData.biayaLain) || 0,
         sub_total: totals.subtotal,
         discount: formData.discount || 0,
-        ppn: formData.ppn || 10,
+        ppn: formData.taxChecked ? (formData.ppn || 10) : null,
         total_amount: totals.total,
         payment_type: formData.paymentType || null,
         bank: formData.bank || null,
@@ -376,8 +376,22 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
     }
   };
 
-  const handlePrintReceipt = () => {
-    console.log('Print Receipt clicked - functionality to be implemented');
+  const handlePrintReceipt = async () => {
+    if (!editingOrder) {
+      // toast({ title: 'Error', description: 'Order belum dipilih.', variant: 'destructive' });
+      return;
+    }
+    // Update receipt_printed di database
+    const { error } = await supabase
+      .from('orders')
+      .update({ receipt_printed: true })
+      .eq('id', editingOrder.id);
+    // if (error) {
+    //   toast({ title: 'Gagal update receipt', description: error.message, variant: 'destructive' });
+    //   return;
+    // }
+    // toast({ title: 'Receipt berhasil di-print', description: 'Status receipt sudah tercatat.', variant: 'success' });
+    // ... logic print receipt asli di sini ...
   };
 
   const resetForm = async () => {

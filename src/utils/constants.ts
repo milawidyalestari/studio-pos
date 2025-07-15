@@ -1,6 +1,6 @@
 
 export const APP_CONFIG = {
-  APP_NAME: 'PrintSys',
+  APP_NAME: 'Montana',
   VERSION: '1.0.0',
   COMPANY_NAME: 'Digital Print Control',
 } as const;
