@@ -195,6 +195,25 @@ const KanbanBoard = ({
     setNewColumnTitle('');
   };
 
+  const handleMarkAsTaken = async (orderId: string) => {
+    const diambilStatus = statuses.find(s => s.name === 'Selesai-Diambil');
+    if (!diambilStatus) {
+      toast({ title: 'Error', description: 'Status "Selesai-Diambil" tidak ditemukan', variant: 'destructive' });
+      return;
+    }
+    setIsUpdating(orderId);
+    try {
+      if (onUpdateOrderStatus) {
+        await onUpdateOrderStatus(orderId, String(diambilStatus.id));
+      }
+      toast({ title: 'Order Diambil', description: 'Order telah diubah ke status Selesai-Diambil', variant: 'default' });
+    } catch (error) {
+      toast({ title: 'Error', description: 'Gagal mengubah status order.', variant: 'destructive' });
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+
   // --- SMOOTH AUTO SCROLL LOGIC DENGAN AKSELERASI ---
   const scrollDirectionRef = useRef<'left' | 'right' | null>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -382,6 +401,7 @@ const KanbanBoard = ({
                   if (original) onEditOrder(original);
                 } : undefined}
                 onDeleteOrder={handleDeleteOrder}
+                onMarkAsTaken={column.status === 'Done' ? handleMarkAsTaken : undefined}
               />
             );
           })}

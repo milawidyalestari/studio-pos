@@ -2,28 +2,45 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { TrendingUp, Receipt, Package } from 'lucide-react';
+import { useTodayOrderStats } from '@/hooks/useOrders';
+
+// Tambahkan type agar data tidak unknown
+interface TodayOrderStats {
+  totalPendapatan: number;
+  totalTransaksi: number;
+  belumDiproses: number;
+}
 
 const DashboardStats = () => {
+  const { data, isLoading, error } = useTodayOrderStats();
+
   const stats = [
     {
       title: 'Total Pendapatan',
-      value: 'IDR 3.689.400',
+      value: data ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format((data as TodayOrderStats).totalPendapatan) : '-',
       icon: TrendingUp,
       color: 'text-blue-600'
     },
     {
-      title: 'Total Transaksi',
-      value: '29',
+      title: 'Total Orderan',
+      value: data ? (data as TodayOrderStats).totalTransaksi : '-',
       icon: Receipt,
       color: 'text-green-600'
     },
     {
       title: 'Belum Diproses',
-      value: '14',
+      value: data ? (data as TodayOrderStats).belumDiproses : '-',
       icon: Package,
       color: 'text-orange-600'
     }
   ];
+
+  if (isLoading) {
+    return <div className="p-6 text-center">Loading statistik...</div>;
+  }
+  if (error) {
+    return <div className="p-6 text-center text-red-600">Gagal memuat statistik</div>;
+  }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
