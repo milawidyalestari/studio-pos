@@ -312,12 +312,12 @@ const ItemFormSection = ({
 
       {/* Notes: pindahkan ke sini */}
       <div className="mb-1">
-        <Label htmlFor="notes" className="text-sm font-medium">Notes</Label>
+        <Label htmlFor="notes" className="text-sm font-medium">Deskripsi</Label>
         <textarea
           id="notes"
           value={currentItem.notes || ''}
           onChange={e => updateCurrentItem('notes', e.target.value)}
-          placeholder="Order notes..."
+          placeholder="Deskripsi Order..."
           className="mt-1 h-16 resize-none w-full border rounded-md p-2"
         />
       </div>

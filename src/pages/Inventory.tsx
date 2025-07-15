@@ -38,8 +38,8 @@ const Inventory = () => {
       {/* Header */}
       <div className="flex justify-between items-center sticky top-0 z-10 bg-white mb-6">
         <div className="mb-4">
-          <h1 className="text-2xl font-bold text-gray-900">Inventory</h1>
-          <p className="text-gray-600">Manage your stock and inventory items</p>
+          <h1 className="text-2xl font-bold text-gray-900">Inventori</h1>
+          <p className="text-gray-600">Manajemen stok & inventaris</p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" className="gap-2">
