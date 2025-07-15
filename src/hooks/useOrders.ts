@@ -179,3 +179,28 @@ export const useOrders = () => {
     refetch, // tambahkan refetch di sini
   };
 };
+
+// Custom hook: Statistik order hari ini
+
+export const useTodayOrderStats = () => {
+  return useQuery({
+    queryKey: ['today-order-stats'],
+    queryFn: async () => {
+      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      // Ambil semua order hari ini
+      const { data, error } = await supabase
+        .from('orders')
+        .select('total_amount, desainer_id')
+        .eq('tanggal', today);
+      if (error) throw error;
+      const orders = data || [];
+      // Hitung statistik
+      const totalPendapatan = orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+      const totalTransaksi = orders.length;
+      const belumDiproses = orders.filter(o => !o.desainer_id).length;
+      return { totalPendapatan, totalTransaksi, belumDiproses };
+    },
+    refetchInterval: 3000,
+    refetchOnWindowFocus: true,
+  });
+};

@@ -48,7 +48,6 @@ const OrdersTableContent: React.FC<OrdersTableContentProps> = ({ orders }) => {
               <TableHead>Deadline</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Desainer</TableHead>
-              <TableHead className="text-right">Jumlah Total</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -63,9 +62,6 @@ const OrdersTableContent: React.FC<OrdersTableContentProps> = ({ orders }) => {
                   </Badge>
                 </TableCell>
                 <TableCell>{order.desainer?.nama || '-'}</TableCell>
-                <TableCell className="text-right font-semibold text-[#0050C8]">
-                  {formatCurrency(order.total_amount || 0)}
-                </TableCell>
               </TableRow>
             ))}
           </TableBody>

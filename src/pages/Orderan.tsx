@@ -131,7 +131,7 @@ const Orderan = () => {
       <div className="flex justify-between items-center mb-4">
         <div className="mb-4">
           <h1 className="text-2xl font-bold text-gray-900">Orderan</h1>
-          <p className="text-gray-600">Manage customer orders and requests</p>
+          <p className="text-gray-600">Manajemen order dan request pelanggan</p>
         </div>
         <div className="flex items-center space-x-4">
           <div className="relative">

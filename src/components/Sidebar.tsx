@@ -3,6 +3,7 @@ import React, { memo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
+  Torus ,
   FileText, 
   Receipt, 
   Package, 
@@ -46,7 +47,10 @@ const Sidebar = memo<SidebarProps>(({ collapsed, onToggle }) => {
       {/* Header */}
       <div className="p-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
         {!collapsed && (
-          <h1 className="text-xl font-bold text-gray-800">{APP_CONFIG.APP_NAME}</h1>
+          <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+            <Torus  className="h-7 w-7 text-blue-700" />
+            {APP_CONFIG.APP_NAME}
+          </h1>
         )}
         <Button
           variant="ghost"
@@ -55,7 +59,7 @@ const Sidebar = memo<SidebarProps>(({ collapsed, onToggle }) => {
           className="p-2"
           aria-label="Toggle sidebar"
         >
-          <Menu className="h-4 w-4" />
+          <Menu className="h-4 w-4 text-blue-700" />
         </Button>
       </div>
 
@@ -78,7 +82,7 @@ const Sidebar = memo<SidebarProps>(({ collapsed, onToggle }) => {
                   )}
                   aria-current={isActive ? 'page' : undefined}
                 >
-                  <Icon className={cn("h-5 w-5", collapsed ? "mx-auto" : "mr-3")} />
+                  <Icon className={cn("h-5 w-5", collapsed ? "mx-auto" : "mr-3", isActive ? "text-white" : "text-blue-700")} />
                   {!collapsed && <span>{item.label}</span>}
                 </NavLink>
               </li>
@@ -96,7 +100,7 @@ const Sidebar = memo<SidebarProps>(({ collapsed, onToggle }) => {
           )}
           aria-label="Logout"
         >
-          <LogOut className={cn("h-5 w-5", collapsed ? "mx-auto" : "mr-3")} />
+          <LogOut className={cn("h-5 w-5 text-blue-700", collapsed ? "mx-auto" : "mr-3")} />
           {!collapsed && <span>Logout</span>}
         </button>
       </div>

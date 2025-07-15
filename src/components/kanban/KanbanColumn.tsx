@@ -28,6 +28,7 @@ interface KanbanColumnProps {
   onEditOrder?: (order: Order) => void;
   onDeleteOrder?: (orderId: string) => void;
   isOptimisticallyMoved?: (orderId: string) => boolean;
+  onMarkAsTaken?: (orderId: string) => void;
 }
 
 const KanbanColumn = ({ 
@@ -36,7 +37,8 @@ const KanbanColumn = ({
   onOrderClick, 
   onEditOrder, 
   onDeleteOrder,
-  isOptimisticallyMoved
+  isOptimisticallyMoved,
+  onMarkAsTaken
 }: KanbanColumnProps) => {
   return (
     <div 
@@ -70,6 +72,8 @@ const KanbanColumn = ({
                        onEditOrder={onEditOrder}
                        onDeleteOrder={onDeleteOrder}
                        isOptimisticallyMoved={isOptimisticallyMoved?.(order.id)}
+                       isDoneColumn={column.status === 'Done'}
+                       onMarkPickedUp={onMarkAsTaken && order.status === 'Done' && String(order.status) !== 'Selesai-Diambil' ? onMarkAsTaken : undefined}
                      />
                   )}
                 </Draggable>
