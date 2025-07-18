@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -9,7 +9,8 @@ import {
   RefreshCw,
   Search,
   SlidersHorizontal,
-  Trash2
+  Trash2,
+  Edit
 } from 'lucide-react';
 import {
   Select,
@@ -18,20 +19,49 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useProducts, Product, useUpdateProduct, useDeleteProduct } from '@/hooks/useProducts';
+import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ProductForm } from '@/components/ProductForm';
 
 const Inventory = () => {
-  const inventory = [
-    { code: 'BRG001', name: 'Vinyl Glossy', unit: 'Roll', initialStock: 50, inStock: 10, outStock: 5, finalStock: 55 },
-    { code: 'BRG002', name: 'Banner Frontlite', unit: 'Roll', initialStock: 30, inStock: 5, outStock: 8, finalStock: 27 },
-    { code: 'BRG003', name: 'Sticker Chromo', unit: 'Pack', initialStock: 100, inStock: 20, outStock: 15, finalStock: 105 },
-    { code: 'BRG004', name: 'Canvas', unit: 'Roll', initialStock: 20, inStock: 5, outStock: 2, finalStock: 23 },
-    { code: 'BRG005', name: 'HVS Paper', unit: 'Rim', initialStock: 150, inStock: 50, outStock: 30, finalStock: 170 },
-  ];
+  const { toast } = useToast();
+  const [isProductFormOpen, setIsProductFormOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
-  const lowStockItems = [
-    { name: 'Vinyl Glossy', currentStock: 5, minStock: 10 },
-    { name: 'Banner Frontlite', currentStock: 3, minStock: 8 },
-  ];
+  // Ambil data produk dari database
+  const { data: products = [], isLoading, error } = useProducts();
+  const updateProduct = useUpdateProduct();
+  const deleteProduct = useDeleteProduct();
+
+  // Filter produk yang jenisnya 'Bahan'
+  const inventory = products.filter((product: Product) => product.jenis === 'Bahan');
+
+  // Deteksi stok minimum (jika ada field stok_minimum)
+  const lowStockItems = inventory
+    .filter(item => item.stok_opname !== undefined && item.stok_minimum !== undefined && item.stok_opname < item.stok_minimum)
+    .map(item => ({
+      name: item.nama,
+      currentStock: item.stok_opname,
+      minStock: item.stok_minimum
+    }));
+
+  const handleEditClick = (product: Product) => {
+    setEditingProduct(product);
+    setIsProductFormOpen(true);
+  };
+
+  const handleProductFormSubmit = async (productData: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
+    if (!editingProduct) return;
+    try {
+      await updateProduct.mutateAsync({ id: editingProduct.id, ...productData });
+      toast({ title: 'Success', description: 'Product updated successfully' });
+      setIsProductFormOpen(false);
+      setEditingProduct(null);
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to update product', variant: 'destructive' });
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -74,7 +104,7 @@ const Inventory = () => {
                 <div className="text-right">
                   <p className="text-sm text-gray-600">Minimum stock: {item.minStock}</p>
                   <p className="text-sm font-medium text-orange-800">
-                    {item.minStock - item.currentStock} units needed
+                    {item.minStock && item.currentStock !== undefined ? item.minStock - item.currentStock : 0} units needed
                   </p>
                 </div>
               </div>
@@ -102,9 +132,7 @@ const Inventory = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Categories</SelectItem>
-              <SelectItem value="vinyl">Vinyl</SelectItem>
-              <SelectItem value="banner">Banner</SelectItem>
-              <SelectItem value="paper">Paper</SelectItem>
+              {/* Tambahkan kategori lain jika perlu */}
             </SelectContent>
           </Select>
         </div>
@@ -127,26 +155,63 @@ const Inventory = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {inventory.map((item) => (
-                <tr key={item.code} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.code}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.unit}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.initialStock}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">+{item.inStock}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">-{item.outStock}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[#0050C8]">{item.finalStock}</td>
+              {isLoading ? (
+                <tr><td colSpan={8} className="text-center py-8">Loading...</td></tr>
+              ) : error ? (
+                <tr><td colSpan={8} className="text-center py-8 text-red-500">Error loading data</td></tr>
+              ) : inventory.length === 0 ? (
+                <tr><td colSpan={8} className="text-center py-8">No data</td></tr>
+              ) : (
+                inventory.map((item) => (
+                  <tr key={item.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.kode}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.nama}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.satuan}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.stok_awal ?? '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">+{item.stok_masuk ?? 0}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">-{item.stok_keluar ?? 0}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[#0050C8]">{item.stok_opname ?? '-'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditClick(item)}
+                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
                       <Trash2 className="h-4 w-4" />
                     </Button>
+                      </div>
                   </td>
                 </tr>
-              ))}
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Edit Product Modal */}
+      <Dialog open={isProductFormOpen} onOpenChange={setIsProductFormOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Product</DialogTitle>
+          </DialogHeader>
+          <ProductForm
+            initialData={editingProduct}
+            onSubmit={handleProductFormSubmit}
+            onCancel={() => setIsProductFormOpen(false)}
+            isEditing={!!editingProduct}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
