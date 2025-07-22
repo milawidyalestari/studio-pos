@@ -331,7 +331,7 @@ const ItemFormSection = ({
       </div>
 
       <div className="flex space-x-2">
-        <Button type="button" variant="outline" onClick={resetCurrentItem}>Reset</Button>
+        <Button type="button" variant="outline" onClick={resetCurrentItem}>Cancel</Button>
         {editingItemId ? (
           <Button 
             type="button" 

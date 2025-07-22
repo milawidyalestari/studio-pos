@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { TrendingUp, Receipt, Package } from 'lucide-react';
 import { useTodayOrderStats } from '@/hooks/useOrders';
-import { hasAccess } from '@/utils/roleAccess';
+import { useHasAccess } from '@/context/RoleAccessContext';
 
 // Tambahkan type agar data tidak unknown
 interface TodayOrderStats {
@@ -13,6 +13,7 @@ interface TodayOrderStats {
 }
 
 const DashboardStats = () => {
+  const hasAccess = useHasAccess();
   const { data, isLoading, error } = useTodayOrderStats();
 
   const stats = [
