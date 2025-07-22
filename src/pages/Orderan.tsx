@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { deleteOrderFromDatabase } from '@/services/deleteOrderService';
 import { Order, OrderWithItems, Employee } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
+import { hasAccess } from '@/utils/roleAccess';
 // FIX: Temporarily comment out or remove the import that causes an error if the module does not exist
 // import { getStatusIdByName } from '@/utils/getStatusId';
 
@@ -21,10 +22,11 @@ const Orderan = () => {
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(null);
   const [editingOrder, setEditingOrder] = useState<OrderWithItems | null>(null);
-  const { orders: dbOrders, isLoading, updateOrder, deleteOrder, refetch } = useOrders(); // tambahkan refetch
+  const { orders: dbOrders, isLoading, isFetching, updateOrder, deleteOrder, refetch } = useOrders(); // tambahkan isFetching
   const orders = dbOrders || [];
   const { toast } = useToast();
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [fadeReload, setFadeReload] = useState(false);
   
   React.useEffect(() => {
     supabase
@@ -53,6 +55,15 @@ const Orderan = () => {
       supabase.removeChannel(channel);
     };
   }, [refetch]);
+
+  // Sinkronkan fadeReload dengan proses fetch data
+  React.useEffect(() => {
+    if (isFetching) {
+      setFadeReload(true); // fade out saat fetch mulai
+    } else {
+      setTimeout(() => setFadeReload(false), 100); // fade in setelah fetch selesai
+    }
+  }, [isFetching]);
 
   const handleOrderModalSubmit = (orderData: object) => {
     // The order is automatically saved through the RequestOrderModal using useOrders hook
@@ -115,6 +126,14 @@ const Orderan = () => {
     setEditingOrder(null);
   };
 
+  const handleReload = async () => {
+    setFadeReload(true);
+    setTimeout(async () => {
+      await refetch();
+      setFadeReload(false);
+    }, 250); // fade out dulu, lalu refetch dan fade in
+  };
+
   if (isLoading) {
     return (
       <div className="p-6">
@@ -156,7 +175,7 @@ const Orderan = () => {
               variant="outline"
               size="sm"
               onClick={() => refetch()}
-              className="flex items-center"
+              className={`flex items-center${fadeReload ? ' opacity-50 pointer-events-none' : ''}`}
               title="Refresh Orders"
             >
               <RefreshCw className="h-4 w-4" />
@@ -171,13 +190,15 @@ const Orderan = () => {
               Table
             </Button>
           </div>
-          <Button 
-            onClick={() => setShowRequestModal(true)}
-            className="bg-[#0050C8] hover:bg-[#003a9b]"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            New Order
-          </Button>
+          {hasAccess('Orderan', 'create') && (
+            <Button 
+              onClick={() => setShowRequestModal(true)}
+              className="bg-[#0050C8] hover:bg-[#003a9b]"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New Order
+            </Button>
+          )}
         </div>
       </div>
 
@@ -200,9 +221,10 @@ const Orderan = () => {
               onDeleteOrder={handleDeleteOrder}
               onUpdateOrderStatus={updateOrderStatus}
               employees={employees}
+              fadeReload={fadeReload}
             />
           ) : (
-            <OrderTable orders={orders} onUpdateStatus={updateOrderStatus} onOrderClick={handleOrderClick} onEditOrder={handleEditOrder} />
+            <OrderTable orders={orders} onUpdateStatus={updateOrderStatus} onOrderClick={handleOrderClick} onEditOrder={handleEditOrder} fadeReload={fadeReload} />
           )}
         </>
       )}

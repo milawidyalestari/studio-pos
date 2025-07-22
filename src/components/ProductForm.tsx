@@ -14,6 +14,8 @@ import { useCategories } from '@/hooks/useCategories';
 import { useUnits } from '@/hooks/useUnits';
 import { useProductCodeGenerator } from '@/hooks/useProductCodeGenerator';
 import { RefreshCw } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ProductFormProps {
   initialData?: Product | null;
@@ -47,6 +49,51 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   const { data: categories = [], isLoading: categoriesLoading, error: categoriesError } = useCategories();
   const { data: units = [], isLoading: unitsLoading, error: unitsError } = useUnits();
   const { generatedCode, isGenerating, regenerateCode } = useProductCodeGenerator();
+
+  // Ambil data groups dari database
+  const { data: groups = [], isLoading: groupsLoading, error: groupsError } = useQuery({
+    queryKey: ['groups'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('groups')
+        .select('*')
+        .order('name', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Tambahkan useEffect untuk generate kode produk berdasarkan tipe/group
+  useEffect(() => {
+    const generateProductCodeByGroup = async () => {
+      // Cari group yang dipilih
+      const selectedGroup = groups.find((g: any) => g.name === formData.jenis);
+      if (!selectedGroup || !selectedGroup.code) return;
+      const prefix = selectedGroup.code;
+      // Query produk dengan prefix kode ini
+      const { data: productsWithPrefix, error } = await supabase
+        .from('products')
+        .select('kode')
+        .ilike('kode', `${prefix}%`);
+      if (error) return;
+      // Cari angka terbesar di belakang prefix
+      let maxNumber = 0;
+      (productsWithPrefix || []).forEach((p: any) => {
+        const match = p.kode.match(new RegExp(`^${prefix}(\\d+)$`));
+        if (match) {
+          const number = parseInt(match[1], 10);
+          if (number > maxNumber) maxNumber = number;
+        }
+      });
+      const nextNumber = maxNumber + 1;
+      const newCode = `${prefix}${nextNumber.toString().padStart(4, '0')}`;
+      setFormData(prev => ({ ...prev, kode: newCode }));
+    };
+    if (formData.jenis && groups.length > 0 && !isEditing) {
+      generateProductCodeByGroup();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.jenis, groups, isEditing]);
 
   // Auto-fill product code for new products
   useEffect(() => {
@@ -168,14 +215,14 @@ export const ProductForm: React.FC<ProductFormProps> = ({
 
           <div className="space-y-2">
             <Label htmlFor="kode" className="text-sm font-medium">
-              Product Code <span className="text-red-500">*</span>
+              Kode Produk <span className="text-red-500">*</span>
             </Label>
             <div className="flex gap-2">
               <Input
                 id="kode"
                 type="text"
                 value={formData.kode}
-                onChange={(e) => handleInputChange('kode', e.target.value)}
+                onChange={() => {}}
                 className={`h-8${errors.kode ? ' border-red-500' : ''}`}
                 placeholder={isEditing ? "Enter product code" : "Auto-generated code"}
                 readOnly={true}
@@ -195,7 +242,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             </div>
             {!isEditing && (
               <p className="text-xs text-gray-500">
-                Code is auto-generated. Click refresh to generate a new one.
+                Kode produk dibuat otomatis
               </p>
             )}
             {errors.kode && (
@@ -205,16 +252,41 @@ export const ProductForm: React.FC<ProductFormProps> = ({
 
           <div className="space-y-2">
             <Label htmlFor="jenis" className="text-sm font-medium">
-              Type <span className="text-red-500">*</span>
+              Kelompok <span className="text-red-500">*</span>
+              {groupsLoading && <span className="text-blue-500 text-xs ml-2">(Loading...)</span>}
+              {groupsError && <span className="text-red-500 text-xs ml-2">(Error loading types)</span>}
             </Label>
-            <Input
-              id="jenis"
-              type="text"
+            <Select
               value={formData.jenis}
-              onChange={(e) => handleInputChange('jenis', e.target.value)}
-              className={`h-8${errors.jenis ? ' border-red-500' : ''}`}
-              placeholder="Enter product type"
-            />
+              onValueChange={(value) => {
+                handleInputChange('jenis', value);
+                // Kode akan auto-generate via useEffect
+              }}
+              disabled={groupsLoading}
+            >
+              <SelectTrigger className={`h-8${groupsError ? ' border-red-500' : ''}`}>
+                <SelectValue placeholder={
+                  groupsLoading ? 'Loading types...' :
+                  groupsError ? 'Error loading types' :
+                  'Select type'
+                } />
+              </SelectTrigger>
+              <SelectContent className="bg-white z-50 max-h-60 overflow-y-auto">
+                {groups && groups.length > 0 ? (
+                  groups.map((group: any) => (
+                    <SelectItem key={group.id} value={group.name}>
+                      {group.name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  !groupsLoading && (
+                    <SelectItem value="debug-info" disabled>
+                      Debug: {groups ? `${groups.length} types found` : 'Groups is null/undefined'}
+                    </SelectItem>
+                  )
+                )}
+              </SelectContent>
+            </Select>
             {errors.jenis && (
               <p className="text-red-500 text-xs">{errors.jenis}</p>
             )}

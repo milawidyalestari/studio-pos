@@ -10,6 +10,7 @@ import { Employee, OrderWithItems, Order } from '@/types';
 
 interface KanbanBoardWithEmployeesProps extends KanbanBoardProps {
   employees?: Employee[];
+  fadeReload?: boolean;
 }
 
 function getOrderStatus(order: OrderWithItems): string {
@@ -57,13 +58,13 @@ const KanbanBoard = ({
   onEditOrder, 
   onDeleteOrder,
   onUpdateOrderStatus,
-  employees = []
+  employees = [],
+  fadeReload = false
 }: KanbanBoardWithEmployeesProps) => {
   const [columns, setColumns] = useState<KanbanColumnType[]>(DEFAULT_COLUMNS);
   const [showAddColumn, setShowAddColumn] = useState(false);
   const [newColumnTitle, setNewColumnTitle] = useState('');
   const [columnOrderSequence, setColumnOrderSequence] = useState<{[columnId: string]: string[]}>({});
-  const [optimisticOrders, setOptimisticOrders] = useState<OrderWithItems[]>(orders);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const { toast } = useToast();
   const { statuses } = useOrderStatus();
@@ -72,10 +73,19 @@ const KanbanBoard = ({
   const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isDraggingRef = useRef(false);
 
+  // State lokal untuk urutan card (optimistik)
+  const [localOrders, setLocalOrders] = useState<OrderWithItems[]>(orders);
+
+  // Sync localOrders dengan orders dari backend setiap kali orders berubah
+  useEffect(() => {
+    setLocalOrders(orders);
+  }, [orders]);
+
   const employeeMap = useMemo(() => {
     return new Map(employees.map(emp => [emp.id, emp]));
   }, [employees]);
 
+  // Sync columnOrderSequence jika orders berubah
   useEffect(() => {
     if (!hasInitialized.current && orders.length > 0) {
       const sequences: {[columnId: string]: string[]} = {};
@@ -95,9 +105,10 @@ const KanbanBoard = ({
     }
   }, [orders, isUpdating]);
 
+  // Gunakan localOrders untuk mapping dan animasi
   const getColumnOrders = useCallback((status: string): Order[] => {
     const sequence = columnOrderSequence[status] || [];
-    const statusOrders = optimisticOrders.filter(order => getOrderStatus(order) === status);
+    const statusOrders = localOrders.filter(order => getOrderStatus(order) === status);
     return statusOrders.sort((a, b) => {
       const aIndex = sequence.indexOf(a.id);
       const bIndex = sequence.indexOf(b.id);
@@ -106,8 +117,9 @@ const KanbanBoard = ({
       if (bIndex !== -1) return 1;
       return new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime();
     }).map(order => mapOrderWithItemsToOrder(order, employeeMap));
-  }, [optimisticOrders, columnOrderSequence, employeeMap]);
+  }, [localOrders, columnOrderSequence, employeeMap]);
 
+  // Saat drag & drop, update localOrders secara optimistik
   const handleDragEnd = useCallback(async (result: DropResult) => {
     // Clear any ongoing scroll interval
     if (scrollIntervalRef.current) {
@@ -138,18 +150,22 @@ const KanbanBoard = ({
     }
 
     setColumnOrderSequence(newSequences);
-    setOptimisticOrders(prev =>
-      prev.map(order => {
-        if (order.id === draggableId && sourceStatus !== newStatus) {
-          let prevStatuses: Record<string, unknown> = {};
-          if ('order_statuses' in order && order.order_statuses && typeof order.order_statuses === 'object') {
-            prevStatuses = order.order_statuses as Record<string, unknown>;
-          }
-          return { ...order, status: newStatus, order_statuses: { ...prevStatuses, name: newStatus } };
-        }
-        return order;
-      })
-    );
+    // Update localOrders secara optimistik
+    setLocalOrders(prev => {
+      const updated = [...prev];
+      const movedIdx = updated.findIndex(o => o.id === draggableId);
+      if (movedIdx === -1) return updated;
+      const movedOrder = { ...updated[movedIdx], status: newStatus, order_statuses: { ...updated[movedIdx].order_statuses, name: newStatus } };
+      updated.splice(movedIdx, 1);
+      // Cari index tujuan di localOrders
+      const destIdx = updated.findIndex(o => o.id === (newSequences[newStatus][destination.index]));
+      if (destIdx === -1) {
+        updated.push(movedOrder);
+      } else {
+        updated.splice(destIdx, 0, movedOrder);
+      }
+      return updated;
+    });
     setIsUpdating(draggableId);
     toast({ title: 'Order Moved', description: 'Order berhasil dipindahkan', variant: 'default' });
 
@@ -164,11 +180,10 @@ const KanbanBoard = ({
       onDragEnd(result);
     } catch (error) {
       setColumnOrderSequence(columnOrderSequence);
-      setOptimisticOrders(orders);
       setIsUpdating(null);
       toast({ title: 'Error', description: 'Gagal memindahkan order. Perubahan dibatalkan.', variant: 'destructive' });
     }
-  }, [columnOrderSequence, orders, onUpdateOrderStatus, statuses, toast, onDragEnd]);
+  }, [columnOrderSequence, statuses, onUpdateOrderStatus, toast, onDragEnd]);
 
   const handleAddColumn = useCallback(() => {
     if (!newColumnTitle.trim()) return;
@@ -358,7 +373,7 @@ const KanbanBoard = ({
   }, [handleAutoScrollEdge]);
 
   return (
-    <div className="w-full">
+    <div>
       <DragDropContext 
         onDragEnd={handleDragEndWrapper} 
         onDragUpdate={handleDragUpdate}

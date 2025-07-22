@@ -36,6 +36,7 @@ import { useMasterDataState } from '@/hooks/useMasterDataState';
 import { supabase } from '@/integrations/supabase/client';
 import SupplierModal from '@/components/SupplierModal';
 import type { Supplier } from '@/types';
+import { hasAccess } from '@/utils/roleAccess';
 
 // Import refactored components
 import { MasterDataHeader } from '@/components/master-data/MasterDataHeader';
@@ -133,6 +134,7 @@ const MasterData = () => {
   React.useEffect(() => { fetchPositions(); }, []);
 
   const handleAddProduct = () => {
+    if (!hasAccess('Master Data', 'create')) return;
     console.log('Opening product form for new product');
     setEditingProduct(null);
     setIsProductFormOpen(true);
@@ -717,6 +719,7 @@ const MasterData = () => {
             samplePaymentTypes={paymentTypes}
             categoriesLoading={dbCategoriesLoading || groupsLoading || unitsLoading || paymentTypesLoading}
             onOverlayOpen={handleOverlayOpen}
+            canAdd={hasAccess('Master Data', 'create')}
           />
         </TabsContent>
 
