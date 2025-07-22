@@ -13,7 +13,8 @@ import {
   LogOut,
   Menu,
   Calculator,
-  Truck
+  Truck,
+  Printer
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -29,7 +30,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
-import { hasAccess } from '@/utils/roleAccess';
+import { useHasAccess } from '@/context/RoleAccessContext';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -46,12 +47,14 @@ const menuItems = [
   { path: ROUTES.REPORT, label: 'Report', icon: BarChart3 },
   { path: ROUTES.MASTER_DATA, label: 'Master Data', icon: Database },
   { path: ROUTES.SETTINGS, label: 'Settings', icon: Settings },
+  { path: '/print-demo', label: 'Print Demo', icon: Printer },
 ];
 
 const Sidebar = memo<SidebarProps>(({ collapsed, onToggle }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [openLogoutDialog, setOpenLogoutDialog] = React.useState(false);
+  const hasAccess = useHasAccess();
 
   const handleLogout = () => {
     localStorage.removeItem('studio_pos_user');

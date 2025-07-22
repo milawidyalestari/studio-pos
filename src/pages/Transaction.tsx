@@ -18,6 +18,9 @@ import {
   Printer
 } from 'lucide-react';
 import { OrderWithItems } from '@/types';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // Interface untuk data transaksi dari orders
 interface PaymentTransaction {
@@ -39,6 +42,12 @@ const TransactionPage = () => {
   const { data: paymentTypes = [] } = usePaymentTypes();
   const [searchTerm, setSearchTerm] = useState('');
   const [localReceipt, setLocalReceipt] = useState<Record<string, boolean>>({});
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [dateMode, setDateMode] = useState<'single' | 'range'>('single');
+  const [singleDate, setSingleDate] = useState<Date | undefined>();
+  const [range, setRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
+  const [filterField, setFilterField] = useState('customer_name');
+  const [filterValue, setFilterValue] = useState('');
 
   // Buat mapping id -> payment_method
   const paymentTypeMap = React.useMemo(() => {
@@ -68,6 +77,7 @@ const TransactionPage = () => {
         tanggal: order.tanggal,
         down_payment: uangMuka,
         pelunasan: pelunasan,
+        remaining_payment: order.remaining_payment || 0,
         total_amount: totalOrder,
         payment_type: paymentTypeMap[order.payment_type as string] || '-',
         status_pembayaran: statusPembayaran,
@@ -75,13 +85,29 @@ const TransactionPage = () => {
         order_status_name: order.order_statuses?.name || '',
       };
     })
-    .filter(t => t.down_payment > 0 || t.pelunasan > 0 || t.order_status_name === 'Selesai-Diambil');
+    .filter(t =>
+      t.down_payment > 0 ||
+      t.pelunasan > 0 ||
+      t.receipt_printed === true ||
+      t.order_status_name === 'Done' ||
+      t.order_status_name === 'Selesai-Diambil'
+    );
 
   // Filter berdasarkan search term
-  const filteredTransactions = paymentTransactions.filter(transaction =>
-    transaction.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    transaction.order_number.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredTransactions = paymentTransactions.filter(transaction => {
+    if (filterField === 'tanggal') {
+      const tgl = new Date(transaction.tanggal);
+      if (dateMode === 'single' && singleDate) {
+        return tgl.toDateString() === singleDate.toDateString();
+      } else if (dateMode === 'range' && range.from && range.to) {
+        return tgl >= range.from && tgl <= range.to;
+      }
+      return true;
+    } else {
+      const fieldValue = (transaction[filterField] || '').toString().toLowerCase();
+      return !filterValue || fieldValue.includes(filterValue.toLowerCase());
+    }
+  });
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -155,9 +181,9 @@ const TransactionPage = () => {
       render: value => <span className="font-semibold text-green-700">{formatCurrency(Number(value))}</span>
     },
     {
-      key: 'pelunasan',
-      label: 'Pelunasan',
-      render: value => <span className="font-semibold text-green-500">{formatCurrency(Number(value))}</span>
+      key: 'remaining_payment',
+      label: 'Sisa',
+      render: value => <span className="font-bold text-red-600">{formatCurrency(Number(value))}</span>
     },
     {
       key: 'total_amount',
@@ -204,11 +230,18 @@ const TransactionPage = () => {
   };
 
   // Hitung total statistik
-  const totalRevenue = paymentTransactions.reduce((sum, t) => sum + t.down_payment + t.pelunasan, 0);
+  const totalRevenue = paymentTransactions.reduce((sum, t) => sum + t.down_payment + t.remaining_payment, 0);
   const totalOrders = paymentTransactions.length;
   const completedPayments = paymentTransactions.filter(t => 
-    (t.down_payment + t.pelunasan) >= t.total_amount
+    (t.down_payment + t.remaining_payment) >= t.total_amount
   ).length;
+
+  const isFilterActive =
+    (filterField === 'tanggal' && (
+      (dateMode === 'single' && singleDate) ||
+      (dateMode === 'range' && range.from && range.to)
+    )) ||
+    (filterField !== 'tanggal' && filterValue.trim() !== '');
 
   return (
     <div className="p-6 space-y-6">
@@ -219,6 +252,62 @@ const TransactionPage = () => {
           <p className="text-gray-600">Lihat riwayat pembayaran dari semua orderan</p>
         </div>
         <div className="flex items-center gap-3">
+          <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant={isFilterActive ? 'default' : 'outline'}
+                className={`gap-2 ${isFilterActive ? 'bg-[#0050C8] text-white' : ''}`}
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+                Filter
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[250px]">
+              <div className="mb-2 font-semibold text-sm">Filter Transaksi</div>
+              <div className="mb-2">
+                <label className="block text-xs font-semibold mb-1">Field</label>
+                <Select value={filterField} onValueChange={setFilterField}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="customer_name">Customer</SelectItem>
+                    <SelectItem value="order_number">Nomor Orderan</SelectItem>
+                    <SelectItem value="status_pembayaran">Status Pembayaran</SelectItem>
+                    <SelectItem value="payment_type">Metode</SelectItem>
+                    <SelectItem value="tanggal">Tanggal</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {filterField === 'tanggal' ? (
+                <>
+                  <Select value={dateMode} onValueChange={v => setDateMode(v as 'single' | 'range')}>
+                    <SelectTrigger className="w-full mb-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="single">Single Date</SelectItem>
+                      <SelectItem value="range">Date Range</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {dateMode === 'single' ? (
+                    <Calendar mode="single" selected={singleDate} onSelect={setSingleDate} className="w-full" />
+                  ) : (
+                    <Calendar mode="range" selected={range} onSelect={setRange} className="w-full" />
+                  )}
+                </>
+              ) : (
+                <div className="mb-2">
+                  <label className="block text-xs font-semibold mb-1">Cari</label>
+                  <Input value={filterValue} onChange={e => setFilterValue(e.target.value)} placeholder="Ketik kata kunci..." />
+                </div>
+              )}
+              <div className="flex justify-end gap-2 mt-2">
+                <Button size="sm" variant="outline" onClick={() => { setSingleDate(undefined); setRange({ from: undefined, to: undefined }); setFilterField('customer_name'); setFilterValue(''); setFilterOpen(false); }}>Reset</Button>
+                <Button size="sm" onClick={() => setFilterOpen(false)}>Terapkan</Button>
+              </div>
+            </PopoverContent>
+          </Popover>
           <Button variant="outline" className="gap-2">
             <FileDown className="h-4 w-4" />
             Export
@@ -290,10 +379,6 @@ const TransactionPage = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <Button variant="outline" className="gap-2">
-            <SlidersHorizontal className="h-4 w-4" />
-            Filter
-          </Button>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm">Kemarin</Button>
