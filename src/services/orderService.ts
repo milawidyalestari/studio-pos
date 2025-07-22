@@ -1,5 +1,15 @@
 import { supabase } from '@/integrations/supabase/client';
 
+// Tambahkan fungsi pembulatan custom
+function customRounding(value: number): number {
+  const ribuan = Math.floor(value / 1000) * 1000;
+  const sisa = value - ribuan;
+  if (sisa >= 1 && sisa <= 499) return ribuan;
+  if (sisa === 500) return ribuan + 500;
+  if (sisa >= 501 && sisa <= 999) return ribuan + 1000;
+  return value; // Sudah bulat ribuan
+}
+
 export const generateOrderNumber = () => {
   const date = new Date();
   const year = date.getFullYear().toString().slice(-2);
@@ -20,16 +30,42 @@ export const generateOrderNumber = () => {
   return `ORD${year}${month}${day}${hours}${minutes}${seconds}${milliseconds}${randomSuffix}`;
 };
 
-export const calculateOrderTotal = (items: any[], jasaDesain: number = 0, biayaLain: number = 0, discount: number = 0, ppn: number = 10) => {
-  const itemsTotal = items.reduce((sum, item) => sum + (item.subTotal || 0), 0);
-  const subtotal = itemsTotal + jasaDesain + biayaLain;
-  const discountAmount = (subtotal * discount) / 100;
-  const afterDiscount = subtotal - discountAmount;
-  const taxAmount = (afterDiscount * ppn) / 100;
-  const total = afterDiscount + taxAmount;
-  
+export const calculateOrderTotal = (
+  items: any[],
+  jasaDesain?: number,
+  biayaLain?: number,
+  discount?: number,
+  ppn?: number,
+  taxChecked?: boolean
+) => {
+  let itemsTotal = items.reduce((sum, item) => sum + (item.subTotal || 0), 0);
+  let total = itemsTotal;
+
+  if (typeof jasaDesain !== 'undefined' && Number(jasaDesain) > 0) {
+    total += Number(jasaDesain);
+  }
+  if (typeof biayaLain !== 'undefined' && Number(biayaLain) > 0) {
+    total += Number(biayaLain);
+  }
+
+  let discountAmount = 0;
+  if (typeof discount !== 'undefined' && Number(discount) > 0) {
+    discountAmount = total * (Number(discount) / 100);
+    total -= discountAmount;
+  }
+
+  let taxAmount = 0;
+  const isTaxChecked = typeof taxChecked === 'string' ? taxChecked === 'true' : Boolean(taxChecked);
+  if (isTaxChecked && typeof ppn !== 'undefined' && Number(ppn) > 0) {
+    taxAmount = total * (Number(ppn) / 100);
+    total += taxAmount;
+  }
+
+  // Terapkan pembulatan custom pada total
+  total = customRounding(total);
+
   return {
-    subtotal,
+    subtotal: itemsTotal,
     discountAmount,
     taxAmount,
     total

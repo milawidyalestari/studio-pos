@@ -3,6 +3,7 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { TrendingUp, Receipt, Package } from 'lucide-react';
 import { useTodayOrderStats } from '@/hooks/useOrders';
+import { hasAccess } from '@/utils/roleAccess';
 
 // Tambahkan type agar data tidak unknown
 interface TodayOrderStats {
@@ -45,6 +46,9 @@ const DashboardStats = () => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
       {stats.map((stat, index) => {
+        // Mapping index ke aksi akses
+        const accessActions = ['view_income', 'view_orders', 'view_unprocessed'];
+        if (!hasAccess('Dashboard', accessActions[index])) return null;
         const Icon = stat.icon;
         return (
           <Card key={index}>
