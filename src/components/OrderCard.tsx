@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Edit, Calendar, Trash2 } from 'lucide-react';
 import { DraggableProvided, DraggableStateSnapshot } from 'react-beautiful-dnd';
+import { useProducts } from '@/hooks/useProducts';
 
 interface Order {
   id: string;
@@ -49,6 +50,7 @@ function formatCreatedAt(dateStr: string) {
 }
 
 const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDeleteOrder, isOptimisticallyMoved, isDoneColumn, onMarkPickedUp }: OrderCardProps) => {
+  const { data: products } = useProducts();
   const formatDeadline = (dateString: string) => {
     if (!dateString || dateString === '-' || dateString === '') return 'No deadline';
     const date = new Date(dateString);
@@ -237,11 +239,14 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
         <CardContent className="pt-0">
           {/* Items */}
           <div className="space-y-1 mb-1">
-            {(order.items || []).slice(0, 2).map((item, index) => (
-              <span key={index} className="text-xs bg-gray-100 px-2 py-1 rounded mr-1 inline-block">
-                {item}
-              </span>
-            ))}
+            {(order.items || []).slice(0, 2).map((item, index) => {
+              const itemProduct = products?.find(p => p.kode === item);
+              return (
+                <span key={index} className="text-xs bg-gray-100 px-2 py-1 rounded mr-1 inline-block">
+                  {itemProduct?.nama || item}
+                </span>
+              );
+            })}
             {(order.items || []).length > 2 && (
               <span className="text-xs text-gray-500 px-2 py-1">
                 +{(order.items || []).length - 2} more

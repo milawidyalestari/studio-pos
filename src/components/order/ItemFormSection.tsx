@@ -10,12 +10,15 @@ import ProductSelectionModal from './ProductSelectionModal';
 
 interface OrderItem {
   id: string;
-  bahan: string;
-  item: string;
+  item: string; // kode item
+  bahan: string; // kode bahan
   ukuran: { panjang: string; lebar: string };
   quantity: string;
   finishing: string;
   notes?: string;
+  // Tambahkan field jika ingin simpan nama item/bahan secara eksplisit
+  // itemName?: string;
+  // bahanName?: string;
 }
 
 interface ItemFormSectionProps {
@@ -75,7 +78,9 @@ const ItemFormSection = ({
   const services = products?.filter(p => p.jenis === 'Service') || [];
   const allProducts = products || [];
 
-  const selectedProduct = products?.find(p => p.kode === currentItem.bahan);
+  // Cari produk item dan bahan secara independen
+  const selectedItemProduct = products?.find(p => p.kode === currentItem.item);
+  const selectedMaterialProduct = products?.find(p => p.kode === currentItem.bahan);
 
   const handleProductSelect = (productCode: string) => {
     const selectedProduct = products?.find(p => p.kode === productCode);
@@ -87,27 +92,30 @@ const ItemFormSection = ({
   };
 
   const handleItemSelection = (product: Product) => {
-    updateCurrentItem('bahan', product.kode);
-    updateCurrentItem('item', product.nama);
-    console.log('Selected item from modal:', product);
+    updateCurrentItem('item', product.kode);
+    // Jika ingin simpan nama item: updateCurrentItem('itemName', product.nama);
+    // Tidak mengubah bahan
+    // console.log('Selected item from modal:', product);
   };
 
   const handleMaterialSelection = (product: Product) => {
     updateCurrentItem('bahan', product.kode);
-    updateCurrentItem('item', product.nama);
-    console.log('Selected material from modal:', product);
+    // Jika ingin simpan nama bahan: updateCurrentItem('bahanName', product.nama);
+    // Tidak mengubah item
+    // console.log('Selected material from modal:', product);
   };
 
   // Calculate unit price and total price
   const calculatePrices = () => {
-    if (!selectedProduct || !currentItem.quantity) return { unitPrice: 0, totalPrice: 0 };
+    // Gunakan produk item untuk harga
+    if (!selectedItemProduct || !currentItem.quantity) return { unitPrice: 0, totalPrice: 0 };
 
     const panjang = parseFloat(currentItem.ukuran.panjang) || 0;
     const lebar = parseFloat(currentItem.ukuran.lebar) || 0;
     const quantity = parseInt(currentItem.quantity) || 0;
 
-    const unitPrice = selectedProduct.harga_jual || 0;
-    let totalPrice = calculateProductPrice(selectedProduct, quantity, panjang, lebar);
+    const unitPrice = selectedItemProduct.harga_jual || 0;
+    let totalPrice = calculateProductPrice(selectedItemProduct, quantity, panjang, lebar);
 
     // Add finishing cost if selected
     if (currentItem.finishing && currentItem.finishing !== 'none') {
@@ -131,7 +139,7 @@ const ItemFormSection = ({
           <Label htmlFor="kodeItem" className="text-sm font-medium">Nama Item</Label>
           <Input
               id="namaItem"
-              value={selectedProduct?.nama || ''}
+              value={selectedItemProduct?.nama || ''}
               className="bg-blue-50 border-blue-200 h-8"
               readOnly
             />
@@ -142,7 +150,7 @@ const ItemFormSection = ({
         <div className="flex mt-0">
           <Input
             id="kodeItem"
-            value={selectedProduct?.kode || (editingItemId ? currentItem.id : nextItemId)}
+            value={selectedItemProduct?.kode || (editingItemId ? currentItem.id : nextItemId)}
             onChange={(e) => updateCurrentItem('id', e.target.value)}
             placeholder="Kode Item"
             className=" bg-gray-50 h-8"
@@ -170,7 +178,7 @@ const ItemFormSection = ({
           <Label htmlFor="namaBahan" className="text-sm font-medium">Nama Bahan</Label>
           <Input
             id="namaBahan"
-            value={selectedProduct?.nama || ''}
+            value={selectedMaterialProduct?.nama || ''}
             className="mt-1 bg-blue-50 border-blue-200 h-8"
             readOnly
           />
@@ -180,7 +188,7 @@ const ItemFormSection = ({
           <div className="flex mt-1">
             <Input
               id="kodeBahan"
-              value={currentItem.bahan}
+              value={selectedMaterialProduct?.kode || currentItem.bahan}
               className="bg-gray-50 h-8"
               readOnly
             />
