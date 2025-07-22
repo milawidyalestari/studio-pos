@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import bcrypt from 'bcryptjs';
+import { RoleAccessContext } from '@/context/RoleAccessContext';
 
 const DUMMY_USERS = [
   { username: 'admin', password: 'admin123', role: 'Administrator' },
@@ -17,6 +18,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { refresh } = useContext(RoleAccessContext);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,6 +50,7 @@ const Login = () => {
       status: data.status
     }));
     setError('');
+    await refresh(data.role); // fetch permissions dari database
     navigate('/');
   };
 

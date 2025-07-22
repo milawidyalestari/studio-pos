@@ -13,7 +13,7 @@ import { Product } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 import { useUnits } from '@/hooks/useUnits';
 import { useProductCodeGenerator } from '@/hooks/useProductCodeGenerator';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Lock, Unlock } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -42,7 +42,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     stok_minimum: 0,
     stok_awal: 0,
     stok_masuk: 0,
-    stok_keluar: 0
+    stok_keluar: 0,
+    kunci_harga: false, // field baru
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   
@@ -125,13 +126,14 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         stok_minimum: initialData.stok_minimum || 0,
         stok_awal: initialData.stok_awal || 0,
         stok_masuk: initialData.stok_masuk || 0,
-        stok_keluar: initialData.stok_keluar || 0
+        stok_keluar: initialData.stok_keluar || 0,
+        kunci_harga: initialData.kunci_harga || false,
       });
     }
     setErrors({});
   }, [initialData]);
 
-  const handleInputChange = (key: string, value: string | number) => {
+  const handleInputChange = (key: string, value: string | number | boolean) => {
     setFormData(prev => ({ ...prev, [key]: value }));
     if (errors[key]) {
       setErrors(prev => ({ ...prev, [key]: '' }));
@@ -198,7 +200,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           <div className="space-y-2">
             <Label htmlFor="nama" className="text-sm font-medium">
-              Product Name <span className="text-red-500">*</span>
+              Nama Produk <span className="text-red-500">*</span>
             </Label>
             <Input
               id="nama"
@@ -206,7 +208,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               value={formData.nama}
               onChange={(e) => handleInputChange('nama', e.target.value)}
               className={`h-8${errors.nama ? ' border-red-500' : ''}`}
-              placeholder="Enter product name"
+              placeholder="Masukkan nama produk"
             />
             {errors.nama && (
               <p className="text-red-500 text-xs">{errors.nama}</p>
@@ -240,11 +242,6 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                 </Button>
               )}
             </div>
-            {!isEditing && (
-              <p className="text-xs text-gray-500">
-                Kode produk dibuat otomatis
-              </p>
-            )}
             {errors.kode && (
               <p className="text-red-500 text-xs">{errors.kode}</p>
             )}
@@ -253,8 +250,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           <div className="space-y-2">
             <Label htmlFor="jenis" className="text-sm font-medium">
               Kelompok <span className="text-red-500">*</span>
-              {groupsLoading && <span className="text-blue-500 text-xs ml-2">(Loading...)</span>}
-              {groupsError && <span className="text-red-500 text-xs ml-2">(Error loading types)</span>}
+              {groupsLoading && <span className="text-blue-500 text-xs ml-2">(Memuat...)</span>}
+              {groupsError && <span className="text-red-500 text-xs ml-2">(Gagal memuat kelompok)</span>}
             </Label>
             <Select
               value={formData.jenis}
@@ -266,9 +263,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             >
               <SelectTrigger className={`h-8${groupsError ? ' border-red-500' : ''}`}>
                 <SelectValue placeholder={
-                  groupsLoading ? 'Loading types...' :
-                  groupsError ? 'Error loading types' :
-                  'Select type'
+                  groupsLoading ? 'Memuat kelompok...' :
+                  groupsError ? 'Gagal memuat kelompok' :
+                  'Pilih kelompok'
                 } />
               </SelectTrigger>
               <SelectContent className="bg-white z-50 max-h-60 overflow-y-auto">
@@ -294,9 +291,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
 
           <div className="space-y-2">
             <Label htmlFor="satuan" className="text-sm font-medium">
-              Unit <span className="text-red-500">*</span>
-              {unitsLoading && <span className="text-blue-500 text-xs ml-2">(Loading...)</span>}
-              {unitsError && <span className="text-red-500 text-xs ml-2">(Error loading units)</span>}
+              Satuan <span className="text-red-500">*</span>
+              {unitsLoading && <span className="text-blue-500 text-xs ml-2">(Memuat...)</span>}
+              {unitsError && <span className="text-red-500 text-xs ml-2">(Gagal memuat satuan)</span>}
             </Label>
             <Select
               value={formData.satuan}
@@ -308,9 +305,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             >
               <SelectTrigger className={`${unitsError ? 'border-red-500' : ''} h-8`}>
                 <SelectValue placeholder={
-                  unitsLoading ? "Loading units..." : 
-                  unitsError ? "Error loading units" :
-                  "Select unit"
+                  unitsLoading ? "Memuat satuan..." : 
+                  unitsError ? "Gagal memuat satuan" :
+                  "Pilih satuan"
                 } />
               </SelectTrigger>
               <SelectContent className="bg-white z-50 max-h-60 overflow-y-auto">
@@ -335,7 +332,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             
             {unitsError && (
               <p className="text-red-500 text-xs">
-                Failed to load units. Units must be managed through Unit Data Management.
+                Gagal Memuat Unit. Unit harus di atur lewat Unit Data Management
                 Error: {unitsError.message || 'Unknown error'}
               </p>
             )}
@@ -343,9 +340,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
 
           <div className="space-y-2">
             <Label htmlFor="category_id" className="text-sm font-medium">
-              Category
-              {categoriesLoading && <span className="text-blue-500 text-xs ml-2">(Loading...)</span>}
-              {categoriesError && <span className="text-red-500 text-xs ml-2">(Error loading categories)</span>}
+              Kategori
+              {categoriesLoading && <span className="text-blue-500 text-xs ml-2">(Memuat...)</span>}
+              {categoriesError && <span className="text-red-500 text-xs ml-2">(Gagal memuat kategori)</span>}
             </Label>
             <Select
               value={formData.category_id}
@@ -357,9 +354,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             >
               <SelectTrigger className={`${categoriesError ? 'border-red-500' : ''} h-8`}>
                 <SelectValue placeholder={
-                  categoriesLoading ? "Loading categories..." : 
-                  categoriesError ? "Error loading categories" :
-                  "Select category"
+                  categoriesLoading ? "Memuat kategori..." : 
+                  categoriesError ? "Gagal memuat kategori" :
+                  "Pilih kategori"
                 } />
               </SelectTrigger>
               <SelectContent className="bg-white z-50 max-h-60 overflow-y-auto">
@@ -384,7 +381,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             
             {categoriesError && (
               <p className="text-red-500 text-xs">
-                Failed to load product categories. Product categories must be managed through Product Category Data Management.
+                Gagal memuat kategori produk. Kategori produk harus dikelola melalui Manajemen Data Kategori Produk.
                 Error: {categoriesError.message || 'Unknown error'}
               </p>
             )}
@@ -392,45 +389,73 @@ export const ProductForm: React.FC<ProductFormProps> = ({
 
           <div className="space-y-2">
             <Label htmlFor="harga_beli" className="text-sm font-medium">
-              Purchase Price
+              Harga Beli
             </Label>
             <Input
               id="harga_beli"
               type="number"
               min="0"
-              step="0.01"
               value={formData.harga_beli === 0 ? '' : formData.harga_beli}
               onChange={(e) => handleInputChange('harga_beli', e.target.value === '' ? '' : parseFloat(e.target.value))}
               className={`h-8${errors.harga_beli ? ' border-red-500' : ''}`}
-              placeholder="0.00"
+              placeholder="IDR 00,00"
             />
             {errors.harga_beli && (
               <p className="text-red-500 text-xs">{errors.harga_beli}</p>
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="harga_jual" className="text-sm font-medium">
-              Selling Price
-            </Label>
-            <Input
-              id="harga_jual"
-              type="number"
-              min="0"
-              step="0.01"
-              value={formData.harga_jual === 0 ? '' : formData.harga_jual}
-              onChange={(e) => handleInputChange('harga_jual', e.target.value === '' ? '' : parseFloat(e.target.value))}
-              className={`h-8${errors.harga_jual ? ' border-red-500' : ''}`}
-              placeholder="0.00"
-            />
-            {errors.harga_jual && (
-              <p className="text-red-500 text-xs">{errors.harga_jual}</p>
-            )}
+          <div className="grid grid-cols-10 gap-1">
+            {/* Kolom 1-4: Harga Jual (lebih lebar lagi) */}
+            <div className="col-span-9 space-y-2">
+              <Label htmlFor="harga_jual" className="text-sm font-medium">
+                Harga Jual
+              </Label>
+              <Input
+                id="harga_jual"
+                type="number"
+                min="0"
+                value={formData.harga_jual === 0 ? '' : formData.harga_jual}
+                onChange={(e) =>
+                  handleInputChange(
+                    'harga_jual',
+                    e.target.value === '' ? '' : parseFloat(e.target.value)
+                  )
+                }
+                className={`h-8${errors.harga_jual ? ' border-red-500' : ''} `}
+                placeholder="IDR 00,00"
+              />
+              {errors.harga_jual && (
+                <p className="text-red-500 text-xs">{errors.harga_jual}</p>
+              )}
+            </div>
+
+            {/* Kolom 7: Kunci Harga (gembok) */}
+            <div className="flex items-end">
+              <div className="flex items-center gap-1 mb-1 ml-2">
+                <button
+                  type="button"
+                  onClick={() => handleInputChange('kunci_harga', !formData.kunci_harga)}
+                  className={`p-1 rounded transition-colors ${
+                    formData.kunci_harga 
+                      ? 'text-blue-600 hover:text-blue-700' 
+                      : 'text-gray-400 hover:text-gray-600'
+                  }`}
+                  title={formData.kunci_harga ? 'Buka Kunci Harga' : 'Kunci Harga'}
+                >
+                  {formData.kunci_harga ? (
+                    <Lock className="h-4 w-4" />
+                  ) : (
+                    <Unlock className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="stok_opname" className="text-sm font-medium">
-              Current Stock
+              Stok Opname
             </Label>
             <Input
               id="stok_opname"
@@ -445,7 +470,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
 
           <div className="space-y-2">
             <Label htmlFor="stok_minimum" className="text-sm font-medium">
-              Minimum Stock
+              Stok Minimum
             </Label>
             <Input
               id="stok_minimum"
@@ -460,7 +485,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
 
           <div className="space-y-2">
             <Label htmlFor="stok_awal" className="text-sm font-medium">
-              Initial Stock
+            Stok Awal
             </Label>
             <Input
               id="stok_awal"
@@ -475,7 +500,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
 
           <div className="space-y-2">
             <Label htmlFor="stok_masuk" className="text-sm font-medium">
-              Stock In
+              Stok Masuk
             </Label>
             <Input
               id="stok_masuk"
@@ -490,7 +515,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
 
           <div className="space-y-2">
             <Label htmlFor="stok_keluar" className="text-sm font-medium">
-              Stock Out
+              Stok Keluar
             </Label>
             <Input
               id="stok_keluar"

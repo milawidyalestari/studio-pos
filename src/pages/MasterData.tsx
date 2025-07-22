@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
@@ -36,11 +36,11 @@ import { useMasterDataState } from '@/hooks/useMasterDataState';
 import { supabase } from '@/integrations/supabase/client';
 import SupplierModal from '@/components/SupplierModal';
 import type { Supplier } from '@/types';
-import { hasAccess } from '@/utils/roleAccess';
+import { useHasAccess } from '@/context/RoleAccessContext';
 
 // Import refactored components
 import { MasterDataHeader } from '@/components/master-data/MasterDataHeader';
-import { ProductsTab } from '@/components/master-data/ProductsTab';
+import { ProductsTab, ProductsTabRef } from '@/components/master-data/ProductsTab';
 import { SuppliersTab } from '@/components/master-data/SuppliersTab';
 import { CustomersTab } from '@/components/master-data/CustomersTab';
 import { EmployeesTab } from '@/components/master-data/EmployeesTab';
@@ -132,6 +132,9 @@ const MasterData = () => {
     if (!error && data) setPositions(data);
   };
   React.useEffect(() => { fetchPositions(); }, []);
+
+  const hasAccess = useHasAccess();
+  const productsTabRef = useRef<ProductsTabRef>(null);
 
   const handleAddProduct = () => {
     if (!hasAccess('Master Data', 'create')) return;
@@ -237,7 +240,7 @@ const MasterData = () => {
         config = {
           isOpen: true,
           type: 'groups',
-          title: 'Group Data Management',
+          title: 'Managemen Data Kelompok',
           columns: [
             { key: 'code', label: 'Code' },
             { key: 'name', label: 'Name' }
@@ -668,6 +671,15 @@ const MasterData = () => {
     }
   };
 
+  // Handler untuk reset search/filter saat tab berubah
+  const handleTabChange = (tab: string) => {
+    if (activeTab === 'products' && productsTabRef.current) {
+      productsTabRef.current.resetSearchAndFilters();
+    }
+    setSearchTerm('');
+    setActiveTab(tab as string); // pastikan string
+  };
+
   return (
     <div className="p-6 space-y-6">
       <MasterDataHeader />
@@ -684,7 +696,7 @@ const MasterData = () => {
       />
 
       {/* Main Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="products" className="gap-2">
             <Package className="h-4 w-4" />
@@ -706,6 +718,7 @@ const MasterData = () => {
 
         <TabsContent value="products">
           <ProductsTab
+            ref={productsTabRef}
             products={products}
             productsLoading={productsLoading}
             searchTerm={searchTerm}
@@ -753,7 +766,7 @@ const MasterData = () => {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingProduct ? 'Edit Product' : 'Add New Product'}
+              {editingProduct ? 'Edit Produk' : 'Tambah Produk Baru'}
             </DialogTitle>
           </DialogHeader>
           <ProductForm

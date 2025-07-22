@@ -13,7 +13,9 @@ import { useToast } from '@/hooks/use-toast';
 import { deleteOrderFromDatabase } from '@/services/deleteOrderService';
 import { Order, OrderWithItems, Employee } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
-import { hasAccess } from '@/utils/roleAccess';
+import { useHasAccess } from '@/context/RoleAccessContext';
+import { usePrintOverlay } from '@/hooks/usePrintOverlay';
+import { PrintOverlay } from '@/components/PrintOverlay';
 // FIX: Temporarily comment out or remove the import that causes an error if the module does not exist
 // import { getStatusIdByName } from '@/utils/getStatusId';
 
@@ -27,6 +29,18 @@ const Orderan = () => {
   const { toast } = useToast();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [fadeReload, setFadeReload] = useState(false);
+  const hasAccess = useHasAccess();
+  const {
+    isOpen: isPrintOverlayOpen,
+    printType,
+    printData,
+    closePrintOverlay,
+    handlePrint,
+    printSPK,
+    printReceipt,
+    printNota,
+    printPelunasan,
+  } = usePrintOverlay();
   
   React.useEffect(() => {
     supabase
@@ -134,6 +148,77 @@ const Orderan = () => {
     }, 250); // fade out dulu, lalu refetch dan fade in
   };
 
+  // Print handlers
+  const handlePrintSPK = (order: OrderWithItems) => {
+    const orderList = (order.order_items || []).map(item => ({
+      id: item.id,
+      item: item.item_name || 'Unknown Item',
+      quantity: item.quantity || 0,
+      subTotal: item.sub_total || 0,
+    }));
+
+    const orderData = {
+      orderNumber: order.order_number,
+      customerName: order.customer_name,
+      totalAmount: order.total_amount || 0,
+    };
+
+    printSPK({ orderList, orderData });
+  };
+
+  const handlePrintReceipt = (order: OrderWithItems) => {
+    const orderList = (order.order_items || []).map(item => ({
+      id: item.id,
+      item: item.item_name || 'Unknown Item',
+      quantity: item.quantity || 0,
+      subTotal: item.sub_total || 0,
+    }));
+
+    const orderData = {
+      orderNumber: order.order_number,
+      customerName: order.customer_name,
+      totalAmount: order.total_amount || 0,
+    };
+
+    printReceipt({ orderList, orderData });
+  };
+
+  const handlePrintNota = (order: OrderWithItems) => {
+    const orderList = (order.order_items || []).map(item => ({
+      id: item.id,
+      item: item.item_name || 'Unknown Item',
+      quantity: item.quantity || 0,
+      subTotal: item.sub_total || 0,
+    }));
+
+    const orderData = {
+      orderNumber: order.order_number,
+      customerName: order.customer_name,
+      totalAmount: order.total_amount || 0,
+    };
+
+    printNota({ orderList, orderData });
+  };
+
+  const handlePrintPelunasan = (order: OrderWithItems) => {
+    const orderList = (order.order_items || []).map(item => ({
+      id: item.id,
+      item: item.item_name || 'Unknown Item',
+      quantity: item.quantity || 0,
+      subTotal: item.sub_total || 0,
+    }));
+
+    const orderData = {
+      orderNumber: order.order_number,
+      customerName: order.customer_name,
+      totalAmount: order.total_amount || 0,
+      downPayment: order.down_payment || 0,
+      pelunasan: order.pelunasan || 0,
+    };
+
+    printPelunasan({ orderList, orderData });
+  };
+
   if (isLoading) {
     return (
       <div className="p-6">
@@ -220,6 +305,10 @@ const Orderan = () => {
               onEditOrder={handleEditOrder}
               onDeleteOrder={handleDeleteOrder}
               onUpdateOrderStatus={updateOrderStatus}
+              onPrintSPK={handlePrintSPK}
+              onPrintReceipt={handlePrintReceipt}
+              onPrintNota={handlePrintNota}
+              onPrintPelunasan={handlePrintPelunasan}
               employees={employees}
               fadeReload={fadeReload}
             />
@@ -234,6 +323,17 @@ const Orderan = () => {
         onClose={handleModalClose}
         onSubmit={handleOrderModalSubmit}
         editingOrder={editingOrder as any}
+      />
+
+      {/* Print Overlay */}
+      <PrintOverlay
+        isOpen={isPrintOverlayOpen}
+        onClose={closePrintOverlay}
+        onPrint={handlePrint}
+        title={`Print ${printType.toUpperCase()}`}
+        orderList={printData.orderList}
+        orderData={printData.orderData}
+        printType={printType}
       />
 
       {/* Order Details Modal */}

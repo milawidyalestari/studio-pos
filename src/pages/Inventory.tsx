@@ -202,7 +202,7 @@ const Inventory = () => {
       <Dialog open={isProductFormOpen} onOpenChange={setIsProductFormOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Product</DialogTitle>
+            <DialogTitle>Edit Produk</DialogTitle>
           </DialogHeader>
           <ProductForm
             initialData={editingProduct}

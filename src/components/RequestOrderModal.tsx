@@ -17,6 +17,9 @@ import { Order } from '@/types';
 import { useOrderStatus, OrderStatus as DBOrderStatus } from '@/hooks/useOrderStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { Employee } from '@/types';
+import { usePrintOverlay } from '@/hooks/usePrintOverlay';
+import { PrintOverlay } from '@/components/PrintOverlay';
+import { mapOrderItemsWithNames } from '@/utils/productMapping';
 
 type PaymentType = string;
 
@@ -54,7 +57,7 @@ interface OrderItem {
   id: string;
   bahan: string;
   item: string;
-  ukuran: { panjang: string; lebar: string };
+  ukuran: { panjang: number | null; lebar: number | null };
   quantity: string;
   finishing: string;
   subTotal: number;
@@ -86,6 +89,14 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   const { createOrder, isCreatingOrder, updateOrder, isUpdatingOrder } = useOrders();
   const { data: products } = useProducts();
   const { statuses, loading: statusesLoading } = useOrderStatus();
+  const {
+    isOpen: isPrintOverlayOpen,
+    printType,
+    printData,
+    closePrintOverlay,
+    handlePrint,
+    printReceipt,
+  } = usePrintOverlay();
   
   const [formData, setFormData] = useState<FormData>({
     ...initialFormData,
@@ -212,8 +223,8 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
     const product = products.find(p => p.kode === item.bahan);
     if (!product) return 0;
 
-    const panjang = parseFloat(item.ukuran.panjang) || 0;
-    const lebar = parseFloat(item.ukuran.lebar) || 0;
+    const panjang = parseFloat(item.ukuran.panjang as string) || 0;
+    const lebar = parseFloat(item.ukuran.lebar as string) || 0;
     const quantity = parseInt(item.quantity) || 0;
 
     let subtotal = calculateProductPrice(product, quantity, panjang, lebar);
@@ -242,9 +253,15 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
     const subTotal = calculateItemSubTotal(currentItem);
     const itemId = generateNextItemId();
 
+    const panjangNum = currentItem.ukuran.panjang ? parseFloat(currentItem.ukuran.panjang) : null;
+    const lebarNum = currentItem.ukuran.lebar ? parseFloat(currentItem.ukuran.lebar) : null;
     const newOrderItem: OrderItem = {
       ...currentItem,
       id: itemId,
+      ukuran: {
+        panjang: panjangNum,
+        lebar: lebarNum,
+      },
       subTotal
     };
 
@@ -366,8 +383,8 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
       const items = orderList.map((item) => ({
         item_name: item.item,
         bahan: item.bahan || null,
-        panjang: parseFloat(item.ukuran?.panjang) || null,
-        lebar: parseFloat(item.ukuran?.lebar) || null,
+        panjang: item.ukuran?.panjang || null,
+        lebar: item.ukuran?.lebar || null,
         quantity: parseInt(item.quantity) || 0,
         finishing: item.finishing || null,
         sub_total: item.subTotal || 0,
@@ -401,21 +418,29 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   };
 
   const handlePrintReceipt = async () => {
-    if (!editingOrder) {
-      // toast({ title: 'Error', description: 'Order belum dipilih.', variant: 'destructive' });
-      return;
-    }
-    // Update receipt_printed di database
-    const { error } = await supabase
-      .from('orders')
-      .update({ receipt_printed: true })
-      .eq('id', editingOrder.id);
-    // if (error) {
-    //   toast({ title: 'Gagal update receipt', description: error.message, variant: 'destructive' });
-    //   return;
-    // }
-    // toast({ title: 'Receipt berhasil di-print', description: 'Status receipt sudah tercatat.', variant: 'success' });
-    // ... logic print receipt asli di sini ...
+    // Map order items to include product names
+    const mappedOrderList = mapOrderItemsWithNames(orderList, products || []);
+    
+    // Use current form data and order list for printing
+    const printOrderList = mappedOrderList.map(item => ({
+      id: item.id,
+      item: item.itemName || item.item, // Use name instead of code
+      quantity: parseInt(item.quantity) || 0,
+      subTotal: item.subTotal,
+      ukuran: {
+        panjang: item.ukuran?.panjang ? parseFloat(item.ukuran.panjang) : null,
+        lebar: item.ukuran?.lebar ? parseFloat(item.ukuran.lebar) : null,
+      },
+    }));
+
+    const orderData = {
+      orderNumber: formData.orderNumber,
+      customerName: formData.customer,
+      totalAmount: totalPrice,
+    };
+
+    // Open print overlay
+    printReceipt({ orderList: printOrderList, orderData });
   };
 
   const resetForm = async () => {
@@ -492,7 +517,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
           id: (index + 1).toString().padStart(3, '0'),
           bahan: item.bahan,
           item: item.item_name,
-          ukuran: { panjang: item.panjang?.toString() || '', lebar: item.lebar?.toString() || '' },
+          ukuran: { panjang: item.panjang ? parseFloat(item.panjang) : null, lebar: item.lebar ? parseFloat(item.lebar) : null },
           quantity: item.quantity?.toString() || '',
           finishing: item.finishing,
           subTotal: item.sub_total || 0,
@@ -688,6 +713,17 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
           </form>
         </div>
       </DialogContent>
+
+      {/* Print Overlay */}
+      <PrintOverlay
+        isOpen={isPrintOverlayOpen}
+        onClose={closePrintOverlay}
+        onPrint={handlePrint}
+        title={`Print ${printType.toUpperCase()}`}
+        orderList={printData.orderList}
+        orderData={printData.orderData}
+        printType={printType}
+      />
     </Dialog>
   );
 };

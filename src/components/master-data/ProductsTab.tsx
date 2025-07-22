@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useImperativeHandle, forwardRef } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Package, Edit, Trash2, Filter } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -16,7 +16,11 @@ import * as XLSX from 'xlsx';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useCreateProduct } from '@/hooks/useProducts';
 
-interface ProductsTabProps {
+export interface ProductsTabRef {
+  resetSearchAndFilters: () => void;
+}
+
+export interface ProductsTabProps {
   products: Product[];
   productsLoading: boolean;
   searchTerm: string;
@@ -30,9 +34,10 @@ interface ProductsTabProps {
   samplePaymentTypes: any[];
   categoriesLoading: boolean;
   onOverlayOpen: (type: string) => void;
+  canAdd?: boolean;
 }
 
-export const ProductsTab: React.FC<ProductsTabProps> = ({
+export const ProductsTab = forwardRef<ProductsTabRef, ProductsTabProps>(({
   products,
   productsLoading,
   searchTerm,
@@ -46,17 +51,20 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
   samplePaymentTypes,
   categoriesLoading,
   onOverlayOpen
-}) => {
+}, ref) => {
   const [filterPopoverOpen, setFilterPopoverOpen] = React.useState(false);
   const [filters, setFilters] = React.useState<{ field: string; operator: string; value: string }[]>([]);
-  const [filterField, setFilterField] = React.useState('name');
+  const [filterField, setFilterField] = React.useState('nama'); // default ke 'nama'
   const [filterOperator, setFilterOperator] = React.useState('contains');
   const [filterValue, setFilterValue] = React.useState('');
   const filterFields = [
     { value: 'kode', label: 'Kode' },
-    { value: 'name', label: 'Nama' },
+    { value: 'nama', label: 'Nama' }, // ganti 'name' jadi 'nama'
     { value: 'jenis', label: 'Jenis' },
     { value: 'satuan', label: 'Satuan' },
+    { value: 'harga_beli', label: 'Harga Beli' },
+    { value: 'harga_jual', label: 'Harga Jual' },
+    { value: 'stok_opname', label: 'Stok Opname' },
   ];
   const filterOperators = [
     { value: 'contains', label: 'berisi' },
@@ -109,15 +117,31 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
     }
   };
 
-  // Filter products based on search term and filters
-  let filteredProducts = products.filter(product =>
-    (product.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (product.kode || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Reset search and filters (for parent to call)
+  const resetSearchAndFilters = () => {
+    onSearchChange('');
+    setFilters([]);
+    setFilterValue('');
+  };
+  useImperativeHandle(ref, () => ({ resetSearchAndFilters }), [ref]);
+
+  // Perbaiki logika pencarian agar search bar bisa mencari di semua field penting
+  let filteredProducts = products.filter(product => {
+    const term = searchTerm.toLowerCase();
+    return (
+      (product.nama || '').toLowerCase().includes(term) ||
+      (product.kode || '').toLowerCase().includes(term) ||
+      (product.jenis || '').toLowerCase().includes(term) ||
+      (product.satuan || '').toLowerCase().includes(term) ||
+      (product.harga_beli !== undefined && String(product.harga_beli).toLowerCase().includes(term)) ||
+      (product.harga_jual !== undefined && String(product.harga_jual).toLowerCase().includes(term)) ||
+      (product.stok_opname !== undefined && String(product.stok_opname).toLowerCase().includes(term))
+    );
+  });
   if (filters.length > 0) {
     filteredProducts = filteredProducts.filter(product => {
       return filters.every(f => {
-        const val = ((product as any)[f.field] || '').toLowerCase();
+        const val = ((product as any)[f.field] || '').toString().toLowerCase();
         const filterVal = f.value.toLowerCase();
         if (f.operator === 'contains') return val.includes(filterVal);
         if (f.operator === 'equals') return val === filterVal;
@@ -348,4 +372,4 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
       </Dialog>
     </div>
   );
-};
+});

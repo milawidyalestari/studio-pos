@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,6 +22,8 @@ import {
 import { Switch as Toggle } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import bcrypt from 'bcryptjs';
+import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogFooter, AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
+import { RoleAccessContext } from '@/context/RoleAccessContext';
 
 const MENU_ACTIONS = [
   { menu: 'Dashboard', actions: ['view_income', 'view_orders', 'view_unprocessed'] },
@@ -38,6 +40,22 @@ const MENU_ACTIONS = [
 ];
 
 const ROLES = ['Administrator', 'Manager', 'Cashier', 'Viewer'];
+
+// Fungsi simpan hak akses ke database (hanya satu, di luar komponen)
+async function saveRoleAccessToDb(role, accessState) {
+  await supabase.from('role_permissions').delete().eq('role', role);
+  const newPermissions = [];
+  Object.entries(accessState).forEach(([menu, actions]) => {
+    Object.entries(actions).forEach(([action, allowed]) => {
+      if (allowed) {
+        newPermissions.push({ role, menu, action, allowed: true });
+      }
+    });
+  });
+  if (newPermissions.length > 0) {
+    await supabase.from('role_permissions').insert(newPermissions);
+  }
+}
 
 export const UserSettings = () => {
   const { toast } = useToast();
@@ -66,6 +84,8 @@ export const UserSettings = () => {
   const [accessRoleOverlayOpen, setAccessRoleOverlayOpen] = useState(false);
   const [selectedRoleName, setSelectedRoleName] = useState('');
   const [showPasswordEdit, setShowPasswordEdit] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<any>(null);
 
   React.useEffect(() => {
     supabase.from('positions').select('*').order('name').then(({ data }) => {
@@ -148,12 +168,28 @@ export const UserSettings = () => {
     }));
   };
 
-  const handleSaveAccess = () => {
-    if (selectedUserName) {
-      localStorage.setItem('studio_pos_access_' + selectedUserName, JSON.stringify(accessState));
-      toast({ title: 'Akses disimpan', description: `Akses untuk user ${selectedUserName} berhasil disimpan.` });
-      setAccessOverlayOpen(false);
+  // handleSaveAccess untuk overlay akses user/role
+  const handleSaveAccess = async () => {
+    await saveRoleAccessToDb(selectedUserName || selectedRoleName, accessState);
+    toast({ title: 'Akses disimpan', description: `Akses untuk role/user berhasil disimpan.` });
+    setAccessOverlayOpen(false);
+  };
+
+  // Fungsi hapus user (set username, role, password = null)
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    const { error } = await supabase.from('employees').update({ username: null, role: null, password: null }).eq('id', userToDelete.id);
+    if (error) {
+      toast({ title: 'Gagal menghapus user', description: error.message, variant: 'destructive' });
+      setDeleteDialogOpen(false);
+      return;
     }
+    toast({ title: 'User dihapus', description: `User ${userToDelete.nama} berhasil dihapus.` });
+    setDeleteDialogOpen(false);
+    setUserToDelete(null);
+    // Refresh data employees
+    const { data } = await supabase.from('employees').select('id, nama, username, role, status, password').order('nama');
+    setEmployees(data || []);
   };
 
   const getRoleBadgeVariant = (role: string) => {
@@ -168,23 +204,6 @@ export const UserSettings = () => {
   const getStatusBadgeVariant = (status: string) => {
     return status === 'Active' ? 'default' : 'secondary';
   };
-
-  async function saveRoleAccessToDb(role, accessState) {
-    // Hapus semua hak akses lama untuk role ini
-    await supabase.from('role_permissions').delete().eq('role', role);
-    // Insert hak akses baru
-    const newPermissions = [];
-    Object.entries(accessState).forEach(([menu, actions]) => {
-      Object.entries(actions).forEach(([action, allowed]) => {
-        if (allowed) {
-          newPermissions.push({ role, menu, action, allowed: true });
-        }
-      });
-    });
-    if (newPermissions.length > 0) {
-      await supabase.from('role_permissions').insert(newPermissions);
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -312,16 +331,27 @@ export const UserSettings = () => {
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => toast({
-                        title: "User deleted",
-                        description: `${user.nama} has been removed.`,
-                      })}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <AlertDialog open={deleteDialogOpen && userToDelete?.id === user.id} onOpenChange={open => { setDeleteDialogOpen(open); if (!open) setUserToDelete(null); }}>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => { setUserToDelete(user); setDeleteDialogOpen(true); }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className='text-2xl'>Hapus User Ini?</AlertDialogTitle>
+                          <AlertDialogDescription>User tidak bisa login lagi setelah dihapus.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Batal</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleDeleteUser} className="hover:bg-red-600 text-white">Hapus</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </TableCell>
               </TableRow>
@@ -563,6 +593,7 @@ export const UserSettings = () => {
 
 function RoleAccessTable({ role, menuActions, onClose }: { role: string, menuActions: any[], onClose: () => void }) {
   const { toast } = useToast();
+  const { userRole, refresh } = useContext(RoleAccessContext);
   const [accessState, setAccessState] = React.useState<any>({});
   React.useEffect(() => {
     if (role) {
@@ -579,8 +610,13 @@ function RoleAccessTable({ role, menuActions, onClose }: { role: string, menuAct
       },
     }));
   };
+  // handleSave di RoleAccessTable
   const handleSave = async () => {
     await saveRoleAccessToDb(role, accessState);
+    // Jika role yang diubah adalah role user yang sedang login, refresh context permission
+    if (role === userRole) {
+      await refresh(role);
+    }
     toast({ title: 'Akses disimpan', description: `Akses untuk role ${role} berhasil disimpan.` });
     onClose();
   };

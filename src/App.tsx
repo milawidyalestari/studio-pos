@@ -18,7 +18,9 @@ import Cashier from "./pages/Cashier";
 import Suppliers from "./pages/Suppliers";
 import NotFound from "./pages/NotFound";
 import Login from './pages/Login';
+import PrintDemo from './components/PrintDemo';
 import React from 'react';
+import { RoleAccessProvider } from '@/context/RoleAccessContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -44,36 +46,39 @@ const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <AppProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route
-                path="/*"
-                element={
-                  <RequireAuth>
-                    <Layout>
-                      <Routes>
-                        <Route path="/" element={<Dashboard />} />
-                        <Route path="/orderan" element={<Orderan />} />
-                        <Route path="/transaction" element={<TransactionPage />} />
-                        <Route path="/inventory" element={<Inventory />} />
-                        <Route path="/report" element={<Report />} />
-                        <Route path="/master-data" element={<MasterData />} />
-                        <Route path="/settings" element={<Settings />} />
-                        <Route path="/cashier" element={<Cashier />} />
-                        <Route path="/suppliers" element={<Suppliers />} />
-                        <Route path="*" element={<NotFound />} />
-                      </Routes>
-                    </Layout>
-                  </RequireAuth>
-                }
-              />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
+        <RoleAccessProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route
+                  path="/*"
+                  element={
+                    <RequireAuth>
+                      <Layout>
+                        <Routes>
+                          <Route path="/" element={<Dashboard />} />
+                          <Route path="/orderan" element={<Orderan />} />
+                          <Route path="/transaction" element={<TransactionPage />} />
+                          <Route path="/inventory" element={<Inventory />} />
+                          <Route path="/report" element={<Report />} />
+                          <Route path="/master-data" element={<MasterData />} />
+                          <Route path="/settings" element={<Settings />} />
+                          <Route path="/cashier" element={<Cashier />} />
+                          <Route path="/suppliers" element={<Suppliers />} />
+                          <Route path="/print-demo" element={<PrintDemo />} />
+                          <Route path="*" element={<NotFound />} />
+                        </Routes>
+                      </Layout>
+                    </RequireAuth>
+                  }
+                />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </RoleAccessProvider>
       </AppProvider>
     </QueryClientProvider>
   </ErrorBoundary>
