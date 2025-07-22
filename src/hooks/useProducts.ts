@@ -18,6 +18,7 @@ export interface Product {
   stok_keluar?: number;
   created_at?: string;
   updated_at?: string;
+  kunci_harga?: boolean; // field baru
 }
 
 export const useProducts = () => {

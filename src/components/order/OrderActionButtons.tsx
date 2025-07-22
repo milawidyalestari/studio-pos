@@ -5,6 +5,10 @@ interface OrderActionButtonsProps {
   onNew: () => void;
   onSave: () => void;
   onSubmit: () => void;
+  onPrintSPK?: () => void;
+  onPrintReceipt?: () => void;
+  onPrintNota?: () => void;
+  onPrintPelunasan?: () => void;
   isSaving: boolean;
   hasUnsavedChanges: boolean;
   children?: React.ReactNode;
@@ -15,7 +19,23 @@ interface OrderActionButtonsProps {
   hasEditChanges?: boolean;
 }
 
-const OrderActionButtons = ({ onNew, onSave, onSubmit, isSaving, hasUnsavedChanges, children, disabledPrintSPK, disabledSaveOrder, isEditingItem, isEditMode, hasEditChanges }: OrderActionButtonsProps) => {
+const OrderActionButtons = ({ 
+  onNew, 
+  onSave, 
+  onSubmit, 
+  onPrintSPK,
+  onPrintReceipt,
+  onPrintNota,
+  onPrintPelunasan,
+  isSaving, 
+  hasUnsavedChanges, 
+  children, 
+  disabledPrintSPK, 
+  disabledSaveOrder, 
+  isEditingItem, 
+  isEditMode, 
+  hasEditChanges 
+}: OrderActionButtonsProps) => {
   return (
     <div className="border-t px-6 py-4 bg-white flex-shrink-0">
       <div className="flex justify-between">
@@ -44,13 +64,42 @@ const OrderActionButtons = ({ onNew, onSave, onSubmit, isSaving, hasUnsavedChang
                 : "bg-[#0050C8] hover:bg-[#003a9b] text-white"
             }
             disabled={disabledPrintSPK}
+            onClick={onPrintSPK}
           >
             Print SPK
           </Button>
         </div>
         <div className="flex items-center gap-2">
           {children}
-          <Button type="submit" className="bg-[#0050C8] hover:bg-[#003a9b]" onClick={onSubmit}>Print Receipt</Button>
+          <div className="flex space-x-2">
+            {onPrintNota && (
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={onPrintNota}
+                className="text-sm"
+              >
+                Print Nota
+              </Button>
+            )}
+            {onPrintPelunasan && (
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={onPrintPelunasan}
+                className="text-sm"
+              >
+                Print Pelunasan
+              </Button>
+            )}
+            <Button 
+              type="submit" 
+              className="bg-[#0050C8] hover:bg-[#003a9b]" 
+              onClick={onPrintReceipt || onSubmit}
+            >
+              Print Receipt
+            </Button>
+          </div>
         </div>
       </div>
     </div>
