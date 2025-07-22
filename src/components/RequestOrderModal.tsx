@@ -269,16 +269,39 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
     // Tidak menghapus item dari order list, biarkan tetap ada untuk visual feedback
   };
 
-  const calculateOrderTotal = (items: OrderItem[], jasaDesain: number = 0, biayaLain: number = 0, discount: number = 0, ppn: number = 10) => {
-    const itemsTotal = items.reduce((sum, item) => sum + (item.subTotal || 0), 0);
-    const subtotal = itemsTotal + jasaDesain + biayaLain;
-    const discountAmount = (subtotal * discount) / 100;
-    const afterDiscount = subtotal - discountAmount;
-    const taxAmount = (afterDiscount * ppn) / 100;
-    const total = afterDiscount + taxAmount;
-    
+  const calculateOrderTotal = (
+    items: OrderItem[],
+    jasaDesain?: number,
+    biayaLain?: number,
+    discount?: number,
+    ppn?: number,
+    taxChecked?: boolean
+  ) => {
+    let itemsTotal = items.reduce((sum, item) => sum + (item.subTotal || 0), 0);
+    let total = itemsTotal;
+
+    if (typeof jasaDesain !== 'undefined' && Number(jasaDesain) > 0) {
+      total += Number(jasaDesain);
+    }
+    if (typeof biayaLain !== 'undefined' && Number(biayaLain) > 0) {
+      total += Number(biayaLain);
+    }
+
+    let discountAmount = 0;
+    if (typeof discount !== 'undefined' && Number(discount) > 0) {
+      discountAmount = total * (Number(discount) / 100);
+      total -= discountAmount;
+    }
+
+    let taxAmount = 0;
+    const isTaxChecked = typeof taxChecked === 'string' ? taxChecked === 'true' : Boolean(taxChecked);
+    if (isTaxChecked && typeof ppn !== 'undefined' && Number(ppn) > 0) {
+      taxAmount = total * (Number(ppn) / 100);
+      total += taxAmount;
+    }
+
     return {
-      subtotal,
+      subtotal: itemsTotal,
       discountAmount,
       taxAmount,
       total
@@ -308,7 +331,8 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
         parseFloat(formData.jasaDesain) || 0,
         parseFloat(formData.biayaLain) || 0,
         formData.discount || 0,
-        formData.ppn || 10
+        formData.ppn || 10,
+        formData.taxChecked
       );
 
       const orderData = {

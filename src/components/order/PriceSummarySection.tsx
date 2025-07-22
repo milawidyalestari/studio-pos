@@ -50,11 +50,20 @@ const PriceSummarySection: React.FC<PriceSummarySectionProps> = ({ formData, tot
   // Calculate total including service costs
   const designService = parseFloat(formData.jasaDesain) || 0;
   const otherCosts = parseFloat(formData.biayaLain) || 0;
-  const totalWithServices = subtotal + designService + otherCosts;
+  let totalWithServices = subtotal;
+  if (!isNaN(designService) && designService > 0) {
+    totalWithServices += designService;
+  }
+  if (!isNaN(otherCosts) && otherCosts > 0) {
+    totalWithServices += otherCosts;
+  }
 
   // Calculate discount
   const discountPercent = Number(formData.discount) || 0;
-  const totalAfterDiscount = totalWithServices - (totalWithServices * discountPercent / 100);
+  let totalAfterDiscount = totalWithServices;
+  if (!isNaN(discountPercent) && discountPercent > 0) {
+    totalAfterDiscount -= (totalWithServices * discountPercent / 100);
+  }
 
   // Tambahkan fungsi pembulatan custom
   function customRounding(value: number): number {
@@ -68,7 +77,11 @@ const PriceSummarySection: React.FC<PriceSummarySectionProps> = ({ formData, tot
 
   // Calculate tax (PPN)
   const taxPercent = Number(formData.ppn) || 0;
-  const totalAfterTax = formData.taxChecked ? totalAfterDiscount + (totalAfterDiscount * taxPercent / 100) : totalAfterDiscount;
+  let totalAfterTax = totalAfterDiscount;
+  const isTaxChecked = typeof formData.taxChecked === 'string' ? formData.taxChecked === 'true' : Boolean(formData.taxChecked);
+  if (isTaxChecked && !isNaN(taxPercent) && taxPercent > 0) {
+    totalAfterTax += (totalAfterDiscount * taxPercent / 100);
+  }
 
   // Terapkan pembulatan custom
   const roundedTotal = customRounding(totalAfterTax);

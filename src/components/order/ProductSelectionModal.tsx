@@ -32,8 +32,14 @@ const ProductSelectionModal = ({
       product.kode.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.nama.toLowerCase().includes(searchTerm.toLowerCase());
     
-    if (filterType === 'all') return matchesSearch;
-    return matchesSearch && product.jenis === filterType;
+    // Jika judul modal adalah 'Pilih Bahan/Material', hanya tampilkan produk dengan jenis 'Bahan'
+    if (title === 'Pilih Bahan/Material') {
+      return matchesSearch && product.jenis === 'Bahan';
+    }
+    // Default: hanya tampilkan produk yang jenisnya BUKAN 'Bahan'
+    const notBahan = product.jenis !== 'Bahan';
+    if (filterType === 'all') return matchesSearch && notBahan;
+    return matchesSearch && product.jenis === filterType && notBahan;
   }) || [];
 
   const handleSelectProduct = (product: Product) => {

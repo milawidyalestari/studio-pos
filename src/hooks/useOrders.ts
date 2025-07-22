@@ -21,7 +21,7 @@ export const useOrders = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: orders, isLoading, refetch } = useQuery({
+  const { data: orders, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['orders'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -67,13 +67,9 @@ export const useOrders = () => {
 
       return order;
     },
-    // onSuccess: () => {
-    //   queryClient.invalidateQueries({ queryKey: ['orders'] });
-    //   toast({
-    //     title: "Order created successfully",
-    //     description: "The order has been saved to the database.",
-    //   });
-    // },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
     onError: (error) => {
       console.error('Error creating order:', error);
       toast({
@@ -171,6 +167,7 @@ export const useOrders = () => {
   return {
     orders,
     isLoading,
+    isFetching, // tambahkan ini
     createOrder: createOrderMutation.mutateAsync,
     isCreatingOrder: createOrderMutation.isPending,
     updateOrder: updateOrderMutation.mutateAsync,

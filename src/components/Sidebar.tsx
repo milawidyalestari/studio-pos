@@ -1,6 +1,6 @@
 
 import React, { memo } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Torus ,
@@ -18,6 +18,18 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ROUTES, APP_CONFIG } from '@/utils/constants';
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog';
+import { hasAccess } from '@/utils/roleAccess';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -38,6 +50,13 @@ const menuItems = [
 
 const Sidebar = memo<SidebarProps>(({ collapsed, onToggle }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [openLogoutDialog, setOpenLogoutDialog] = React.useState(false);
+
+  const handleLogout = () => {
+    localStorage.removeItem('studio_pos_user');
+    navigate('/login');
+  };
 
   return (
     <div className={cn(
@@ -66,7 +85,7 @@ const Sidebar = memo<SidebarProps>(({ collapsed, onToggle }) => {
       {/* Navigation */}
       <nav className="flex-1 py-4 overflow-y-auto" role="navigation">
         <ul className="space-y-1 px-2">
-          {menuItems.map((item) => {
+          {menuItems.filter(item => hasAccess(item.label, 'read')).map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             
@@ -93,16 +112,32 @@ const Sidebar = memo<SidebarProps>(({ collapsed, onToggle }) => {
 
       {/* Logout */}
       <div className="p-2 border-t border-gray-200 flex-shrink-0">
-        <button 
-          className={cn(
-            "flex items-center w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors",
-            collapsed && "justify-center"
-          )}
-          aria-label="Logout"
-        >
-          <LogOut className={cn("h-5 w-5 text-blue-700", collapsed ? "mx-auto" : "mr-3")} />
-          {!collapsed && <span>Logout</span>}
-        </button>
+        <AlertDialog open={openLogoutDialog} onOpenChange={setOpenLogoutDialog}>
+          <AlertDialogTrigger asChild>
+            <button
+              className={cn(
+                "flex items-center w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors",
+                collapsed && "justify-center"
+              )}
+              aria-label="Logout"
+            >
+              <LogOut className={cn("h-5 w-5 text-blue-700", collapsed ? "mx-auto" : "mr-3")} />
+              {!collapsed && <span>Logout</span>}
+            </button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Konfirmasi Logout</AlertDialogTitle>
+              <AlertDialogDescription>
+                Apakah Anda yakin ingin keluar dari aplikasi?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Batal</AlertDialogCancel>
+              <AlertDialogAction onClick={handleLogout}>Logout</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
