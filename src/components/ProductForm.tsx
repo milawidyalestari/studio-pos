@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Select as ShadSelect,
 } from "@/components/ui/select";
 import { Product } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
@@ -16,6 +17,7 @@ import { useProductCodeGenerator } from '@/hooks/useProductCodeGenerator';
 import { RefreshCw, Lock, Unlock } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import ReactSelect from 'react-select';
 
 interface ProductFormProps {
   initialData?: Product | null;
@@ -24,11 +26,12 @@ interface ProductFormProps {
   isEditing: boolean;
 }
 
-export const ProductForm: React.FC<ProductFormProps> = ({
+export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: string[] }> = ({
   initialData,
   onSubmit,
   onCancel,
-  isEditing
+  isEditing,
+  initialMaterials = [],
 }) => {
   const [formData, setFormData] = useState({
     kode: '',
@@ -37,13 +40,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     satuan: '',
     harga_beli: 0,
     harga_jual: 0,
-    stok_opname: 0,
     category_id: '',
-    stok_minimum: 0,
-    stok_awal: 0,
-    stok_masuk: 0,
-    stok_keluar: 0,
     kunci_harga: false, // field baru
+    bahan_id: '', // field baru untuk bahan
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   
@@ -63,6 +62,20 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       return data || [];
     },
   });
+
+  // Ambil data bahan/materials dari database
+  const { data: materials = [], isLoading: materialsLoading, error: materialsError } = useQuery({
+    queryKey: ['materials'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('materials').select('id, nama');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // State untuk multi-select bahan
+  const [selectedMaterials, setSelectedMaterials] = useState<any[]>([]);
+  const selectRef = useRef<any>(null);
 
   // Tambahkan useEffect untuk generate kode produk berdasarkan tipe/group
   useEffect(() => {
@@ -104,6 +117,49 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     }
   }, [generatedCode, isEditing, formData.kode]);
 
+  // Saat edit, isi bahan terpilih jika ada
+  useEffect(() => {
+    if (initialData && initialData.bahan_id) {
+      // Jika initialData.bahan_id adalah array, map ke format react-select
+      if (Array.isArray(initialData.bahan_id)) {
+        setSelectedMaterials(
+          initialData.bahan_id.map((id: string) => {
+            const mat = materials.find((m: any) => m.id === id);
+            return mat ? { value: mat.id, label: mat.nama } : null;
+          }).filter(Boolean)
+        );
+      } else if (typeof initialData.bahan_id === 'string') {
+        // Jika hanya satu id
+        const mat = materials.find((m: any) => m.id === initialData.bahan_id);
+        setSelectedMaterials(mat ? [{ value: mat.id, label: mat.nama }] : []);
+      }
+    }
+  }, [initialData, materials]);
+
+  // Saat edit produk, set selectedMaterials dari initialMaterials
+  useEffect(() => {
+    if (isEditing && initialMaterials.length > 0 && materials.length > 0) {
+      setSelectedMaterials(
+        initialMaterials
+          .map(id => {
+            const mat = materials.find((m: any) => m.id === id);
+            return mat ? { value: mat.id, label: mat.nama } : null;
+          })
+          .filter(Boolean)
+      );
+      // Paksa focus lalu blur agar layout normal
+      setTimeout(() => {
+        if (selectRef.current && selectRef.current.focus) {
+          selectRef.current.focus();
+          selectRef.current.blur();
+        }
+      }, 100);
+    }
+    if (!isEditing) {
+      setSelectedMaterials([]);
+    }
+  }, [isEditing, initialMaterials, materials]);
+
   // Debug logging untuk melihat data kategori dan unit
   useEffect(() => {
     console.log('ProductForm - Categories data:', categories);
@@ -121,13 +177,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         satuan: initialData.satuan || '',
         harga_beli: initialData.harga_beli || 0,
         harga_jual: initialData.harga_jual || 0,
-        stok_opname: initialData.stok_opname || 0,
         category_id: initialData.category_id || '',
-        stok_minimum: initialData.stok_minimum || 0,
-        stok_awal: initialData.stok_awal || 0,
-        stok_masuk: initialData.stok_masuk || 0,
-        stok_keluar: initialData.stok_keluar || 0,
         kunci_harga: initialData.kunci_harga || false,
+        bahan_id: initialData.bahan_id || '', // Initialize bahan_id
       });
     }
     setErrors({});
@@ -146,26 +198,31 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     }
   };
 
+  // Handler untuk multi-select bahan agar tidak error readonly array
+  const handleMaterialsChange = (newValue: any, _actionMeta: any) => {
+    setSelectedMaterials(Array.isArray(newValue) ? Array.from(newValue) : []);
+  };
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
     
     if (!formData.kode.trim()) {
-      newErrors.kode = 'Product code is required';
+      newErrors.kode = 'Kode produk wajib diisi';
     }
     if (!formData.nama.trim()) {
-      newErrors.nama = 'Product name is required';
+      newErrors.nama = 'Nama produk wajib diisi';
     }
     if (!formData.jenis.trim()) {
-      newErrors.jenis = 'Product type is required';
+      newErrors.jenis = 'Kelompok produk wajib diisi';
     }
     if (!formData.satuan.trim()) {
-      newErrors.satuan = 'Unit is required';
+      newErrors.satuan = 'Satuan wajib diisi';
     }
     if (formData.harga_beli < 0) {
-      newErrors.harga_beli = 'Purchase price cannot be negative';
+      newErrors.harga_beli = 'Harga beli tidak boleh negatif';
     }
     if (formData.harga_jual < 0) {
-      newErrors.harga_jual = 'Selling price cannot be negative';
+      newErrors.harga_jual = 'Harga jual tidak boleh negatif';
     }
 
     setErrors(newErrors);
@@ -179,10 +236,14 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       // Validasi category_id: pastikan valid atau undefined untuk "no-category"
       const submitData = {
         ...formData,
-        category_id: formData.category_id === 'no-category' || formData.category_id === '' ? undefined : formData.category_id
+        category_id: !formData.category_id || formData.category_id === 'no-category' ? null : formData.category_id,
+        bahan_id: !formData.bahan_id ? null : formData.bahan_id,
       };
-      console.log('Submitting product data:', submitData);
-      onSubmit(submitData);
+      // Hapus property yang nilainya string kosong agar tidak error UUID
+      Object.keys(submitData).forEach(
+        (key) => (submitData[key] === '' || submitData[key] === undefined) && delete submitData[key]
+      );
+      onSubmit({ ...submitData, materialIds: selectedMaterials.map(m => m.value) });
     }
   };
 
@@ -405,6 +466,94 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             )}
           </div>
 
+          {/* Dropdown Bahan multi-select */}
+          <div className="space-y-2">
+            <Label htmlFor="bahan_id" className="text-sm font-medium">Bahan</Label>
+            <ReactSelect
+              ref={selectRef}
+              isMulti
+              isLoading={materialsLoading}
+              options={materials.map((mat: any) => ({ value: mat.id, label: mat.nama }))}
+              value={selectedMaterials}
+              onChange={handleMaterialsChange}
+              placeholder="Pilih bahan"
+              classNamePrefix="react-select"
+              styles={{
+                control: (base) => ({
+                  ...base,
+                  minHeight: 32,
+                  height: 32,
+                  boxSizing: 'border-box',
+                  fontFamily: 'inherit',
+                  fontSize: '0.875rem', // text-sm
+                  backgroundColor: 'white',
+                  color: '#334155', // text-slate-700
+                  borderColor: '#e5e7eb', // border-gray-200
+                  boxShadow: 'none',
+                  alignItems: 'center',
+                }),
+                valueContainer: (base) => ({
+                  ...base,
+                  height: 20,
+                  minHeight: 20,
+                  alignItems: 'center',
+                  padding: '0 4px',
+                  boxSizing: 'border-box',
+                }),
+                multiValue: (base) => ({
+                  ...base,
+                  height: 24,
+                  minHeight: 24,
+                  display: 'flex',
+                  alignItems: 'top',
+                  marginTop: 4,
+                  marginBottom: 0,
+                  boxSizing: 'border-box',
+                  paddingTop: 6,
+                  paddingBottom: 0,
+                  backgroundColor: '#f1f5f9', // bg-slate-100
+                  color: '#334155', // text-slate-700
+                  fontSize: '0.875rem',
+                }),
+                multiValueLabel: (base) => ({
+                  ...base,
+                  lineHeight: 1.2,
+                  fontSize: '0.75rem',
+                  padding: '0 4px',
+                  alignItems : 'top',
+                }),
+                multiValueRemove: (base) => ({
+                  ...base,
+                  color: '#64748b', // text-slate-400
+                  padding: 4,
+                  ':hover': { backgroundColor: '#e2e8f0', color: '#334155' },
+                }),
+                input: (base) => ({
+                  ...base,
+                  fontFamily: 'inherit',
+                  fontSize: '0.875rem',
+                  color: '#334155',
+                }),
+                placeholder: (base) => ({
+                  ...base,
+                  fontFamily: 'inherit',
+                  fontSize: '0.875rem',
+                  color: '#64748b',// text-slate-400
+                  paddingLeft : '4px',
+                  alignItems : 'center',
+                }),
+                menu: (base) => ({
+                  ...base,
+                  fontFamily: 'inherit',
+                  fontSize: '0.875rem',
+                }),
+              }}
+            />
+            {materialsError && (
+              <p className="text-red-500 text-xs">Gagal memuat bahan</p>
+            )}
+          </div>
+
           <div className="grid grid-cols-10 gap-1">
             {/* Kolom 1-4: Harga Jual (lebih lebar lagi) */}
             <div className="col-span-9 space-y-2">
@@ -429,9 +578,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                 <p className="text-red-500 text-xs">{errors.harga_jual}</p>
               )}
             </div>
-
             {/* Kolom 7: Kunci Harga (gembok) */}
-            <div className="flex items-end">
+            <div className="flex items-end gap-2">
               <div className="flex items-center gap-1 mb-1 ml-2">
                 <button
                   type="button"
@@ -452,81 +600,6 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               </div>
             </div>
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="stok_opname" className="text-sm font-medium">
-              Stok Opname
-            </Label>
-            <Input
-              id="stok_opname"
-              type="number"
-              min="0"
-              value={formData.stok_opname === 0 ? '' : formData.stok_opname}
-              onChange={(e) => handleInputChange('stok_opname', e.target.value === '' ? '' : parseInt(e.target.value))}
-              className="h-8"
-              placeholder="0"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="stok_minimum" className="text-sm font-medium">
-              Stok Minimum
-            </Label>
-            <Input
-              id="stok_minimum"
-              type="number"
-              min="0"
-              value={formData.stok_minimum === 0 ? '' : formData.stok_minimum}
-              onChange={(e) => handleInputChange('stok_minimum', e.target.value === '' ? '' : parseInt(e.target.value))}
-              className="h-8"
-              placeholder="0"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="stok_awal" className="text-sm font-medium">
-            Stok Awal
-            </Label>
-            <Input
-              id="stok_awal"
-              type="number"
-              min="0"
-              value={formData.stok_awal === 0 ? '' : formData.stok_awal}
-              onChange={(e) => handleInputChange('stok_awal', e.target.value === '' ? '' : parseInt(e.target.value))}
-              className="h-8"
-              placeholder="0"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="stok_masuk" className="text-sm font-medium">
-              Stok Masuk
-            </Label>
-            <Input
-              id="stok_masuk"
-              type="number"
-              min="0"
-              value={formData.stok_masuk === 0 ? '' : formData.stok_masuk}
-              onChange={(e) => handleInputChange('stok_masuk', e.target.value === '' ? '' : parseInt(e.target.value))}
-              className="h-8"
-              placeholder="0"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="stok_keluar" className="text-sm font-medium">
-              Stok Keluar
-            </Label>
-            <Input
-              id="stok_keluar"
-              type="number"
-              min="0"
-              value={formData.stok_keluar === 0 ? '' : formData.stok_keluar}
-              onChange={(e) => handleInputChange('stok_keluar', e.target.value === '' ? '' : parseInt(e.target.value))}
-              className="h-8"
-              placeholder="0"
-            />
-          </div>
         </div>
 
         <div className="flex justify-end space-x-3 pt-4 border-t">
@@ -534,7 +607,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             Cancel
           </Button>
           <Button type="submit" className="bg-[#0050C8] hover:bg-[#003a9b]">
-            {isEditing ? 'Update Product' : 'Save Product'}
+            {isEditing ? 'Update Produk' : 'Simpan Produk'}
           </Button>
         </div>
       </form>
