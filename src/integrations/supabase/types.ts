@@ -498,6 +498,21 @@ export type Database = {
           },
         ]
       }
+      product_materials: {
+        Row: {
+          product_id: string;
+          material_id: string;
+        };
+        Insert: {
+          product_id: string;
+          material_id: string;
+        };
+        Update: {
+          product_id?: string;
+          material_id?: string;
+        };
+        Relationships: [];
+      },
       suppliers: {
         Row: {
           address: string | null
@@ -611,6 +626,51 @@ export type Database = {
         }
         Relationships: []
       }
+      materials: {
+        Row: {
+          id: string;
+          kode: string;
+          nama: string;
+          satuan: string | null;
+          lebar_maksimum: number;
+          harga_per_meter: number;
+          stok_awal: number | null;
+          stok_masuk: number | null;
+          stok_keluar: number | null;
+          stok_opname: number | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          kode: string;
+          nama: string;
+          satuan?: string | null;
+          lebar_maksimum: number;
+          harga_per_meter: number;
+          stok_awal?: number | null;
+          stok_masuk?: number | null;
+          stok_keluar?: number | null;
+          stok_opname?: number | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          kode?: string;
+          nama?: string;
+          satuan?: string | null;
+          lebar_maksimum?: number;
+          harga_per_meter?: number;
+          stok_awal?: number | null;
+          stok_masuk?: number | null;
+          stok_keluar?: number | null;
+          stok_opname?: number | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      },
     }
     Views: {
       [_ in never]: never

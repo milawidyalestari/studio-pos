@@ -64,7 +64,6 @@ export const ProductsTab = forwardRef<ProductsTabRef, ProductsTabProps>(({
     { value: 'satuan', label: 'Satuan' },
     { value: 'harga_beli', label: 'Harga Beli' },
     { value: 'harga_jual', label: 'Harga Jual' },
-    { value: 'stok_opname', label: 'Stok Opname' },
   ];
   const filterOperators = [
     { value: 'contains', label: 'berisi' },
@@ -134,8 +133,7 @@ export const ProductsTab = forwardRef<ProductsTabRef, ProductsTabProps>(({
       (product.jenis || '').toLowerCase().includes(term) ||
       (product.satuan || '').toLowerCase().includes(term) ||
       (product.harga_beli !== undefined && String(product.harga_beli).toLowerCase().includes(term)) ||
-      (product.harga_jual !== undefined && String(product.harga_jual).toLowerCase().includes(term)) ||
-      (product.stok_opname !== undefined && String(product.stok_opname).toLowerCase().includes(term))
+      (product.harga_jual !== undefined && String(product.harga_jual).toLowerCase().includes(term))
     );
   });
   if (filters.length > 0) {
@@ -296,7 +294,6 @@ export const ProductsTab = forwardRef<ProductsTabRef, ProductsTabProps>(({
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Satuan</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Harga Beli</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Harga Jual</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stok Opname</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                   </tr>
                 </thead>
@@ -309,7 +306,6 @@ export const ProductsTab = forwardRef<ProductsTabRef, ProductsTabProps>(({
                       <td className="px-4 py-4 text-sm text-gray-900">{product.satuan}</td>
                       <td className="px-4 py-4 text-sm text-gray-900">{formatCurrency(product.harga_beli || 0)}</td>
                       <td className="px-4 py-4 text-sm font-semibold text-[#0050C8]">{formatCurrency(product.harga_jual || 0)}</td>
-                      <td className="px-4 py-4 text-sm text-gray-900">{product.stok_opname}</td>
                       <td className="px-4 py-4">
                         <ProductActionButtons product={product} />
                       </td>
@@ -317,7 +313,7 @@ export const ProductsTab = forwardRef<ProductsTabRef, ProductsTabProps>(({
                   ))}
                   {filteredProducts.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
+                      <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
                         {searchTerm ? 'No products found matching your search.' : 'No products available. Click "Add New" to create your first product.'}
                       </td>
                     </tr>

@@ -20,6 +20,7 @@ import { Employee } from '@/types';
 import { usePrintOverlay } from '@/hooks/usePrintOverlay';
 import { PrintOverlay } from '@/components/PrintOverlay';
 import { mapOrderItemsWithNames } from '@/utils/productMapping';
+import { useQuery } from '@tanstack/react-query';
 
 type PaymentType = string;
 
@@ -57,7 +58,7 @@ interface OrderItem {
   id: string;
   bahan: string;
   item: string;
-  ukuran: { panjang: number | null; lebar: number | null };
+  ukuran: { panjang: string; lebar: string };
   quantity: string;
   finishing: string;
   subTotal: number;
@@ -88,6 +89,15 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   const { toast } = useToast();
   const { createOrder, isCreatingOrder, updateOrder, isUpdatingOrder } = useOrders();
   const { data: products } = useProducts();
+  // Tambahkan query untuk materials
+  const { data: materials = [] } = useQuery({
+    queryKey: ['materials'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('materials').select('id, kode, nama, satuan, lebar_maksimum');
+      if (error) throw error;
+      return data || [];
+    },
+  });
   const { statuses, loading: statusesLoading } = useOrderStatus();
   const {
     isOpen: isPrintOverlayOpen,
@@ -218,16 +228,22 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   };
 
   const calculateItemSubTotal = (item: typeof currentItem): number => {
-    if (!products || !item.bahan || !item.quantity) return 0;
+    if (!products || !item.item || !item.quantity) return 0;
 
-    const product = products.find(p => p.kode === item.bahan);
+    // Cari produk berdasarkan kode item, bukan bahan
+    const product = products.find(p => p.kode === item.item);
     if (!product) return 0;
 
     const panjang = parseFloat(item.ukuran.panjang as string) || 0;
     const lebar = parseFloat(item.ukuran.lebar as string) || 0;
     const quantity = parseInt(item.quantity) || 0;
 
-    let subtotal = calculateProductPrice(product, quantity, panjang, lebar);
+    // Ambil data material dari tabel materials (lebar_maksimum)
+    const material = materials.find((m: any) => m.kode === item.bahan);
+    const lebarMaksimum = material?.lebar_maksimum;
+    const materialForPricing = lebarMaksimum ? { lebar_maksimum: lebarMaksimum } : undefined;
+
+    let subtotal = calculateProductPrice(product, quantity, panjang, lebar, materialForPricing);
 
     // Add finishing cost if selected
     if (item.finishing && item.finishing !== 'none') {
@@ -253,14 +269,15 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
     const subTotal = calculateItemSubTotal(currentItem);
     const itemId = generateNextItemId();
 
-    const panjangNum = currentItem.ukuran.panjang ? parseFloat(currentItem.ukuran.panjang) : null;
-    const lebarNum = currentItem.ukuran.lebar ? parseFloat(currentItem.ukuran.lebar) : null;
+    // Pastikan ukuran tetap string
+    const panjangStr = currentItem.ukuran.panjang ? String(currentItem.ukuran.panjang) : '';
+    const lebarStr = currentItem.ukuran.lebar ? String(currentItem.ukuran.lebar) : '';
     const newOrderItem: OrderItem = {
       ...currentItem,
       id: itemId,
       ukuran: {
-        panjang: panjangNum,
-        lebar: lebarNum,
+        panjang: panjangStr,
+        lebar: lebarStr,
       },
       subTotal
     };
@@ -281,7 +298,8 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   };
 
   const editOrderItem = (item: OrderItem) => {
-    setCurrentItem({ ...item, id: item.id });
+    // Pastikan ukuran tetap string
+    setCurrentItem({ ...item, id: item.id, ukuran: { panjang: String(item.ukuran.panjang), lebar: String(item.ukuran.lebar) } });
     setEditingItemId(item.id);
     // Tidak menghapus item dari order list, biarkan tetap ada untuk visual feedback
   };
@@ -380,11 +398,12 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
         tax_checked: formData.taxChecked || false,
       } as any; // Use type assertion to bypass strict typing for now
 
+      // Saat mapping orderItems untuk insert/update ke supabase
       const items = orderList.map((item) => ({
         item_name: item.item,
         bahan: item.bahan || null,
-        panjang: item.ukuran?.panjang || null,
-        lebar: item.ukuran?.lebar || null,
+        panjang: item.ukuran?.panjang ? parseFloat(item.ukuran.panjang) : null,
+        lebar: item.ukuran?.lebar ? parseFloat(item.ukuran.lebar) : null,
         quantity: parseInt(item.quantity) || 0,
         finishing: item.finishing || null,
         sub_total: item.subTotal || 0,
@@ -421,15 +440,15 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
     // Map order items to include product names
     const mappedOrderList = mapOrderItemsWithNames(orderList, products || []);
     
-    // Use current form data and order list for printing
+    // Untuk printOrderList dan mapping lain yang butuh string:
     const printOrderList = mappedOrderList.map(item => ({
       id: item.id,
       item: item.itemName || item.item, // Use name instead of code
       quantity: parseInt(item.quantity) || 0,
       subTotal: item.subTotal,
       ukuran: {
-        panjang: item.ukuran?.panjang ? parseFloat(item.ukuran.panjang) : null,
-        lebar: item.ukuran?.lebar ? parseFloat(item.ukuran.lebar) : null,
+        panjang: item.ukuran?.panjang ? String(item.ukuran.panjang) : '',
+        lebar: item.ukuran?.lebar ? String(item.ukuran.lebar) : '',
       },
     }));
 
@@ -517,7 +536,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
           id: (index + 1).toString().padStart(3, '0'),
           bahan: item.bahan,
           item: item.item_name,
-          ukuran: { panjang: item.panjang ? parseFloat(item.panjang) : null, lebar: item.lebar ? parseFloat(item.lebar) : null },
+          ukuran: { panjang: String(item.panjang), lebar: String(item.lebar) },
           quantity: item.quantity?.toString() || '',
           finishing: item.finishing,
           subTotal: item.sub_total || 0,
