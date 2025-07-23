@@ -7,6 +7,8 @@ import { useProducts, Product } from '@/hooks/useProducts';
 import { calculateProductPrice } from '@/services/productPricing';
 import { formatCurrency } from '@/services/masterData';
 import ProductSelectionModal from './ProductSelectionModal';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface OrderItem {
   id: string;
@@ -55,6 +57,16 @@ const ItemFormSection = ({
   // Tambahkan state untuk input manual finishing
   const [customFinishing, setCustomFinishing] = useState('');
 
+  // Query data bahan/materials dari tabel materials
+  const { data: materials = [], isLoading: materialsLoading, error: materialsError } = useQuery({
+    queryKey: ['materials'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('materials').select('id, kode, nama, satuan, stok_opname, lebar_maksimum');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   // Set snapshot saat mulai edit item
   useEffect(() => {
     if (editingItemId) {
@@ -74,13 +86,12 @@ const ItemFormSection = ({
   }, [currentItem, editingItemId, initialItemData]);
 
   // Filter products by type for different select options
-  const materials = products?.filter(p => p.jenis === 'Material') || [];
   const services = products?.filter(p => p.jenis === 'Service') || [];
   const allProducts = products || [];
 
   // Cari produk item dan bahan secara independen
   const selectedItemProduct = products?.find(p => p.kode === currentItem.item);
-  const selectedMaterialProduct = products?.find(p => p.kode === currentItem.bahan);
+  const selectedMaterial = materials.find((m: any) => m.kode === currentItem.bahan);
 
   const handleProductSelect = (productCode: string) => {
     const selectedProduct = products?.find(p => p.kode === productCode);
@@ -98,11 +109,8 @@ const ItemFormSection = ({
     // console.log('Selected item from modal:', product);
   };
 
-  const handleMaterialSelection = (product: Product) => {
-    updateCurrentItem('bahan', product.kode);
-    // Jika ingin simpan nama bahan: updateCurrentItem('bahanName', product.nama);
-    // Tidak mengubah item
-    // console.log('Selected material from modal:', product);
+  const handleMaterialSelection = (material: any) => {
+    updateCurrentItem('bahan', material.kode);
   };
 
   // Calculate unit price and total price
@@ -114,8 +122,13 @@ const ItemFormSection = ({
     const lebar = parseFloat(currentItem.ukuran.lebar) || 0;
     const quantity = parseInt(currentItem.quantity) || 0;
 
+    // Ambil data material dari hasil query (materials)
+    const material = materials.find((m: any) => m.kode === currentItem.bahan);
+    const lebarMaksimum = material?.lebar_maksimum;
+    const materialForPricing = lebarMaksimum ? { lebar_maksimum: lebarMaksimum } : undefined;
+
     const unitPrice = selectedItemProduct.harga_jual || 0;
-    let totalPrice = calculateProductPrice(selectedItemProduct, quantity, panjang, lebar);
+    let totalPrice = calculateProductPrice(selectedItemProduct, quantity, panjang, lebar, materialForPricing);
 
     // Add finishing cost if selected
     if (currentItem.finishing && currentItem.finishing !== 'none') {
@@ -178,7 +191,7 @@ const ItemFormSection = ({
           <Label htmlFor="namaBahan" className="text-sm font-medium">Nama Bahan</Label>
           <Input
             id="namaBahan"
-            value={selectedMaterialProduct?.nama || ''}
+            value={selectedMaterial?.nama || ''}
             className="mt-1 bg-blue-50 border-blue-200 h-8"
             readOnly
           />
@@ -188,7 +201,7 @@ const ItemFormSection = ({
           <div className="flex mt-1">
             <Input
               id="kodeBahan"
-              value={selectedMaterialProduct?.kode || currentItem.bahan}
+              value={selectedMaterial?.kode || currentItem.bahan}
               className="bg-gray-50 h-8"
               readOnly
             />
@@ -371,7 +384,8 @@ const ItemFormSection = ({
         onClose={() => setShowMaterialSelectionModal(false)}
         onSelectProduct={handleMaterialSelection}
         title="Pilih Bahan/Material"
-        filterType="Material"
+        items={materials}
+        filterType={undefined}
       />
     </div>
   );

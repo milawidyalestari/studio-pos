@@ -281,7 +281,7 @@ const Orderan = () => {
               className="bg-[#0050C8] hover:bg-[#003a9b]"
             >
               <Plus className="h-4 w-4 mr-2" />
-              New Order
+              Order Baru
             </Button>
           )}
         </div>
@@ -291,8 +291,8 @@ const Orderan = () => {
       {orders.length === 0 ? (
         <div className="flex justify-center items-center h-64 bg-gray-50 rounded-lg">
           <div className="text-center">
-            <p className="text-gray-500 text-lg mb-2">No orders found</p>
-            <p className="text-gray-400">Create your first order to get started</p>
+            <p className="text-gray-500 text-lg mb-2">Tidak ada orderan</p>
+            <p className="text-gray-400">Buat orderan baru untuk memulai </p>
           </div>
         </div>
       ) : (
