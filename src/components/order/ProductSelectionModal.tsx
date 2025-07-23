@@ -11,9 +11,10 @@ import { formatCurrency } from '@/services/masterData';
 interface ProductSelectionModalProps {
   open: boolean;
   onClose: () => void;
-  onSelectProduct: (product: Product) => void;
+  onSelectProduct: (product: any) => void;
   title: string;
   filterType?: 'Material' | 'Service' | 'all';
+  items?: Array<{ id: string; kode: string; nama: string; satuan?: string; stok_opname?: number }>;
 }
 
 const ProductSelectionModal = ({ 
@@ -21,29 +22,37 @@ const ProductSelectionModal = ({
   onClose, 
   onSelectProduct, 
   title,
-  filterType = 'all'
+  filterType = 'all',
+  items
 }: ProductSelectionModalProps) => {
   const { data: products, isLoading } = useProducts();
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Filter products based on type and search term
-  const filteredProducts = products?.filter(product => {
-    const matchesSearch = 
-      product.kode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.nama.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    // Jika judul modal adalah 'Pilih Bahan/Material', hanya tampilkan produk dengan jenis 'Bahan'
-    if (title === 'Pilih Bahan/Material') {
-      return matchesSearch && product.jenis === 'Bahan';
-    }
-    // Default: hanya tampilkan produk yang jenisnya BUKAN 'Bahan'
-    const notBahan = product.jenis !== 'Bahan';
-    if (filterType === 'all') return matchesSearch && notBahan;
-    return matchesSearch && product.jenis === filterType && notBahan;
-  }) || [];
+  // Filter products or items based on search term
+  let filteredList: any[] = [];
+  let isLoadingList = false;
+  if (items) {
+    filteredList = items.filter(item =>
+      (item.kode?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (item.nama?.toLowerCase() || '').includes(searchTerm.toLowerCase())
+    );
+  } else {
+    isLoadingList = isLoading;
+    filteredList = products?.filter(product => {
+      const matchesSearch = 
+        product.kode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.nama.toLowerCase().includes(searchTerm.toLowerCase());
+      if (title === 'Pilih Bahan/Material') {
+        return matchesSearch && product.jenis === 'Bahan';
+      }
+      const notBahan = product.jenis !== 'Bahan';
+      if (filterType === 'all') return matchesSearch && notBahan;
+      return matchesSearch && product.jenis === filterType && notBahan;
+    }) || [];
+  }
 
-  const handleSelectProduct = (product: Product) => {
-    onSelectProduct(product);
+  const handleSelect = (item: any) => {
+    onSelectProduct(item);
     onClose();
     setSearchTerm('');
   };
@@ -54,65 +63,54 @@ const ProductSelectionModal = ({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        
-        <div className="space-y-4">
+        <div className="space-y-1">
           {/* Search Input */}
-          <div className="relative">
+          <div className="relative ">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Cari berdasarkan kode atau nama produk..."
+              placeholder={items ? "Cari berdasarkan kode atau nama bahan/material..." : "Cari berdasarkan kode atau nama produk..."}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-10 h-8"
             />
           </div>
-
-          {/* Products List */}
+          {/* List */}
           <div className="border rounded-lg">
-            <div className="grid grid-cols-6 gap-2 p-3 bg-gray-50 border-b font-semibold text-sm">
-              <span>Kode</span>
-              <span>Nama</span>
-              <span>Jenis</span>
-              <span>Satuan</span>
-              <span>Harga Jual</span>
-              <span>Aksi</span>
+            <div className={`grid ${items ? 'grid-cols-5' : 'grid-cols-6'} gap-2 p-3 bg-gray-50 border-b font-semibold text-sm`}>
+              <span className="w-32">Kode</span>
+              <span className="flex-1 min-w-0">Nama</span>
+              {items ? <span className="w-24 text-center">Satuan</span> : <span>Jenis</span>}
+              {items ? <span className="w-24 text-center">Stok Akhir</span> : <span>Satuan</span>}
+              {items ? null : <span>Harga Jual</span>}
+              <span className="w-32 text-center">Aksi</span>
             </div>
-            
             <ScrollArea className="h-[400px]">
-              {isLoading ? (
+              {isLoadingList ? (
                 <div className="p-4 text-center text-gray-500">Loading...</div>
-              ) : filteredProducts.length === 0 ? (
+              ) : filteredList.length === 0 ? (
                 <div className="p-4 text-center text-gray-500">
-                  {searchTerm ? 'Tidak ada produk yang ditemukan' : 'Tidak ada data produk'}
+                  {searchTerm ? (items ? 'Tidak ada bahan/material yang ditemukan' : 'Tidak ada produk yang ditemukan') : (items ? 'Tidak ada data bahan/material' : 'Tidak ada data produk')}
                 </div>
               ) : (
-                filteredProducts.map((product) => (
+                filteredList.map((item) => (
                   <div 
-                    key={product.id} 
-                    className="grid grid-cols-6 gap-2 p-3 border-b hover:bg-gray-50 text-sm"
+                    key={item.id} 
+                    className={`grid ${items ? 'grid-cols-5' : 'grid-cols-6'} gap-2 p-3 border-b hover:bg-gray-50 text-sm`}
                   >
-                    <span className="font-medium text-blue-600">{product.kode}</span>
-                    <span>{product.nama}</span>
-                    <span>
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        product.jenis === 'Material' 
-                          ? 'bg-blue-100 text-blue-800' 
-                          : 'bg-green-100 text-green-800'
-                      }`}>
-                        {product.jenis}
-                      </span>
+                    <span className="w-32 font-medium text-blue-600 truncate">{item.kode}</span>
+                    <span className="flex-1 min-w-0 break-words whitespace-pre-line">{item.nama}</span>
+                    {items ? <span className="w-24 text-center">{item.satuan ?? '-'}</span> : <span><span className={`px-2 py-1 rounded-full text-xs ${item.jenis === 'Material' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>{item.jenis}</span></span>}
+                    {items ? <span className="w-24 text-center">{item.stok_opname ?? '-'}</span> : <span>{item.satuan}</span>}
+                    {items ? null : <span className="text-green-600 font-medium">{formatCurrency(item.harga_jual || 0)}</span>}
+                    <span className="w-32 flex justify-center">
+                      <Button
+                        size="sm"
+                        onClick={() => handleSelect(item)}
+                        className="h-7 text-xs bg-[#0050C8] hover:bg-[#003a9b]"
+                      >
+                        Pilih
+                      </Button>
                     </span>
-                    <span>{product.satuan}</span>
-                    <span className="text-green-600 font-medium">
-                      {formatCurrency(product.harga_jual || 0)}
-                    </span>
-                    <Button
-                      size="sm"
-                      onClick={() => handleSelectProduct(product)}
-                      className="h-7 text-xs bg-[#0050C8] hover:bg-[#003a9b]"
-                    >
-                      Pilih
-                    </Button>
                   </div>
                 ))
               )}

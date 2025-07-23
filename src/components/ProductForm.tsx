@@ -483,6 +483,7 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
                   ...base,
                   minHeight: 32,
                   height: 32,
+                  alignItems: 'center',
                   boxSizing: 'border-box',
                   fontFamily: 'inherit',
                   fontSize: '0.875rem', // text-sm
@@ -490,15 +491,16 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
                   color: '#334155', // text-slate-700
                   borderColor: '#e5e7eb', // border-gray-200
                   boxShadow: 'none',
-                  alignItems: 'center',
+                  borderRadius: '6px',
                 }),
                 valueContainer: (base) => ({
                   ...base,
-                  height: 20,
-                  minHeight: 20,
+                  height: 32,
+                  minHeight: 32,
                   alignItems: 'center',
                   padding: '0 4px',
                   boxSizing: 'border-box',
+                  overflow: 'hidden',
                 }),
                 multiValue: (base) => ({
                   ...base,
@@ -509,7 +511,7 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
                   marginTop: 4,
                   marginBottom: 0,
                   boxSizing: 'border-box',
-                  paddingTop: 6,
+                  paddingTop: 2,
                   paddingBottom: 0,
                   backgroundColor: '#f1f5f9', // bg-slate-100
                   color: '#334155', // text-slate-700
@@ -533,19 +535,34 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
                   fontFamily: 'inherit',
                   fontSize: '0.875rem',
                   color: '#334155',
+                  display: 'flex',
+                  alignItems: 'center',
+                  height: '100%',
                 }),
                 placeholder: (base) => ({
                   ...base,
                   fontFamily: 'inherit',
                   fontSize: '0.875rem',
-                  color: '#64748b',// text-slate-400
-                  paddingLeft : '4px',
-                  alignItems : 'center',
+                  color: '#64748b', // text-slate-400
+                  display: 'flex',
+                  alignItems: 'center',
+                  height: '100%',
+                  paddingLeft: '4px',
                 }),
                 menu: (base) => ({
                   ...base,
                   fontFamily: 'inherit',
                   fontSize: '0.875rem',
+                }),
+                option: (base, state) => ({
+                  ...base,
+                  minHeight: 28,
+                  height: 28,
+                  paddingTop: 2,
+                  paddingBottom: 2,
+                  paddingLeft: 12,
+                  paddingRight: 12,
+                  fontSize: '0.95em',
                 }),
               }}
             />

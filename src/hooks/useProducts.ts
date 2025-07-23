@@ -10,14 +10,10 @@ export interface Product {
   satuan: string;
   harga_beli: number;
   harga_jual: number;
-  stok_opname: number;
   category_id?: string;
-  stok_minimum?: number;
-  stok_awal?: number;
-  stok_masuk?: number;
-  stok_keluar?: number;
   created_at?: string;
   updated_at?: string;
+  bahan_id?: string; // field baru untuk relasi bahan
   kunci_harga?: boolean; // field baru
 }
 

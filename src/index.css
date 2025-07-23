@@ -142,5 +142,39 @@
   border-width: 2px !important;
   box-shadow: none !important;
   border-radius: 8px !important;
-  margin: 1px;
+  margin-top: 1px !important;
+}
+
+/* Konsistensi tag ReactSelect agar satu tag tetap center dan tidak turun ke bawah */
+.react-select__value-container {
+  display: flex !important;
+  align-items: center !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 4px !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+  flex-wrap: nowrap !important;
+}
+.react-select__multi-value {
+  display: flex;
+  align-items: center;
+  height: 24px !important;
+  margin: 0 2px 0 0 !important;
+  border-radius: 4px !important;
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+.react-select__multi-value__label {
+  display: flex;
+  align-items: center;
+  padding: 0 8px !important;
+  line-height: 1.5 !important;
+  height: 100%;
+}
+.react-select__multi-value__remove {
+  display: flex;
+  align-items: center;
+  padding: 0 4px !important;
+  height: 100%;
 }

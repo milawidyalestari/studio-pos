@@ -52,6 +52,7 @@ const MasterData = () => {
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingProductMaterials, setEditingProductMaterials] = useState<string[]>([]);
   const [deleteProductId, setDeleteProductId] = useState<string | null>(null);
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState(null);
@@ -140,12 +141,18 @@ const MasterData = () => {
     if (!hasAccess('Master Data', 'create')) return;
     console.log('Opening product form for new product');
     setEditingProduct(null);
+    setEditingProductMaterials([]); // Clear materials when adding new product
     setIsProductFormOpen(true);
   };
 
-  const handleEditProduct = (product: Product) => {
-    console.log('Opening product form for editing:', product);
+  const handleEditProduct = async (product: Product) => {
+    // Fetch bahan terkait produk dari tabel relasi
+    const { data: relMaterials } = await supabase
+      .from('product_materials')
+      .select('material_id')
+      .eq('product_id', product.id);
     setEditingProduct(product);
+    setEditingProductMaterials(relMaterials?.map(r => r.material_id) || []);
     setIsProductFormOpen(true);
   };
 
@@ -154,34 +161,43 @@ const MasterData = () => {
     setDeleteProductId(id);
   };
 
-  const handleProductFormSubmit = async (productData: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
+  const handleProductFormSubmit = async (data: any) => {
+    const { materialIds, ...productData } = data;
     try {
-      console.log('Submitting product form:', productData);
-      
+      let productId = editingProduct?.id;
       if (editingProduct) {
+        // Update produk
         await updateProductMutation.mutateAsync({
           id: editingProduct.id,
           ...productData
         });
-        toast({
-          title: "Success",
-          description: "Product updated successfully",
-        });
       } else {
-        await createProductMutation.mutateAsync(productData);
-        toast({
-          title: "Success",
-          description: "Product created successfully",
-        });
+        // Create produk
+        const created = await createProductMutation.mutateAsync(productData);
+        productId = created.id;
       }
+      // Update relasi product_materials
+      if (productId && Array.isArray(materialIds)) {
+        // Hapus semua relasi lama
+        await supabase.from('product_materials').delete().eq('product_id', productId);
+        // Insert relasi baru
+        if (materialIds.length > 0) {
+          const inserts = materialIds.map((material_id: string) => ({ product_id: productId, material_id }));
+          await supabase.from('product_materials').insert(inserts);
+        }
+      }
+      toast({
+        title: 'Success',
+        description: editingProduct ? 'Product updated successfully' : 'Product created successfully',
+      });
       setIsProductFormOpen(false);
       setEditingProduct(null);
     } catch (error) {
       console.error('Error saving product:', error);
       toast({
-        title: "Error",
-        description: "Failed to save product",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to save product',
+        variant: 'destructive',
       });
     }
   };
@@ -771,6 +787,7 @@ const MasterData = () => {
           </DialogHeader>
           <ProductForm
             initialData={editingProduct}
+            initialMaterials={editingProductMaterials}
             onSubmit={handleProductFormSubmit}
             onCancel={() => setIsProductFormOpen(false)}
             isEditing={!!editingProduct}
@@ -799,7 +816,7 @@ const MasterData = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the product and all associated data.
+              Tindakan ini tidak dapat dibatalkan. Produk dan semua data yang terkait akan dihapus secara permanen.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
