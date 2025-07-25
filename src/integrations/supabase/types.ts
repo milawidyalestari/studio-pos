@@ -637,9 +637,13 @@ export type Database = {
           stok_awal: number | null;
           stok_masuk: number | null;
           stok_keluar: number | null;
+          stok_akhir: number | null;
           stok_opname: number | null;
+          stok_minimum: number;
           created_at: string | null;
           updated_at: string | null;
+          stok_aktif: boolean;
+          kategori: string | null;
         };
         Insert: {
           id?: string;
@@ -651,9 +655,13 @@ export type Database = {
           stok_awal?: number | null;
           stok_masuk?: number | null;
           stok_keluar?: number | null;
+          stok_akhir?: number | null;
           stok_opname?: number | null;
+          stok_minimum?: number;
           created_at?: string | null;
           updated_at?: string | null;
+          stok_aktif?: boolean;
+          kategori?: string | null;
         };
         Update: {
           id?: string;
@@ -665,9 +673,13 @@ export type Database = {
           stok_awal?: number | null;
           stok_masuk?: number | null;
           stok_keluar?: number | null;
+          stok_akhir?: number | null;
           stok_opname?: number | null;
+          stok_minimum?: number;
           created_at?: string | null;
           updated_at?: string | null;
+          stok_aktif?: boolean;
+          kategori?: string | null;
         };
         Relationships: [];
       },
