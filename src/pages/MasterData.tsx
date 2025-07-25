@@ -298,11 +298,11 @@ const MasterData = () => {
         config = {
           isOpen: true,
           type: 'payments',
-          title: 'Non-Cash Payment Types',
+          title: 'Tipe Pembayaran',
           columns: [
-            { key: 'code', label: 'Code' },
-            { key: 'type', label: 'Type' },
-            { key: 'payment_method', label: 'Payment Method' }
+            { key: 'code', label: 'Kode' },
+            { key: 'type', label: 'Tipe' },
+            { key: 'payment_method', label: 'Tipe Pembayaran' }
           ],
           data: paymentTypes.map(payment => ({
             id: payment.id,
@@ -312,13 +312,13 @@ const MasterData = () => {
             payment_method: payment.payment_method
           })),
           formFields: [
-            { key: 'code', label: 'Code', type: 'text' as const, required: true },
-            { key: 'type', label: 'Type', type: 'select' as const, required: true, options: [
+            { key: 'code', label: 'Kode', type: 'text' as const, required: true },
+            { key: 'type', label: 'Tipe', type: 'select' as const, required: true, options: [
               { value: 'Digital', label: 'Digital' },
               { value: 'Card', label: 'Card' },
               { value: 'Tunai', label: 'Tunai' }
             ]},
-            { key: 'payment_method', label: 'Payment Method', type: 'text' as const, required: true }
+            { key: 'payment_method', label: 'Tipe Pembayaran', type: 'text' as const, required: true }
           ]
         };
         break;
@@ -342,8 +342,8 @@ const MasterData = () => {
           type: 'customers',
           title: 'Customer Data Management',
           columns: [
-            { key: 'kode', label: 'Code' },
-            { key: 'nama', label: 'Name' },
+            { key: 'kode', label: 'Kode' },
+            { key: 'nama', label: 'Nama' },
             { key: 'email', label: 'Email' },
             { key: 'whatsapp', label: 'WhatsApp' },
             { key: 'level', label: 'Level' }
@@ -358,10 +358,10 @@ const MasterData = () => {
             address: customer.address || ''
           })),
           formFields: [
-            { key: 'nama', label: 'Name', type: 'text' as const, required: true },
+            { key: 'nama', label: 'Nama', type: 'text' as const, required: true },
             { key: 'email', label: 'Email', type: 'text' as const },
             { key: 'whatsapp', label: 'WhatsApp', type: 'text' as const },
-            { key: 'address', label: 'Address', type: 'text' as const },
+            { key: 'address', label: 'Alamat', type: 'text' as const },
             { key: 'level', label: 'Level', type: 'select' as const, options: [
               { value: 'Regular', label: 'Regular' },
               { value: 'Premium', label: 'Premium' },
@@ -376,11 +376,11 @@ const MasterData = () => {
           type: 'suppliers',
           title: 'Supplier Data Management',
           columns: [
-            { key: 'name', label: 'Name' },
-            { key: 'contact_person', label: 'Contact Person' },
-            { key: 'phone', label: 'Phone' },
+            { key: 'name', label: 'Nama' },
+            { key: 'contact_person', label: 'Kontak' },
+            { key: 'phone', label: 'Telepon' },
             { key: 'email', label: 'Email' },
-            { key: 'address', label: 'Address' }
+            { key: 'address', label: 'Alamat' }
           ],
           data: suppliers.map(supplier => ({
             id: supplier.id,
@@ -393,12 +393,12 @@ const MasterData = () => {
             payment_terms: supplier.payment_terms || ''
           })),
           formFields: [
-            { key: 'name', label: 'Name', type: 'text' as const, required: true },
-            { key: 'contact_person', label: 'Contact Person', type: 'text' as const },
-            { key: 'phone', label: 'Phone', type: 'text' as const },
+            { key: 'name', label: 'Nama', type: 'text' as const, required: true },
+            { key: 'contact_person', label: 'Kotnak', type: 'text' as const },
+            { key: 'phone', label: 'Telepon', type: 'text' as const },
             { key: 'email', label: 'Email', type: 'text' as const },
-            { key: 'address', label: 'Address', type: 'text' as const },
-            { key: 'payment_terms', label: 'Payment Terms', type: 'text' as const }
+            { key: 'address', label: 'Alamat', type: 'text' as const },
+            { key: 'payment_terms', label: 'Pembayaran', type: 'text' as const }
           ]
         };
         break;
@@ -438,7 +438,7 @@ const MasterData = () => {
           title: "Success",
           description: "Group created successfully",
         });
-      } else if (overlayConfig.type === 'units') {
+      } else if (overlayConfig.type === 'Unit') {
         console.log('Creating unit:', item);
         await createUnitMutation.mutateAsync({
           code: item.code as string,
@@ -501,7 +501,7 @@ const MasterData = () => {
     try {
       console.log('handleEdit called with type:', overlayConfig.type, 'item:', item);
       
-      if (overlayConfig.type === 'categories') {
+      if (overlayConfig.type === 'Kategori') {
         console.log('Updating database category:', item);
         await updateDbCategoryMutation.mutateAsync({
           id: item.id!,
@@ -513,7 +513,7 @@ const MasterData = () => {
           title: "Success",
           description: "Category updated successfully",
         });
-      } else if (overlayConfig.type === 'groups') {
+      } else if (overlayConfig.type === 'Group') {
         console.log('Updating group:', item);
         await updateGroupMutation.mutateAsync({
           id: item.id!,
@@ -547,7 +547,7 @@ const MasterData = () => {
           title: "Success",
           description: "Payment type updated successfully",
         });
-      } else if (overlayConfig.type === 'positions') {
+      } else if (overlayConfig.type === 'Posisi') {
         await supabase.from('positions').update({ name: item.name }).eq('id', item.id);
         fetchPositions();
         toast({ title: 'Success', description: 'Posisi berhasil diupdate' });
@@ -716,19 +716,19 @@ const MasterData = () => {
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="products" className="gap-2">
             <Package className="h-4 w-4" />
-            Products & Services
+            Produk & Jasa
           </TabsTrigger>
           <TabsTrigger value="suppliers" className="gap-2">
             <Truck className="h-4 w-4" />
-            Suppliers
+            Supplier
           </TabsTrigger>
           <TabsTrigger value="customers" className="gap-2">
             <Users className="h-4 w-4" />
-            Customers
+            Customer
           </TabsTrigger>
           <TabsTrigger value="employees" className="gap-2">
             <Users className="h-4 w-4" />
-            Employees
+            Karyawan
           </TabsTrigger>
         </TabsList>
 
