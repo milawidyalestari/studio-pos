@@ -100,81 +100,24 @@
   }
 }
 
-/* Override ukuran icon dan container indicator react-select agar lebih kecil */
-.react-select__dropdown-indicator,
-.react-select__clear-indicator {
-  width: 26px !important;
-  height: 26px !important;
-  padding: 0 !important;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+
+/* Hilangkan spinner di input[type=number] untuk semua browser utama */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
-.react-select__dropdown-indicator svg,
-.react-select__clear-indicator svg {
-  width: 16px !important;
-  height: 16px !important;
+input[type=number] {
+  -moz-appearance: textfield; /* Firefox */
 }
 
-/* Tambahan agar tag bahan react-select lebih rapi */
-.react-select__multi-value {
-  padding-top: 1px !important;
-  padding-bottom: 1px !important;
-  margin-top: 1px !important;
-  margin-bottom: 1px !important;
-  align-items: center !important;
-}
-.react-select__multi-value__label {
-  padding: 0 8px !important;
-  line-height: 1.5 !important;
-  display: flex;
-  align-items: center;
-}
-.react-select__multi-value__remove {
-  padding: 0 4px !important;
-  display: flex;
-  align-items: center;
-}
-
-/* Border hitam dan tebal saat input react-select aktif */
-.react-select__control--is-focused {
-  border-color: #000 !important;
-  border-width: 2px !important;
-  box-shadow: none !important;
-  border-radius: 8px !important;
-  margin-top: 1px !important;
-}
-
-/* Konsistensi tag ReactSelect agar satu tag tetap center dan tidak turun ke bawah */
-.react-select__value-container {
-  display: flex !important;
-  align-items: center !important;
-  height: 32px !important;
-  min-height: 32px !important;
-  padding: 0 4px !important;
-  box-sizing: border-box !important;
-  overflow: visible !important;
-  flex-wrap: nowrap !important;
-}
-.react-select__multi-value {
-  display: flex;
-  align-items: center;
-  height: 24px !important;
-  margin: 0 2px 0 0 !important;
-  border-radius: 4px !important;
-  box-sizing: border-box;
-  vertical-align: middle;
-}
-.react-select__multi-value__label {
-  display: flex;
-  align-items: center;
-  padding: 0 8px !important;
-  line-height: 1.5 !important;
-  height: 100%;
-}
-.react-select__multi-value__remove {
-  display: flex;
-  align-items: center;
-  padding: 0 4px !important;
-  height: 100%;
+@keyframes fadeZoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
