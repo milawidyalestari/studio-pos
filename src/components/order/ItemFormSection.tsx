@@ -64,7 +64,7 @@ const ItemFormSection = ({
   const { data: materials = [], isLoading: materialsLoading, error: materialsError, refetch: refetchMaterials } = useQuery({
     queryKey: ['materials'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('materials').select('id, kode, nama, satuan, stok_opname, lebar_maksimum');
+      const { data, error } = await supabase.from('materials').select('id, kode, nama, satuan, stok_akhir, stok_opname, lebar_maksimum');
       if (error) throw error;
       return data || [];
     },
