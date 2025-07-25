@@ -3,12 +3,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { useProducts, Product } from '@/hooks/useProducts';
+import { useProducts, Product, useCreateProduct } from '@/hooks/useProducts';
 import { calculateProductPrice } from '@/services/productPricing';
 import { formatCurrency } from '@/services/masterData';
 import ProductSelectionModal from './ProductSelectionModal';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { ProductForm } from '@/components/ProductForm';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 interface OrderItem {
   id: string;
@@ -46,9 +48,10 @@ const ItemFormSection = ({
   isSaving,
   nextItemId
 }: ItemFormSectionProps) => {
-  const { data: products, isLoading: productsLoading } = useProducts();
+  const { data: products, isLoading: productsLoading, refetch: refetchProducts } = useProducts();
   const [showItemSelectionModal, setShowItemSelectionModal] = useState(false);
   const [showMaterialSelectionModal, setShowMaterialSelectionModal] = useState(false);
+  const [showProductForm, setShowProductForm] = useState(false);
 
   // State untuk snapshot data awal item
   const [initialItemData, setInitialItemData] = useState<typeof currentItem | null>(null);
@@ -58,7 +61,7 @@ const ItemFormSection = ({
   const [customFinishing, setCustomFinishing] = useState('');
 
   // Query data bahan/materials dari tabel materials
-  const { data: materials = [], isLoading: materialsLoading, error: materialsError } = useQuery({
+  const { data: materials = [], isLoading: materialsLoading, error: materialsError, refetch: refetchMaterials } = useQuery({
     queryKey: ['materials'],
     queryFn: async () => {
       const { data, error } = await supabase.from('materials').select('id, kode, nama, satuan, stok_opname, lebar_maksimum');
@@ -66,6 +69,8 @@ const ItemFormSection = ({
       return data || [];
     },
   });
+
+  const createProduct = useCreateProduct();
 
   // Set snapshot saat mulai edit item
   useEffect(() => {
@@ -146,6 +151,18 @@ const ItemFormSection = ({
 
   return (
     <div className="border rounded-lg p-3 mb-4">
+           {/* Notes: pindahkan ke sini */}
+           <div className="mb-1">
+        <Label htmlFor="notes" className="text-sm font-medium">Deskripsi</Label>
+        <textarea
+          id="notes"
+          value={currentItem.notes || ''}
+          onChange={e => updateCurrentItem('notes', e.target.value)}
+          placeholder="Deskripsi Order..."
+          className="mt-1 h-8 w-full border rounded-md pl-2 pt-0.5"
+        />
+      </div>
+      
       {/* Row 1: Kode Item & Nama Item */}
       <div className="grid grid-cols-2 gap-4 mb-2">
         <div>
@@ -178,7 +195,13 @@ const ItemFormSection = ({
             >
               ?
             </Button>
-            <Button type="button" variant="outline" size="sm" className="ml-1 px-2 h-8">
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              className="ml-1 px-2 h-8"
+              onClick={() => setShowProductForm(true)}
+            >
               +
             </Button>
           </div>
@@ -275,20 +298,20 @@ const ItemFormSection = ({
       <div className="grid grid-cols-3">
         <div className="flex items-end bg-white mr-4"></div>
         <div className="flex items-end bg-white mr-4">
-        <Label className="text-sm font-medium text-right block w-full mb-3">Total Harga</Label>
+        <Label className="text-sm font-medium text-right block w-full mb-2">Total Harga</Label>
         </div>
         <div>
             <Input
               id="totalHarga"
               value={formatCurrency(totalPrice)}
-              className="mt-0 bg-green-100 font-semibold h-8"
+              className="bg-green-100 font-semibold h-8"
               readOnly
             />
           </div>
       </div>
 
       {/* Row 7: Finishing */}
-      <div className="mb-2">
+      <div className="mb-4">
         <Label htmlFor="finishing" className="text-sm font-medium">Finishing</Label>
         <Select
           value={["Lembaran", "FL", "F.Lipet", "Potong Press", "L. Bambu Kiri-Kanan", "L. Bambu Atas Bawah"].includes(currentItem.finishing) ? currentItem.finishing : 'custom'}
@@ -331,19 +354,7 @@ const ItemFormSection = ({
         )}
       </div>
 
-      {/* Notes: pindahkan ke sini */}
-      <div className="mb-1">
-        <Label htmlFor="notes" className="text-sm font-medium">Deskripsi</Label>
-        <textarea
-          id="notes"
-          value={currentItem.notes || ''}
-          onChange={e => updateCurrentItem('notes', e.target.value)}
-          placeholder="Deskripsi Order..."
-          className="mt-1 h-16 resize-none w-full border rounded-md p-2"
-        />
-      </div>
-
-      <div className="flex space-x-2">
+      <div className="flex justify-end space-x-2">
         <Button type="button" variant="outline" onClick={resetCurrentItem}>Cancel</Button>
         {editingItemId ? (
           <Button 
@@ -387,6 +398,31 @@ const ItemFormSection = ({
         items={materials}
         filterType={undefined}
       />
+
+      {/* Overlay ProductForm */}
+      <Dialog open={showProductForm} onOpenChange={setShowProductForm}>
+        <DialogContent className="max-w-2xl">
+          <ProductForm
+            initialData={null}
+            initialMaterials={[]}
+            isEditing={false}
+            materials={materials}
+            onSubmit={(data) => {
+              createProduct.mutate(data, {
+                onSuccess: () => {
+                  setShowProductForm(false);
+                  refetchProducts();
+                  refetchMaterials();
+                },
+                onError: (err) => {
+                  // TODO: tampilkan error toast jika perlu
+                }
+              });
+            }}
+            onCancel={() => setShowProductForm(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

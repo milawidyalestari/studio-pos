@@ -14,16 +14,18 @@ import { Product } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 import { useUnits } from '@/hooks/useUnits';
 import { useProductCodeGenerator } from '@/hooks/useProductCodeGenerator';
-import { RefreshCw, Lock, Unlock } from 'lucide-react';
+import { RefreshCw, Lock, Unlock, ChevronDown, ChevronUp } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import ReactSelect from 'react-select';
+import { components } from 'react-select';
 
 interface ProductFormProps {
   initialData?: Product | null;
   onSubmit: (data: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => void;
   onCancel: () => void;
   isEditing: boolean;
+  materials?: any[]; // Tambahan: materials dari parent
 }
 
 export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: string[] }> = ({
@@ -32,6 +34,7 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
   onCancel,
   isEditing,
   initialMaterials = [],
+  materials: materialsProp // Tambahan
 }) => {
   const [formData, setFormData] = useState({
     kode: '',
@@ -136,7 +139,8 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
     }
   }, [initialData, materials]);
 
-  // Saat edit produk, set selectedMaterials dari initialMaterials
+  // Reset selectedMaterials hanya saat isEditing berubah dari true ke false (bukan setiap kali materials berubah)
+  const prevIsEditing = useRef(isEditing);
   useEffect(() => {
     if (isEditing && initialMaterials.length > 0 && materials.length > 0) {
       setSelectedMaterials(
@@ -147,7 +151,6 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
           })
           .filter(Boolean)
       );
-      // Paksa focus lalu blur agar layout normal
       setTimeout(() => {
         if (selectRef.current && selectRef.current.focus) {
           selectRef.current.focus();
@@ -155,9 +158,11 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
         }
       }, 100);
     }
-    if (!isEditing) {
+    // Reset hanya saat isEditing berubah dari true ke false
+    if (prevIsEditing.current && !isEditing) {
       setSelectedMaterials([]);
     }
+    prevIsEditing.current = isEditing;
   }, [isEditing, initialMaterials, materials]);
 
   // Debug logging untuk melihat data kategori dan unit
@@ -170,17 +175,30 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
 
   useEffect(() => {
     if (initialData) {
-      setFormData({
-        kode: initialData.kode || '',
-        nama: initialData.nama || '',
-        jenis: initialData.jenis || '',
-        satuan: initialData.satuan || '',
-        harga_beli: initialData.harga_beli || 0,
-        harga_jual: initialData.harga_jual || 0,
-        category_id: initialData.category_id || '',
-        kunci_harga: initialData.kunci_harga || false,
-        bahan_id: initialData.bahan_id || '', // Initialize bahan_id
-      });
+      // Cek apakah formData sudah sama dengan initialData, jika ya jangan setFormData
+      if (
+        formData.kode !== (initialData.kode || '') ||
+        formData.nama !== (initialData.nama || '') ||
+        formData.jenis !== (initialData.jenis || '') ||
+        formData.satuan !== (initialData.satuan || '') ||
+        formData.harga_beli !== (initialData.harga_beli || 0) ||
+        formData.harga_jual !== (initialData.harga_jual || 0) ||
+        formData.category_id !== (initialData.category_id || '') ||
+        formData.kunci_harga !== (initialData.kunci_harga || false) ||
+        formData.bahan_id !== (initialData.bahan_id || '')
+      ) {
+        setFormData({
+          kode: initialData.kode || '',
+          nama: initialData.nama || '',
+          jenis: initialData.jenis || '',
+          satuan: initialData.satuan || '',
+          harga_beli: initialData.harga_beli || 0,
+          harga_jual: initialData.harga_jual || 0,
+          category_id: initialData.category_id || '',
+          kunci_harga: initialData.kunci_harga || false,
+          bahan_id: initialData.bahan_id || '',
+        });
+      }
     }
     setErrors({});
   }, [initialData]);
@@ -231,6 +249,7 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation(); // Mencegah bubbling ke parent form
     
     if (validateForm()) {
       // Validasi category_id: pastikan valid atau undefined untuk "no-category"
@@ -243,7 +262,7 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
       Object.keys(submitData).forEach(
         (key) => (submitData[key] === '' || submitData[key] === undefined) && delete submitData[key]
       );
-      onSubmit({ ...submitData, materialIds: selectedMaterials.map(m => m.value) });
+      onSubmit(submitData);
     }
   };
 
@@ -254,6 +273,179 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
   if (unitsError) {
     console.error('Error loading units:', unitsError);
   }
+
+  const styles = {
+    valueContainer: (base: any) => ({
+      ...base,
+      minHeight: '32px', // h-8
+      height: 'auto',
+      display: 'flex',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: '2px',
+      padding: '0px 8px',
+    }),
+    multiValue: (base: any) => ({
+      ...base,
+      minHeight: 20,
+      height: 22,
+      display: 'flex',
+      alignItems: 'center',
+      boxSizing: 'border-box',
+      backgroundColor: '#f1f5f9',
+      color: '#334155',
+      fontSize: '0.5rem',
+    }),
+    multiValueLabel: (base: any) => ({
+      ...base,
+      fontSize: '0.8rem',
+      padding: '0 6px',
+      lineHeight: 1.2,
+    }),
+    control: (base: any, state: any) => ({
+      ...base,
+      minHeight: '28px',
+      borderRadius: '0.4rem', // rounded-lg
+      borderColor: state.isFocused ? '#0a0a0a' : '#E2E8F0', // hitam pas fokus
+      boxShadow: state.isFocused ? '0 0 0 1px #0a0a0a' : 'none',
+      '&:hover': {
+        borderColor: '#E2E8F0',
+      },
+    }),
+    dropdownIndicator: (base: any) => ({
+      ...base,
+      display: 'none',
+    }),
+    indicatorSeparator: (base: any) => ({
+      ...base,
+      display: 'none',
+    }),
+    clearIndicator: (base: any) => ({
+      ...base,
+      padding:'2px 10px 0px 0px',
+      svg: {
+        width: 16,
+        height: 16,
+      },
+    }),
+    option: (base: any, state: any) => ({
+      ...base,
+      minHeight: 28,
+      height: 32,
+      width: 'auto',
+      padding:'0px 20px',
+      fontSize: '0.875rem',
+      fontWeight: 400,
+      borderRadius: '0.2rem',
+      margin: '0px 4px 4px',
+      backgroundColor: state.isFocused ? '#F1F5F9' : '#ffffff',
+      display: 'flex',
+      alignItems: 'center',
+    }),
+    placeholder: (base: any) => ({
+      ...base,
+      color: '#0a0a0a', // warna abu-abu (tw slate-400)
+      fontSize: '0.875rem',
+      fontWeight: 400,
+      opacity: 1,
+    }),
+    menuList: (base) => ({
+      ...base,
+      maxHeight: 250, // misal 120px, sesuaikan dengan kebutuhan
+      scrollbarWidth: 'none',        // Firefox
+      msOverflowStyle: 'none',       // IE and Edge
+    }),
+    menu: (base) => ({
+      ...base,
+      borderRadius: '0.4rem',
+      overflow: 'hidden',
+      border: '1px solid #e5e7eb',
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+      opacity: 0,
+      transform: 'scale(0.97)',
+      animation: 'fadeZoomIn 300ms cubic-bezier(0.16,1,0.3,1) forwards',
+      transformOrigin: 'top center',
+    }),
+  };
+  
+
+  // Komponen custom untuk MenuList
+  const CustomMenuList = (props: any) => {
+    const { children } = props;
+    const menuRef = useRef<HTMLDivElement>(null);
+    const [showTop, setShowTop] = useState(false);
+    const [showBottom, setShowBottom] = useState(false);
+    const [paddingBottom, setPaddingBottom] = useState(0);
+
+    // Cek scroll
+    useEffect(() => {
+      const menu = menuRef.current;
+      if (!menu) return;
+      const handleScroll = () => {
+        setShowTop(menu.scrollTop > 0);
+        setShowBottom(menu.scrollTop + menu.clientHeight < menu.scrollHeight - 1);
+        setPaddingBottom(menu.scrollTop + menu.clientHeight < menu.scrollHeight - 1 ? 24 : 0);
+      };
+      handleScroll();
+      menu.addEventListener('scroll', handleScroll);
+      return () => menu.removeEventListener('scroll', handleScroll);
+    }, [props.children]);
+
+    return (
+      <div style={{ position: 'relative' }}>
+        {showTop && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 24,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'none',
+              background: 'white',
+              zIndex: 2,
+            }}
+          >
+            <ChevronUp className="h-4 w-4" style={{ color: '#64748b' }} />
+          </div>
+        )}
+        <components.MenuList
+          {...props}
+          innerRef={menuRef}
+          style={{
+            maxHeight: 250,
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            paddingBottom: paddingBottom,
+          }}
+        >
+          {children}
+        </components.MenuList>
+        {showBottom && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 24,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'none',
+              background: 'white',
+              zIndex: 2,
+            }}
+          >
+            <ChevronDown className="h-4 w-4" style={{ color: '#64748b' }} />
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -374,7 +566,6 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
               <SelectContent className="bg-white z-50 max-h-60 overflow-y-auto">
                 {units && units.length > 0 ? (
                   units.map((unit) => {
-                    console.log('Rendering unit:', unit);
                     return (
                       <SelectItem key={unit.id} value={unit.name}>
                         {unit.name}
@@ -477,136 +668,47 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
               value={selectedMaterials}
               onChange={handleMaterialsChange}
               placeholder="Pilih bahan"
-              classNamePrefix="react-select"
-              styles={{
-                control: (base) => ({
-                  ...base,
-                  minHeight: 32,
-                  height: 32,
-                  alignItems: 'center',
-                  boxSizing: 'border-box',
-                  fontFamily: 'inherit',
-                  fontSize: '0.875rem', // text-sm
-                  backgroundColor: 'white',
-                  color: '#334155', // text-slate-700
-                  borderColor: '#e5e7eb', // border-gray-200
-                  boxShadow: 'none',
-                  borderRadius: '6px',
-                }),
-                valueContainer: (base) => ({
-                  ...base,
-                  height: 32,
-                  minHeight: 32,
-                  alignItems: 'center',
-                  padding: '0 4px',
-                  boxSizing: 'border-box',
-                  overflow: 'hidden',
-                }),
-                multiValue: (base) => ({
-                  ...base,
-                  height: 24,
-                  minHeight: 24,
-                  display: 'flex',
-                  alignItems: 'top',
-                  marginTop: 4,
-                  marginBottom: 0,
-                  boxSizing: 'border-box',
-                  paddingTop: 2,
-                  paddingBottom: 0,
-                  backgroundColor: '#f1f5f9', // bg-slate-100
-                  color: '#334155', // text-slate-700
-                  fontSize: '0.875rem',
-                }),
-                multiValueLabel: (base) => ({
-                  ...base,
-                  lineHeight: 1.2,
-                  fontSize: '0.75rem',
-                  padding: '0 4px',
-                  alignItems : 'top',
-                }),
-                multiValueRemove: (base) => ({
-                  ...base,
-                  color: '#64748b', // text-slate-400
-                  padding: 4,
-                  ':hover': { backgroundColor: '#e2e8f0', color: '#334155' },
-                }),
-                input: (base) => ({
-                  ...base,
-                  fontFamily: 'inherit',
-                  fontSize: '0.875rem',
-                  color: '#334155',
-                  display: 'flex',
-                  alignItems: 'center',
-                  height: '100%',
-                }),
-                placeholder: (base) => ({
-                  ...base,
-                  fontFamily: 'inherit',
-                  fontSize: '0.875rem',
-                  color: '#64748b', // text-slate-400
-                  display: 'flex',
-                  alignItems: 'center',
-                  height: '100%',
-                  paddingLeft: '4px',
-                }),
-                menu: (base) => ({
-                  ...base,
-                  fontFamily: 'inherit',
-                  fontSize: '0.875rem',
-                }),
-                option: (base, state) => ({
-                  ...base,
-                  minHeight: 28,
-                  height: 28,
-                  paddingTop: 2,
-                  paddingBottom: 2,
-                  paddingLeft: 12,
-                  paddingRight: 12,
-                  fontSize: '0.95em',
-                }),
-              }}
+              classNamePrefix="bahan-grid"
+              styles={styles}
+              menuPlacement="top"
+              components={{ MenuList: CustomMenuList }}
             />
-            {materialsError && (
-              <p className="text-red-500 text-xs">Gagal memuat bahan</p>
+            {errors.bahan_id && (
+              <p className="text-red-500 text-xs">{errors.bahan_id}</p>
             )}
           </div>
 
-          <div className="grid grid-cols-10 gap-1">
+          <div className="grid grid-cols-2 gap-1">
             {/* Kolom 1-4: Harga Jual (lebih lebar lagi) */}
-            <div className="col-span-9 space-y-2">
+            <div className="col-span-2 space-y-2">
               <Label htmlFor="harga_jual" className="text-sm font-medium">
                 Harga Jual
               </Label>
-              <Input
-                id="harga_jual"
-                type="number"
-                min="0"
-                value={formData.harga_jual === 0 ? '' : formData.harga_jual}
-                onChange={(e) =>
-                  handleInputChange(
-                    'harga_jual',
-                    e.target.value === '' ? '' : parseFloat(e.target.value)
-                  )
-                }
-                className={`h-8${errors.harga_jual ? ' border-red-500' : ''} `}
-                placeholder="IDR 00,00"
-              />
-              {errors.harga_jual && (
-                <p className="text-red-500 text-xs">{errors.harga_jual}</p>
-              )}
-            </div>
-            {/* Kolom 7: Kunci Harga (gembok) */}
-            <div className="flex items-end gap-2">
-              <div className="flex items-center gap-1 mb-1 ml-2">
+              <div className="relative">
+                <Input
+                  id="harga_jual"
+                  type="number"
+                  min="0"
+                  value={formData.harga_jual === 0 ? '' : formData.harga_jual}
+                  onChange={(e) =>
+                    handleInputChange(
+                      'harga_jual',
+                      e.target.value === '' ? '' : parseFloat(e.target.value)
+                    )
+                  }
+                  className={`h-8 pr-8${errors.harga_jual ? ' border-red-500' : ''}`}
+                  placeholder="IDR 00,00"
+                />
                 <button
                   type="button"
                   onClick={() => handleInputChange('kunci_harga', !formData.kunci_harga)}
-                  className={`p-1 rounded transition-colors ${
+                  className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded transition-colors bg-white ${
                     formData.kunci_harga 
                       ? 'text-blue-600 hover:text-blue-700' 
                       : 'text-gray-400 hover:text-gray-600'
                   }`}
                   title={formData.kunci_harga ? 'Buka Kunci Harga' : 'Kunci Harga'}
+                  style={{ zIndex: 2 }}
                 >
                   {formData.kunci_harga ? (
                     <Lock className="h-4 w-4" />
@@ -615,6 +717,9 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
                   )}
                 </button>
               </div>
+              {errors.harga_jual && (
+                <p className="text-red-500 text-xs">{errors.harga_jual}</p>
+              )}
             </div>
           </div>
         </div>

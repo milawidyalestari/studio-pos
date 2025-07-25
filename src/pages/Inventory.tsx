@@ -469,7 +469,7 @@ const Inventory = () => {
                 <Input type="number" value={editForm.stok_awal} onChange={e => handleEditFormChange('stok_awal', e.target.value)} className="h-8" />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium">Stok Opname</label>
+                <label className="text-sm font-medium">Stok Akhir</label>
                 <Input type="number" value={editForm.stok_opname} onChange={e => handleEditFormChange('stok_opname', e.target.value)} className="h-8" />
               </div>
               <div className="space-y-1">
