@@ -633,7 +633,7 @@ const Inventory = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">-{item.stok_keluar ?? 0}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[#0050C8]">{stokAkhir}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="flex items-center">
+                        <div className="flex items-center gap-1">
                           <Button size="icon" variant="ghost" onClick={() => handleEditClick(item)} title="Edit">
                             <Edit className="w-4 h-4" />
                           </Button>
