@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ProductForm } from '@/components/ProductForm';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useMaterials } from '@/hooks/useMaterials';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label as ShadLabel } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
@@ -144,18 +145,14 @@ const Inventory = () => {
     }
   }, [editingMaterial]);
 
-  // Ambil data bahan/materials dari database
-  const { data: materials = [], isLoading, error, refetch } = useQuery({
-    queryKey: ['materials'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('materials').select('id, kode, nama, satuan, lebar_maksimum, harga_per_meter, stok_awal, stok_masuk, stok_keluar, stok_akhir, stok_opname, stok_minimum, created_at, updated_at, stok_aktif, kategori').order('nama');
-      if (error) throw error;
-      console.log('Fetched materials:', data);
-      return data || [];
-    },
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
-  });
+  // Ambil data bahan/materials dari database menggunakan hook khusus
+  const { materials, isLoading, error, refetch } = useMaterials();
+
+  // Force refetch when component mounts - fixes navigation issue from Orderan page
+  React.useEffect(() => {
+    console.log('Inventory page mounted, forcing materials refetch...');
+    refetch();
+  }, [refetch]);
 
   const { data: units = [], isLoading: unitsLoading, error: unitsError } = useUnits();
 
