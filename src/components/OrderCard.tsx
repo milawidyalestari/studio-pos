@@ -60,10 +60,10 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
     const diffTime = date.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
-    if (diffDays < 0) return `Overdue by ${Math.abs(diffDays)} days`;
-    if (diffDays === 0) return 'Due today';
-    if (diffDays === 1) return 'Due tomorrow';
-    return `Due in ${diffDays} days`;
+    if (diffDays < 0) return `Terlambat ${Math.abs(diffDays)} hari`;
+    if (diffDays === 0) return 'Hari Ini';
+    if (diffDays === 1) return 'Besok';
+    return `${diffDays} Hari Lagi`;
   };
 
   const getDeadlineColor = (dateString: string) => {

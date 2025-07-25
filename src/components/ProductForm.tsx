@@ -274,6 +274,7 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
     console.error('Error loading units:', unitsError);
   }
 
+  //styling dropdown
   const styles = {
     valueContainer: (base: any) => ({
       ...base,
@@ -338,7 +339,7 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
       fontWeight: 400,
       borderRadius: '0.2rem',
       margin: '0px 4px 4px',
-      backgroundColor: state.isFocused ? '#F1F5F9' : '#ffffff',
+      backgroundColor: (state.isFocused || state.isSelected) ? '#F1F5F9 !important' : '#ffffff !important',
       display: 'flex',
       alignItems: 'center',
     }),
