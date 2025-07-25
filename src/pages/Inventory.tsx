@@ -88,10 +88,17 @@ const Inventory = () => {
   const { data: materials = [], isLoading, error, refetch } = useQuery({
     queryKey: ['materials'],
     queryFn: async () => {
+      console.log('Fetching materials from database...');
       const { data, error } = await supabase.from('materials').select('*').order('nama');
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching materials:', error);
+        throw error;
+      }
+      console.log('Materials fetched successfully:', data);
       return data || [];
     },
+    staleTime: 0, // Always refetch when component mounts
+    refetchOnMount: true, // Ensure data is fresh on mount
   });
 
   const { data: units = [], isLoading: unitsLoading, error: unitsError } = useUnits();
@@ -319,10 +326,10 @@ const Inventory = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.kode}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.nama}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.satuan}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.stok_awal ?? '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">+{item.stok_masuk ?? 0}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">-{item.stok_keluar ?? 0}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[#0050C8]">{item.stok_opname ?? '-'}</td>
+                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.stok_awal ?? '-'}</td>
+                     <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">+{item.stok_masuk ?? 0}</td>
+                     <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">-{item.stok_keluar ?? 0}</td>
+                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[#0050C8]">{item.stok_akhir ?? '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="flex items-center gap-1">
                         <Button size="icon" variant="ghost" onClick={() => handleEditClick(item)} title="Edit">
