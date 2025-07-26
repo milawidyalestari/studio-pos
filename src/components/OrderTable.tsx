@@ -5,7 +5,7 @@ import { Edit } from 'lucide-react';
 import { OrderWithItems } from '@/types';
 import { formatCurrency } from '@/services/masterData';
 
-type OrderStatus = OrderWithItems['status'];
+type OrderStatus = string;
 
 interface OrderTableProps {
   orders: OrderWithItems[];
@@ -19,6 +19,7 @@ const OrderTable = ({ orders, onUpdateStatus, onOrderClick, onEditOrder }: Order
     switch (status) {
       case 'Design': return 'bg-purple-100 text-purple-800';
       case 'Cek File': return 'bg-blue-100 text-blue-800';
+      case 'Revisi': return 'bg-orange-100 text-orange-800';
       case 'Konfirmasi': return 'bg-yellow-100 text-yellow-800';
       case 'Export': return 'bg-orange-100 text-orange-800';
       case 'Proses Cetak': return 'bg-indigo-100 text-indigo-800';
@@ -31,6 +32,7 @@ const OrderTable = ({ orders, onUpdateStatus, onOrderClick, onEditOrder }: Order
     switch (currentStatus) {
       case 'Design': return 'Cek File';
       case 'Cek File': return 'Konfirmasi';
+      case 'Revisi': return 'Export';
       case 'Konfirmasi': return 'Export';
       case 'Export': return 'Proses Cetak';
       case 'Proses Cetak': return 'Done';
@@ -62,7 +64,8 @@ const OrderTable = ({ orders, onUpdateStatus, onOrderClick, onEditOrder }: Order
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {orders.map((order) => {
-              const nextStatus = getNextStatus(order.status);
+              const currentStatus = order.order_statuses?.name || 'Design';
+              const nextStatus = getNextStatus(currentStatus);
               
               return (
                 <tr 
@@ -77,8 +80,8 @@ const OrderTable = ({ orders, onUpdateStatus, onOrderClick, onEditOrder }: Order
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[#0050C8]">{formatCurrency(order.total_amount || 0)}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <Badge className={getStatusColor(order.status)}>
-                      {order.status}
+                    <Badge className={getStatusColor(currentStatus)}>
+                      {currentStatus}
                     </Badge>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{new Date(order.tanggal).toLocaleDateString()}</td>

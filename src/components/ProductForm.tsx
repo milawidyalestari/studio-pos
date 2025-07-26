@@ -14,26 +14,29 @@ import { Product } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 import { useUnits } from '@/hooks/useUnits';
 import { useProductCodeGenerator } from '@/hooks/useProductCodeGenerator';
-import { RefreshCw, Lock, Unlock, ChevronDown, ChevronUp } from 'lucide-react';
+import { RefreshCw, Lock, Unlock } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import ReactSelect from 'react-select';
-import { components } from 'react-select';
 
 interface ProductFormProps {
   initialData?: Product | null;
-  onSubmit: (data: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => void;
+  onSubmit: (data: Omit<Product, 'id' | 'created_at' | 'updated_at'> & { materialData?: Array<{material_id: string, quantity_per_unit: number}> }) => void;
   onCancel: () => void;
   isEditing: boolean;
   materials?: any[]; // Tambahan: materials dari parent
 }
 
-export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: string[] }> = ({
+export const ProductForm: React.FC<ProductFormProps & { 
+  initialMaterials?: string[];
+  initialMaterialData?: Array<{material_id: string, quantity_per_unit: number}>;
+}> = ({
   initialData,
   onSubmit,
   onCancel,
   isEditing,
   initialMaterials = [],
+  initialMaterialData = [],
   materials: materialsProp // Tambahan
 }) => {
   const [formData, setFormData] = useState({
@@ -66,18 +69,23 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
     },
   });
 
-  // Ambil data bahan/materials dari database
-  const { data: materials = [], isLoading: materialsLoading, error: materialsError } = useQuery({
+  // Ambil data bahan/materials dari database (hanya jika tidak ada materialsProp)
+  const { data: materialsFromQuery = [], isLoading: materialsLoading, error: materialsError } = useQuery({
     queryKey: ['materials'],
     queryFn: async () => {
       const { data, error } = await supabase.from('materials').select('id, nama');
       if (error) throw error;
       return data || [];
     },
+    enabled: !materialsProp || materialsProp.length === 0, // Hanya query jika tidak ada materialsProp
   });
+
+  // Gunakan materialsProp jika tersedia, jika tidak gunakan data dari query
+  const materials = materialsProp && materialsProp.length > 0 ? materialsProp : materialsFromQuery;
 
   // State untuk multi-select bahan
   const [selectedMaterials, setSelectedMaterials] = useState<any[]>([]);
+  const [materialQuantities, setMaterialQuantities] = useState<Record<string, number>>({});
   const selectRef = useRef<any>(null);
 
   // Tambahkan useEffect untuk generate kode produk berdasarkan tipe/group
@@ -120,50 +128,27 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
     }
   }, [generatedCode, isEditing, formData.kode]);
 
-  // Saat edit, isi bahan terpilih jika ada
-  useEffect(() => {
-    if (initialData && initialData.bahan_id) {
-      // Jika initialData.bahan_id adalah array, map ke format react-select
-      if (Array.isArray(initialData.bahan_id)) {
-        setSelectedMaterials(
-          initialData.bahan_id.map((id: string) => {
-            const mat = materials.find((m: any) => m.id === id);
-            return mat ? { value: mat.id, label: mat.nama } : null;
-          }).filter(Boolean)
-        );
-      } else if (typeof initialData.bahan_id === 'string') {
-        // Jika hanya satu id
-        const mat = materials.find((m: any) => m.id === initialData.bahan_id);
-        setSelectedMaterials(mat ? [{ value: mat.id, label: mat.nama }] : []);
-      }
-    }
-  }, [initialData, materials]);
-
-  // Reset selectedMaterials hanya saat isEditing berubah dari true ke false (bukan setiap kali materials berubah)
-  const prevIsEditing = useRef(isEditing);
+  // Inisialisasi selectedMaterials dan materialQuantities dari initialMaterials dan initialMaterialData (untuk editing)
   useEffect(() => {
     if (isEditing && initialMaterials.length > 0 && materials.length > 0) {
-      setSelectedMaterials(
-        initialMaterials
-          .map(id => {
-            const mat = materials.find((m: any) => m.id === id);
-            return mat ? { value: mat.id, label: mat.nama } : null;
-          })
-          .filter(Boolean)
-      );
-      setTimeout(() => {
-        if (selectRef.current && selectRef.current.focus) {
-          selectRef.current.focus();
-          selectRef.current.blur();
-        }
-      }, 100);
+      const selectedMats = initialMaterials
+        .map(id => {
+          const mat = materials.find((m: any) => m.id === id);
+          return mat ? { value: mat.id, label: mat.nama } : null;
+        })
+        .filter(Boolean);
+      setSelectedMaterials(selectedMats);
+      // Inisialisasi materialQuantities dari initialMaterialData
+      const quantities: Record<string, number> = {};
+      initialMaterialData.forEach(item => {
+        quantities[item.material_id] = item.quantity_per_unit;
+      });
+      setMaterialQuantities(quantities);
+      console.log('Initialized selectedMaterials for editing:', selectedMats);
+      console.log('Initialized materialQuantities for editing:', quantities);
     }
-    // Reset hanya saat isEditing berubah dari true ke false
-    if (prevIsEditing.current && !isEditing) {
-      setSelectedMaterials([]);
-    }
-    prevIsEditing.current = isEditing;
-  }, [isEditing, initialMaterials, materials]);
+    // Jangan reset state pada mode tambah produk!
+  }, [isEditing, initialMaterials, initialMaterialData, materials]);
 
   // Debug logging untuk melihat data kategori dan unit
   useEffect(() => {
@@ -171,7 +156,11 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
     console.log('ProductForm - Units data:', units);
     console.log('ProductForm - Units loading:', unitsLoading);
     console.log('ProductForm - Units error:', unitsError);
-  }, [categories, units, unitsLoading, unitsError]);
+    console.log('ProductForm - Materials data:', materials);
+    console.log('ProductForm - Materials loading:', materialsLoading);
+    console.log('ProductForm - Materials error:', materialsError);
+    console.log('ProductForm - MaterialsProp:', materialsProp);
+  }, [categories, units, unitsLoading, unitsError, materials, materialsLoading, materialsError, materialsProp]);
 
   useEffect(() => {
     if (initialData) {
@@ -218,7 +207,38 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
 
   // Handler untuk multi-select bahan agar tidak error readonly array
   const handleMaterialsChange = (newValue: any, _actionMeta: any) => {
-    setSelectedMaterials(Array.isArray(newValue) ? Array.from(newValue) : []);
+    const materialsArray = Array.isArray(newValue) ? Array.from(newValue) : [];
+    setSelectedMaterials(materialsArray);
+    // Update quantities untuk bahan yang baru ditambahkan
+    const newQuantities = { ...materialQuantities };
+    materialsArray.forEach((material: any) => {
+      if (!newQuantities[material.value]) {
+        newQuantities[material.value] = 0; // Default quantity = 0 (placeholder)
+      }
+      // Jika edit mode dan bahan sudah ada di initialMaterialData, gunakan nilai yang ada
+      if (isEditing && initialMaterialData.length > 0) {
+        const existingData = initialMaterialData.find(item => item.material_id === material.value);
+        if (existingData) {
+          newQuantities[material.value] = existingData.quantity_per_unit;
+        }
+      }
+    });
+    // Hapus quantities untuk bahan yang dihapus
+    Object.keys(newQuantities).forEach(materialId => {
+      if (!materialsArray.find((m: any) => m.value === materialId)) {
+        delete newQuantities[materialId];
+      }
+    });
+    setMaterialQuantities(newQuantities);
+    console.log('Materials changed:', materialsArray);
+    console.log('Material quantities:', newQuantities);
+  };
+
+  const handleQuantityChange = (materialId: string, quantity: number) => {
+    setMaterialQuantities(prev => ({
+      ...prev,
+      [materialId]: Math.max(0, quantity) // Minimum 0 (allow empty/placeholder)
+    }));
   };
 
   const validateForm = (): boolean => {
@@ -249,19 +269,23 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    e.stopPropagation(); // Mencegah bubbling ke parent form
-    
+    e.stopPropagation();
     if (validateForm()) {
-      // Validasi category_id: pastikan valid atau undefined untuk "no-category"
+      const materialData = selectedMaterials.map((material: any) => ({
+        material_id: material.value,
+        quantity_per_unit: materialQuantities[material.value] || (isEditing ? 1 : 0)
+      }));
+      console.log('Submitting form with materialData:', materialData);
       const submitData = {
         ...formData,
         category_id: !formData.category_id || formData.category_id === 'no-category' ? null : formData.category_id,
         bahan_id: !formData.bahan_id ? null : formData.bahan_id,
+        materialData: materialData
       };
-      // Hapus property yang nilainya string kosong agar tidak error UUID
       Object.keys(submitData).forEach(
         (key) => (submitData[key] === '' || submitData[key] === undefined) && delete submitData[key]
       );
+      console.log('Final submitData:', submitData);
       onSubmit(submitData);
     }
   };
@@ -370,83 +394,7 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
   };
   
 
-  // Komponen custom untuk MenuList
-  const CustomMenuList = (props: any) => {
-    const { children } = props;
-    const menuRef = useRef<HTMLDivElement>(null);
-    const [showTop, setShowTop] = useState(false);
-    const [showBottom, setShowBottom] = useState(false);
-    const [paddingBottom, setPaddingBottom] = useState(0);
 
-    // Cek scroll
-    useEffect(() => {
-      const menu = menuRef.current;
-      if (!menu) return;
-      const handleScroll = () => {
-        setShowTop(menu.scrollTop > 0);
-        setShowBottom(menu.scrollTop + menu.clientHeight < menu.scrollHeight - 1);
-        setPaddingBottom(menu.scrollTop + menu.clientHeight < menu.scrollHeight - 1 ? 24 : 0);
-      };
-      handleScroll();
-      menu.addEventListener('scroll', handleScroll);
-      return () => menu.removeEventListener('scroll', handleScroll);
-    }, [props.children]);
-
-    return (
-      <div style={{ position: 'relative' }}>
-        {showTop && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 24,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              pointerEvents: 'none',
-              background: 'white',
-              zIndex: 2,
-            }}
-          >
-            <ChevronUp className="h-4 w-4" style={{ color: '#64748b' }} />
-          </div>
-        )}
-        <components.MenuList
-          {...props}
-          innerRef={menuRef}
-          style={{
-            maxHeight: 250,
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none',
-            paddingBottom: paddingBottom,
-          }}
-        >
-          {children}
-        </components.MenuList>
-        {showBottom && (
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: 24,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              pointerEvents: 'none',
-              background: 'white',
-              zIndex: 2,
-            }}
-          >
-            <ChevronDown className="h-4 w-4" style={{ color: '#64748b' }} />
-          </div>
-        )}
-      </div>
-    );
-  };
 
   return (
     <div className="space-y-6">
@@ -658,22 +606,51 @@ export const ProductForm: React.FC<ProductFormProps & { initialMaterials?: strin
             )}
           </div>
 
-          {/* Dropdown Bahan multi-select */}
+          {/* Dropdown Bahan multi-select dengan quantity */}
           <div className="space-y-2">
             <Label htmlFor="bahan_id" className="text-sm font-medium">Bahan</Label>
             <ReactSelect
               ref={selectRef}
               isMulti
               isLoading={materialsLoading}
-              options={materials.map((mat: any) => ({ value: mat.id, label: mat.nama }))}
+              options={materials.map((mat: any) => ({ 
+                value: mat.id, 
+                label: mat.nama || mat.name || `${mat.kode} - ${mat.nama}` 
+              }))}
               value={selectedMaterials}
               onChange={handleMaterialsChange}
               placeholder="Pilih bahan"
               classNamePrefix="bahan-grid"
               styles={styles}
               menuPlacement="top"
-              components={{ MenuList: CustomMenuList }}
+              menuShouldScrollIntoView={false}
+              closeMenuOnScroll={false}
             />
+            {/* Quantity inputs untuk setiap bahan yang dipilih */}
+            {selectedMaterials.length > 0 && (
+              <div className="space-y-2 mt-3">
+                <Label className="text-sm font-medium">Jumlah Bahan per Unit Produk</Label>
+                {selectedMaterials.map((material: any) => (
+                  <div key={material.value} className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600 min-w-[120px]">
+                      {material.label}:
+                    </span>
+                                         <Input
+                       type="number"
+                       min="0.1"
+                       step="0.1"
+                       value={materialQuantities[material.value] > 0 ? materialQuantities[material.value] : ''}
+                       onChange={(e) => handleQuantityChange(material.value, parseFloat(e.target.value) || 0)}
+                       className="h-8 w-20"
+                       placeholder="1"
+                     />
+                    <span className="text-xs text-gray-500">
+                      unit per produk
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
             {errors.bahan_id && (
               <p className="text-red-500 text-xs">{errors.bahan_id}</p>
             )}

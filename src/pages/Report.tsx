@@ -76,6 +76,7 @@ const Report = () => {
       case 'cek file': return 'bg-orange-100 text-orange-800';
       case 'desain': return 'bg-purple-100 text-purple-800';
       case 'konfirmasi': return 'bg-cyan-100 text-cyan-800';
+      case 'revisi': return 'bg-orange-100 text-orange-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
