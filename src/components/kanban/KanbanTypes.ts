@@ -20,6 +20,7 @@ export interface KanbanBoardProps {
 export const DEFAULT_COLUMNS: KanbanColumn[] = [
   { id: 'Design', title: 'Design', status: 'Design', color: 'bg-gray-50' },
   { id: 'Cek File', title: 'Cek File', status: 'Cek File', color: 'bg-gray-50' },
+  { id: 'Revisi', title: 'Revisi', status: 'Revisi', color: 'bg-gray-50' },
   { id: 'Konfirmasi', title: 'Konfirmasi', status: 'Konfirmasi', color: 'bg-gray-50' },
   { id: 'Export', title: 'Export', status: 'Export', color: 'bg-gray-50' },
   { id: 'Proses Cetak', title: 'Proses Cetak', status: 'Proses Cetak', color: 'bg-gray-50' },

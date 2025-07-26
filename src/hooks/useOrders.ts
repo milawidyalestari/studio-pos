@@ -141,11 +141,9 @@ export const useOrders = () => {
 
   const deleteOrderMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      // Delete order items first (if you have foreign key constraints)
-      await supabase.from('order_items').delete().eq('order_id', orderId);
-      // Then delete the order
-      const { error } = await supabase.from('orders').delete().eq('id', orderId);
-      if (error) throw error;
+      // Use the deleteOrderFromDatabase service which handles stock restoration
+      const { deleteOrderFromDatabase } = await import('@/services/deleteOrderService');
+      await deleteOrderFromDatabase(orderId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
