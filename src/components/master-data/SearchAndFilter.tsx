@@ -35,7 +35,7 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
     <div className="relative flex-1 max-w-md">
       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
       <Input 
-        placeholder="Search..." 
+        placeholder="Cari karyawan..." 
         className="pl-10"
         value={searchTerm}
         onChange={(e) => onSearchChange(e.target.value)}
@@ -52,7 +52,7 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
         <SelectValue placeholder="Status" />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="all">All Status</SelectItem>
+        <SelectItem value="all">Semua Status</SelectItem>
         <SelectItem value="active">Active</SelectItem>
         <SelectItem value="inactive">Inactive</SelectItem>
       </SelectContent>
@@ -62,7 +62,7 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
         <SelectValue placeholder="Posisi" />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="all">All Posisi</SelectItem>
+        <SelectItem value="all">Semua Posisi</SelectItem>
         {posisiOptions.map((pos) => (
           <SelectItem key={pos} value={pos}>{pos}</SelectItem>
         ))}

@@ -160,7 +160,7 @@ export const MasterDataOverlay: React.FC<MasterDataOverlayProps> = ({
             <div className="flex items-center gap-3">
               <DialogTitle className="text-xl font-semibold">{title}</DialogTitle>
               <Badge variant="secondary" className="bg-[#0050C8]/10 text-[#0050C8]">
-                {filteredData.length} records
+                {filteredData.length} Data
               </Badge>
             </div>
           </DialogHeader>
@@ -183,7 +183,7 @@ export const MasterDataOverlay: React.FC<MasterDataOverlayProps> = ({
                   <div className="relative flex-1 max-w-md">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input 
-                      placeholder="Search records..." 
+                      placeholder="Cari records..." 
                       className="pl-10"
                       value={searchTerm}
                       onChange={(e) => {
@@ -197,14 +197,14 @@ export const MasterDataOverlay: React.FC<MasterDataOverlayProps> = ({
                     className="gap-2 bg-[#0050C8] hover:bg-[#003a9b]"
                   >
                     <Plus className="h-4 w-4" />
-                    Add New
+                    Tambah
                   </Button>
                 </div>
                 
                 {/* Debug information for empty data */}
                 {data.length === 0 && (
                   <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded-md">
-                    No {title.toLowerCase()} data found. Click "Add New" to create the first record.
+                    No {title.toLowerCase()} Data tidak ditemukan. Klik 'Tambah Baru' untuk membuat data pertama.
                   </div>
                 )}
               </div>
@@ -231,7 +231,7 @@ export const MasterDataOverlay: React.FC<MasterDataOverlayProps> = ({
                             </th>
                           ))}
                           <th className="px-4 py-1 text-left text-xs font-medium text-gray-500 uppercase w-24">
-                            Actions
+                            Aksi
                           </th>
                         </tr>
                       </thead>
@@ -273,7 +273,7 @@ export const MasterDataOverlay: React.FC<MasterDataOverlayProps> = ({
 
                     {paginatedData.length === 0 && (
                       <div className="text-center py-12 text-gray-500">
-                        {searchTerm ? 'No records found matching your search.' : 'No records available.'}
+                        {searchTerm ? 'Data tidak ditemukan.' : 'Belum ada data.'}
                       </div>
                     )}
                   </div>
@@ -291,7 +291,7 @@ export const MasterDataOverlay: React.FC<MasterDataOverlayProps> = ({
                           onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                           disabled={currentPage === 1}
                         >
-                          Previous
+                          Sebelumnya
                         </Button>
                         <span className="flex items-center px-3 py-1 text-sm">
                           {currentPage} of {totalPages}
@@ -302,7 +302,7 @@ export const MasterDataOverlay: React.FC<MasterDataOverlayProps> = ({
                           onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                           disabled={currentPage === totalPages}
                         >
-                          Next
+                          Selanjutnya
                         </Button>
                       </div>
                     </div>
@@ -318,9 +318,9 @@ export const MasterDataOverlay: React.FC<MasterDataOverlayProps> = ({
       <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the record.
+              Data akan terhapus permanen dan tidak bisa dikembalikan.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -31,8 +31,28 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import dayjs from 'dayjs';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 
 const Inventory = () => {
+  // State for log modal and logs
+  const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+
+  // Tambahkan state untuk pagination log mutasi
+  const [logPage, setLogPage] = useState(1);
+  const [logTotal, setLogTotal] = useState(0);
+  const LOGS_PER_PAGE = 25;
+
+  // All other state declarations
   const { toast } = useToast();
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -79,6 +99,27 @@ const Inventory = () => {
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
+
+  // Fetch log mutasi stok seluruh bahan
+  const fetchLogs = async (page = 1) => {
+    setLogsLoading(true);
+    const from = (page - 1) * LOGS_PER_PAGE;
+    const to = from + LOGS_PER_PAGE - 1;
+    const { data, error, count } = await supabase
+      .from('inventory_movements')
+      .select('*, material:materials(nama)', { count: 'exact' })
+      .order('tanggal', { ascending: false })
+      .range(from, to);
+    if (!error && data) {
+      setLogs(data);
+      setLogTotal(count || 0);
+    }
+    setLogsLoading(false);
+  };
+
+  useEffect(() => {
+    if (isLogModalOpen) fetchLogs(logPage);
+  }, [isLogModalOpen, logPage]);
 
   // Fungsi untuk generate kode otomatis
   const generateKodeBahan = async () => {
@@ -203,6 +244,7 @@ const Inventory = () => {
     if (!addForm.kode.trim()) newErrors.kode = 'Kode wajib diisi';
     if (!addForm.nama.trim()) newErrors.nama = 'Nama wajib diisi';
     if (!addForm.satuan.trim()) newErrors.satuan = 'Satuan wajib diisi';
+    if (!addForm.kategori) newErrors.kategori = 'Kategori wajib diisi';
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
     setAddLoading(true);
@@ -232,12 +274,12 @@ const Inventory = () => {
       // Catat mutasi stok awal jika ada
       if (payload.stok_awal > 0 && inserted && inserted[0]) {
         await supabase.from('inventory_movements').insert({
-          product_id: inserted[0].id,
-          created_at: dayjs().toISOString(),
-          movement_type: 'stok_awal',
-          quantity: payload.stok_awal,
-          notes: 'Input stok awal',
-          created_by: null,
+          material_id: inserted[0].id,
+          tanggal: dayjs().toISOString(),
+          tipe_mutasi: 'stok_awal',
+          jumlah: payload.stok_awal,
+          keterangan: 'Input stok awal',
+          user_id: null,
         });
       }
       toast({ title: 'Success', description: 'Item berhasil ditambahkan' });
@@ -263,6 +305,7 @@ const Inventory = () => {
     if (!editForm.satuan.trim()) newErrors.satuan = 'Satuan wajib diisi';
     // lebar_maksimum boleh kosong/null
     if (editForm.lebar_maksimum && isNaN(Number(editForm.lebar_maksimum))) newErrors.lebar_maksimum = 'Lebar maksimum harus berupa angka';
+    if (!editForm.kategori) newErrors.kategori = 'Kategori wajib diisi';
     setEditErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
     const payload = {
@@ -291,16 +334,56 @@ const Inventory = () => {
       setEditingMaterial(null);
       refetch();
     }
+    // Koreksi stok_awal
     const prevStokAwal = editingMaterial.stok_awal;
     const newStokAwal = payload.stok_awal;
     if (prevStokAwal !== undefined && newStokAwal !== undefined && prevStokAwal !== newStokAwal) {
       await supabase.from('inventory_movements').insert({
-        product_id: editingMaterial.id,
-        created_at: dayjs().toISOString(),
-        movement_type: 'koreksi',
-        quantity: newStokAwal - prevStokAwal,
-        notes: 'Koreksi stok awal',
-        created_by: null,
+        material_id: editingMaterial.id,
+        tanggal: dayjs().toISOString(),
+        tipe_mutasi: 'koreksi',
+        jumlah: newStokAwal - prevStokAwal,
+        keterangan: `Koreksi stok awal: ${prevStokAwal} → ${newStokAwal}`,
+        user_id: null,
+      });
+    }
+    // Koreksi stok_akhir
+    const prevStokAkhir = editingMaterial.stok_akhir;
+    const newStokAkhir = payload.stok_akhir;
+    if (prevStokAkhir !== undefined && newStokAkhir !== undefined && prevStokAkhir !== newStokAkhir) {
+      await supabase.from('inventory_movements').insert({
+        material_id: editingMaterial.id,
+        tanggal: dayjs().toISOString(),
+        tipe_mutasi: 'koreksi',
+        jumlah: newStokAkhir - prevStokAkhir,
+        keterangan: `Koreksi stok akhir: ${prevStokAkhir} → ${newStokAkhir}`,
+        user_id: null,
+      });
+    }
+    // Koreksi stok_masuk
+    const prevStokMasuk = editingMaterial.stok_masuk;
+    const newStokMasuk = payload.stok_masuk;
+    if (prevStokMasuk !== undefined && newStokMasuk !== undefined && prevStokMasuk !== newStokMasuk) {
+      await supabase.from('inventory_movements').insert({
+        material_id: editingMaterial.id,
+        tanggal: dayjs().toISOString(),
+        tipe_mutasi: 'koreksi',
+        jumlah: newStokMasuk - prevStokMasuk,
+        keterangan: `Koreksi stok masuk: ${prevStokMasuk} → ${newStokMasuk}`,
+        user_id: null,
+      });
+    }
+    // Koreksi stok_keluar
+    const prevStokKeluar = editingMaterial.stok_keluar;
+    const newStokKeluar = payload.stok_keluar;
+    if (prevStokKeluar !== undefined && newStokKeluar !== undefined && prevStokKeluar !== newStokKeluar) {
+      await supabase.from('inventory_movements').insert({
+        material_id: editingMaterial.id,
+        tanggal: dayjs().toISOString(),
+        tipe_mutasi: 'koreksi',
+        jumlah: newStokKeluar - prevStokKeluar,
+        keterangan: `Koreksi stok keluar: ${prevStokKeluar} → ${newStokKeluar}`,
+        user_id: null,
       });
     }
   };
@@ -560,6 +643,10 @@ const Inventory = () => {
           </Popover>
         </div>
         <div className="flex items-center gap-2">
+          {/* Tombol Log Mutasi */}
+          <Button variant="outline" className="gap-2" onClick={() => setIsLogModalOpen(true)}>
+            Log Mutasi
+          </Button>
           <Popover open={isExportOpen} onOpenChange={setIsExportOpen}>
             <PopoverTrigger asChild>
               <Button variant="outline" className="gap-2">
@@ -630,7 +717,7 @@ const Inventory = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">-{item.stok_keluar ?? 0}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[#0050C8]">{stokAkhir}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="flex items-center">
+                        <div className="flex items-center gap-1">
                           <Button size="icon" variant="ghost" onClick={() => handleEditClick(item)} title="Edit">
                             <Edit className="w-4 h-4" />
                           </Button>
@@ -706,12 +793,12 @@ const Inventory = () => {
                   {unitsError && <p className="text-red-500 text-xs mt-1">Gagal memuat satuan</p>}
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium">Kategori</label>
+                  <label className="text-sm font-medium">Kategori <span className="text-red-500">*</span></label>
                   <Select
                     value={addForm.kategori || ''}
                     onValueChange={value => handleAddFormChange('kategori', value)}
                   >
-                    <SelectTrigger className="h-8">
+                    <SelectTrigger className={`h-8${errors.kategori ? ' border-red-500' : ''}`}>
                       <SelectValue placeholder="Pilih kategori" />
                     </SelectTrigger>
                     <SelectContent>
@@ -720,6 +807,7 @@ const Inventory = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {errors.kategori && <p className="text-red-500 text-xs mt-1">{errors.kategori}</p>}
                 </div>
               </div>
               <div className="space-y-1">
@@ -783,7 +871,7 @@ const Inventory = () => {
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">Kode <span className="text-red-500">*</span></label>
-                <Input value={editForm.kode} readOnly className={`h-8${editErrors.kode ? ' border-red-500' : ''}`} />
+                <Input value={editForm.kode} readOnly className={`bg-gray-100 text-gray-400 h-8${editErrors.kode ? ' border-red-500' : ''}`} />
                 {editErrors.kode && <p className="text-red-500 text-xs mt-1">{editErrors.kode}</p>}
               </div>
               <div className="space-y-1">
@@ -812,12 +900,12 @@ const Inventory = () => {
                   {unitsError && <p className="text-red-500 text-xs mt-1">Gagal memuat satuan</p>}
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium">Kategori</label>
+                  <label className="text-sm font-medium">Kategori <span className="text-red-500">*</span></label>
                   <Select
                     value={editForm.kategori || ''}
                     onValueChange={value => handleEditFormChange('kategori', value)}
                   >
-                    <SelectTrigger className="h-8">
+                    <SelectTrigger className={`h-8${editErrors.kategori ? ' border-red-500' : ''}`}>
                       <SelectValue placeholder="Pilih kategori" />
                     </SelectTrigger>
                     <SelectContent>
@@ -826,6 +914,7 @@ const Inventory = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {editErrors.kategori && <p className="text-red-500 text-xs mt-1">{editErrors.kategori}</p>}
                 </div>
               </div>
               <div className="space-y-1">
@@ -927,21 +1016,21 @@ const Inventory = () => {
               // Catat mutasi stok
               if (inputStokMode === 'input') {
                 await supabase.from('inventory_movements').insert({
-                  product_id: material.id,
-                  created_at: dayjs().toISOString(),
-                  movement_type: stokOpname !== null ? 'opname' : 'masuk',
-                  quantity: jumlah,
-                  notes: stokOpname !== null ? `Input opname +${jumlah}` : `Input stok masuk +${jumlah}`,
-                  created_by: null,
+                  material_id: material.id,
+                  tanggal: dayjs().toISOString(),
+                  tipe_mutasi: stokOpname !== null ? 'opname' : 'masuk',
+                  jumlah: jumlah,
+                  keterangan: stokOpname !== null ? `Input opname +${jumlah}` : `Input stok masuk +${jumlah}`,
+                  user_id: null,
                 });
               } else if (inputStokMode === 'usage') {
                 await supabase.from('inventory_movements').insert({
-                  product_id: material.id,
-                  created_at: dayjs().toISOString(),
-                  movement_type: stokOpname !== null ? 'opname' : 'keluar',
-                  quantity: -jumlah,
-                  notes: stokOpname !== null ? `Opname & keluar -${jumlah}` : `Penggunaan stok -${jumlah}`,
-                  created_by: null,
+                  material_id: material.id,
+                  tanggal: dayjs().toISOString(),
+                  tipe_mutasi: stokOpname !== null ? 'opname' : 'keluar',
+                  jumlah: -jumlah,
+                  keterangan: stokOpname !== null ? `Opname & keluar -${jumlah}` : `Penggunaan stok -${jumlah}`,
+                  user_id: null,
                 });
               }
             }}
@@ -952,7 +1041,7 @@ const Inventory = () => {
               <RadioGroup value={inputStokMode} onValueChange={val => setInputStokMode(val as 'input' | 'usage')} className="flex gap-4 mb-2">
                 <div className="flex items-center gap-1">
                   <RadioGroupItem value="input" id="input-mode" />
-                  <ShadLabel htmlFor="input-mode">Input Stok</ShadLabel>
+                  <ShadLabel htmlFor="input-mode">Input Stok Masuk</ShadLabel>
                 </div>
                 <div className="flex items-center gap-1">
                   <RadioGroupItem value="usage" id="usage-mode" />
@@ -961,7 +1050,8 @@ const Inventory = () => {
               </RadioGroup>
             </div>
             <div>
-              <ShadLabel className="block text-sm font-medium mb-1">Pilih Bahan/Material</ShadLabel>
+              <ShadLabel className="block text-sm font-medium mb-1">Pilih Bahan/Material <span className='text-red-500'>*</span> 
+              </ShadLabel> 
               <Select value={inputStokForm.materialId} onValueChange={val => setInputStokForm(f => ({ ...f, materialId: val }))}>
                 <SelectTrigger className={`w-full h-9${inputStokError ? ' border-red-500' : ''}`}>
                   <SelectValue placeholder="-- Pilih --" />
@@ -998,7 +1088,7 @@ const Inventory = () => {
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setIsInputStokOpen(false)}>Batal</Button>
-              <Button type="submit" className="bg-green-700 hover:bg-blue-800" disabled={inputStokLoading}>
+              <Button type="submit" className="bg-blue-700 hover:bg-blue-800" disabled={inputStokLoading}>
                 {inputStokLoading ? 'Menyimpan...' : 'Simpan'}
               </Button>
             </div>
@@ -1073,6 +1163,89 @@ const Inventory = () => {
               <Button type="submit" className="bg-gray-700 text-white">Simpan</Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Log Mutasi */}
+      <Dialog open={isLogModalOpen} onOpenChange={setIsLogModalOpen}>
+        <DialogContent className="max-w-4xl p-0 border rounded-lg overflow-hidden">
+          <DialogHeader className="p-8 pb-0">
+            <DialogTitle>Log Mutasi Stok</DialogTitle>
+          </DialogHeader>
+          <div className="h-[50vh] overflow-y-auto p-8 pt-0">
+            {logsLoading ? (
+              <div className="text-center py-8">Loading...</div>
+            ) : logs.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">Belum ada log mutasi</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="px-2 py-2 border">Tanggal</th>
+                      <th className="px-2 py-2 border">Nama Bahan</th>
+                      <th className="px-2 py-2 border">Tipe Mutasi</th>
+                      <th className="px-2 py-2 border">Jumlah</th>
+                      <th className="px-2 py-2 border">Catatan</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {logs.map(log => {
+                      const isMasuk = log.tipe_mutasi === 'masuk' || log.tipe_mutasi === 'stok_awal';
+                      const isKeluar = log.tipe_mutasi === 'keluar';
+                      const isOpname = log.tipe_mutasi === 'opname';
+                      let tipe = '-';
+                      if (isMasuk) tipe = 'Masuk';
+                      else if (isKeluar) tipe = 'Keluar';
+                      else if (isOpname) tipe = 'Opname';
+                      else tipe = log.tipe_mutasi;
+                      return (
+                        <tr key={log.id}>
+                          <td className="px-2 py-1 border">{log.tanggal?.slice(0, 19).replace('T', ' ')}</td>
+                          <td className="px-2 py-1 border">{log.material?.nama || '-'}</td>
+                          <td className="px-2 py-1 border">{tipe}</td>
+                          <td className={`px-2 py-1 border font-semibold ${isMasuk ? 'text-green-600' : isKeluar ? 'text-red-600' : ''}`}>{Math.abs(log.jumlah)}</td>
+                          <td className="px-2 py-1 border">{log.keterangan}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          {/* Pagination */}
+          {logTotal > LOGS_PER_PAGE && (
+            <div className="flex justify-center py-4">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => setLogPage(p => Math.max(1, p - 1))}
+                      disabled={logPage === 1}
+                    />
+                  </PaginationItem>
+                  {Array.from({ length: Math.ceil(logTotal / LOGS_PER_PAGE) }).map((_, idx) => (
+                    <PaginationItem key={idx + 1}>
+                      <PaginationLink
+                        isActive={logPage === idx + 1}
+                        onClick={() => setLogPage(idx + 1)}
+                        href="#"
+                      >
+                        {idx + 1}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))}
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() => setLogPage(p => Math.min(Math.ceil(logTotal / LOGS_PER_PAGE), p + 1))}
+                      disabled={logPage === Math.ceil(logTotal / LOGS_PER_PAGE)}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
