@@ -133,51 +133,45 @@ export type Database = {
       }
       inventory_movements: {
         Row: {
-          created_at: string | null
-          created_by: string | null
-          id: string
-          movement_type: string
-          notes: string | null
-          product_id: string | null
-          quantity: number
-          reference_id: string | null
-          reference_type: string | null
+          id: string;
+          material_id: string;
+          tanggal: string;
+          tipe_mutasi: string;
+          jumlah: number;
+          keterangan: string | null;
+          user_id: string | null;
         }
         Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string
-          movement_type: string
-          notes?: string | null
-          product_id?: string | null
-          quantity: number
-          reference_id?: string | null
-          reference_type?: string | null
+          id?: string;
+          material_id: string;
+          tanggal?: string;
+          tipe_mutasi: string;
+          jumlah: number;
+          keterangan?: string | null;
+          user_id?: string | null;
         }
         Update: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string
-          movement_type?: string
-          notes?: string | null
-          product_id?: string | null
-          quantity?: number
-          reference_id?: string | null
-          reference_type?: string | null
+          id?: string;
+          material_id?: string;
+          tanggal?: string;
+          tipe_mutasi?: string;
+          jumlah?: number;
+          keterangan?: string | null;
+          user_id?: string | null;
         }
         Relationships: [
           {
-            foreignKeyName: "inventory_movements_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "employees"
+            foreignKeyName: "inventory_movements_material_id_fkey",
+            columns: ["material_id"],
+            isOneToOne: false,
+            referencedRelation: "materials",
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "inventory_movements_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
+            foreignKeyName: "inventory_movements_user_id_fkey",
+            columns: ["user_id"],
+            isOneToOne: false,
+            referencedRelation: "employees",
             referencedColumns: ["id"]
           },
         ]
