@@ -53,6 +53,7 @@ const MasterData = () => {
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingProductMaterials, setEditingProductMaterials] = useState<string[]>([]);
+  const [editingProductMaterialData, setEditingProductMaterialData] = useState<Array<{material_id: string, quantity_per_unit: number}>>([]);
   const [deleteProductId, setDeleteProductId] = useState<string | null>(null);
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState(null);
@@ -142,17 +143,26 @@ const MasterData = () => {
     console.log('Opening product form for new product');
     setEditingProduct(null);
     setEditingProductMaterials([]); // Clear materials when adding new product
+    setEditingProductMaterialData([]); // Clear material data when adding new product
     setIsProductFormOpen(true);
   };
 
   const handleEditProduct = async (product: Product) => {
-    // Fetch bahan terkait produk dari tabel relasi
+    // Fetch bahan terkait produk dari tabel relasi beserta quantity_per_unit
     const { data: relMaterials } = await supabase
       .from('product_materials')
-      .select('material_id')
+      .select('material_id, quantity_per_unit')
       .eq('product_id', product.id);
+    
+    const materialIds = relMaterials?.map(r => r.material_id) || [];
+    const materialData = relMaterials?.map(r => ({
+      material_id: r.material_id,
+      quantity_per_unit: r.quantity_per_unit || 1
+    })) || [];
+    
     setEditingProduct(product);
-    setEditingProductMaterials(relMaterials?.map(r => r.material_id) || []);
+    setEditingProductMaterials(materialIds);
+    setEditingProductMaterialData(materialData);
     setIsProductFormOpen(true);
   };
 
@@ -162,29 +172,39 @@ const MasterData = () => {
   };
 
   const handleProductFormSubmit = async (data: any) => {
-    const { materialIds, ...productData } = data;
+    console.log('Received data from ProductForm:', data);
+    const { materialData, ...productData } = data;
+    console.log('Extracted materialData:', materialData);
+    console.log('Product data:', productData);
     try {
       let productId = editingProduct?.id;
       if (editingProduct) {
-        // Update produk
         await updateProductMutation.mutateAsync({
           id: editingProduct.id,
           ...productData
         });
       } else {
-        // Create produk
         const created = await createProductMutation.mutateAsync(productData);
         productId = created.id;
       }
-      // Update relasi product_materials
-      if (productId && Array.isArray(materialIds)) {
-        // Hapus semua relasi lama
+      console.log('Product saved with ID:', productId);
+      // Update relasi product_materials dengan quantity_per_unit
+      if (productId && Array.isArray(materialData)) {
+        console.log('Processing materialData:', materialData);
         await supabase.from('product_materials').delete().eq('product_id', productId);
-        // Insert relasi baru
-        if (materialIds.length > 0) {
-          const inserts = materialIds.map((material_id: string) => ({ product_id: productId, material_id }));
+        console.log('Deleted old product_materials relations');
+        if (materialData.length > 0) {
+          const inserts = materialData.map((item: any) => ({
+            product_id: productId,
+            material_id: item.material_id,
+            quantity_per_unit: item.quantity_per_unit > 0 ? item.quantity_per_unit : 1
+          }));
+          console.log('Inserting new product_materials relations:', inserts);
           await supabase.from('product_materials').insert(inserts);
+          console.log('Successfully inserted product_materials relations');
         }
+      } else {
+        console.log('No materialData to process or productId not found');
       }
       toast({
         title: 'Success',
@@ -547,8 +567,8 @@ const MasterData = () => {
           title: "Success",
           description: "Payment type updated successfully",
         });
-      } else if (overlayConfig.type === 'Posisi') {
-        await supabase.from('positions').update({ name: item.name }).eq('id', item.id);
+      } else if (overlayConfig.type === 'positions') {
+        await supabase.from('positions').update({ name: item.name }).eq('id', parseInt(item.id));
         fetchPositions();
         toast({ title: 'Success', description: 'Posisi berhasil diupdate' });
         return;
@@ -617,7 +637,7 @@ const MasterData = () => {
           description: "Payment type deleted successfully",
         });
       } else if (overlayConfig.type === 'positions') {
-        await supabase.from('positions').delete().eq('id', id);
+        await supabase.from('positions').delete().eq('id', parseInt(id));
         fetchPositions();
         toast({ title: 'Success', description: 'Posisi berhasil dihapus' });
         return;
@@ -788,6 +808,7 @@ const MasterData = () => {
           <ProductForm
             initialData={editingProduct}
             initialMaterials={editingProductMaterials}
+            initialMaterialData={editingProductMaterialData}
             onSubmit={handleProductFormSubmit}
             onCancel={() => setIsProductFormOpen(false)}
             isEditing={!!editingProduct}

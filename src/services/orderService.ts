@@ -10,6 +10,206 @@ function customRounding(value: number): number {
   return value; // Sudah bulat ribuan
 }
 
+// Fungsi untuk mengurangi stok bahan berdasarkan produk yang dipesan
+const reduceMaterialStock = async (orderItems: any[]) => {
+  try {
+    console.log('Starting material stock reduction for order items:', orderItems);
+    
+    for (const item of orderItems) {
+      // Cari produk berdasarkan item_name (kode produk)
+      const { data: product, error: productError } = await supabase
+        .from('products')
+        .select('id, kode, nama')
+        .eq('kode', item.item_name)
+        .single();
+      
+      if (productError || !product) {
+        console.warn(`Product not found for item: ${item.item_name}`);
+        continue;
+      }
+      
+      // Cari bahan yang terkait dengan produk ini beserta quantity_per_unit
+      const { data: productMaterials, error: materialsError } = await supabase
+        .from('product_materials')
+        .select('material_id, quantity_per_unit')
+        .eq('product_id', product.id);
+      
+      if (materialsError) {
+        console.error('Error fetching product materials:', materialsError);
+        continue;
+      }
+      
+      if (!productMaterials || productMaterials.length === 0) {
+        console.log(`No materials found for product: ${product.nama}`);
+        continue;
+      }
+      
+      // Ambil detail bahan untuk setiap material_id
+      for (const productMaterial of productMaterials) {
+        const { data: material, error: materialError } = await supabase
+          .from('materials')
+          .select('id, kode, nama, stok_akhir, stok_aktif, stok_minimum, stok_keluar')
+          .eq('id', productMaterial.material_id)
+          .single();
+        if (materialError || !material) {
+          console.error(`Error fetching material ${productMaterial.material_id}:`, materialError);
+          continue;
+        }
+        if (!material.stok_aktif) {
+          console.log(`Material ${material.nama} is not active, skipping stock reduction`);
+          continue;
+        }
+        // Hitung jumlah yang perlu dikurangi: quantity order × quantity_per_unit
+        const orderQty = parseInt(item.quantity) || 0;
+        const qtyPerUnit = productMaterial.quantity_per_unit > 0 ? productMaterial.quantity_per_unit : 1;
+        const quantityToReduce = orderQty * qtyPerUnit;
+        if (quantityToReduce <= 0) continue;
+        const newStokKeluar = (material.stok_keluar || 0) + quantityToReduce;
+        const newStokAkhir = (material.stok_akhir || 0) - quantityToReduce;
+        const { error: updateError } = await supabase
+          .from('materials')
+          .update({
+            stok_keluar: newStokKeluar,
+            stok_akhir: newStokAkhir,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', material.id);
+        if (updateError) {
+          console.error(`Error updating stock for material ${material.nama}:`, updateError);
+          continue;
+        }
+        const { error: movementError } = await supabase
+          .from('inventory_movements')
+          .insert({
+            material_id: material.id,
+            tanggal: new Date().toISOString(),
+            tipe_mutasi: 'penggunaan',
+            jumlah: -quantityToReduce,
+            keterangan: `Penggunaan untuk order: ${item.item_name} (${orderQty} unit × ${qtyPerUnit} bahan = ${quantityToReduce} total)`,
+            user_id: null
+          });
+        if (movementError) {
+          console.error(`Error recording inventory movement for material ${material.nama}:`, movementError);
+        }
+        console.log(`Successfully reduced stock for material ${material.nama}: ${quantityToReduce} units`);
+        if (newStokAkhir <= material.stok_minimum) {
+          console.warn(`Warning: Material ${material.nama} stock is at or below minimum (${newStokAkhir}/${material.stok_minimum})`);
+        }
+      }
+    }
+    
+    console.log('Material stock reduction completed successfully');
+  } catch (error) {
+    console.error('Error in reduceMaterialStock:', error);
+    throw error;
+  }
+};
+
+// Fungsi untuk mengembalikan stok bahan ketika order dihapus atau diupdate
+const restoreMaterialStock = async (orderItems: any[]) => {
+  try {
+    console.log('Starting material stock restoration for order items:', orderItems);
+    
+    for (const item of orderItems) {
+      // Cari produk berdasarkan item_name (kode produk)
+      const { data: product, error: productError } = await supabase
+        .from('products')
+        .select('id, kode, nama')
+        .eq('kode', item.item_name)
+        .single();
+      
+      if (productError || !product) {
+        console.warn(`Product not found for item: ${item.item_name}`);
+        continue;
+      }
+      
+      // Cari bahan yang terkait dengan produk ini beserta quantity_per_unit
+      const { data: productMaterials, error: materialsError } = await supabase
+        .from('product_materials')
+        .select('material_id, quantity_per_unit')
+        .eq('product_id', product.id);
+      
+      if (materialsError) {
+        console.error('Error fetching product materials:', materialsError);
+        continue;
+      }
+      
+      if (!productMaterials || productMaterials.length === 0) {
+        console.log(`No materials found for product: ${product.nama}`);
+        continue;
+      }
+      
+      // Ambil detail bahan untuk setiap material_id
+      for (const productMaterial of productMaterials) {
+        const { data: material, error: materialError } = await supabase
+          .from('materials')
+          .select('id, kode, nama, stok_akhir, stok_aktif, stok_minimum, stok_keluar')
+          .eq('id', productMaterial.material_id)
+          .single();
+        
+        if (materialError || !material) {
+          console.error(`Error fetching material ${productMaterial.material_id}:`, materialError);
+          continue;
+        }
+        
+        // Hanya kembalikan stok jika bahan aktif
+        if (!material.stok_aktif) {
+          console.log(`Material ${material.nama} is not active, skipping stock restoration`);
+          continue;
+        }
+        
+        // Hitung jumlah yang perlu dikembalikan: quantity order × quantity_per_unit
+        const orderQty = parseInt(item.quantity) || 0;
+        const qtyPerUnit = productMaterial.quantity_per_unit > 0 ? productMaterial.quantity_per_unit : 1;
+        const quantityToRestore = orderQty * qtyPerUnit;
+        if (quantityToRestore <= 0) continue;
+        
+        // Update stok bahan
+        const newStokKeluar = Math.max(0, (material.stok_keluar || 0) - quantityToRestore);
+        const newStokAkhir = (material.stok_akhir || 0) + quantityToRestore;
+        
+        // Update stok di database
+        const { error: updateError } = await supabase
+          .from('materials')
+          .update({
+            stok_keluar: newStokKeluar,
+            stok_akhir: newStokAkhir,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', material.id);
+        
+        if (updateError) {
+          console.error(`Error updating stock for material ${material.nama}:`, updateError);
+          continue;
+        }
+        
+        // Catat pergerakan stok di inventory_movements
+        const { error: movementError } = await supabase
+          .from('inventory_movements')
+          .insert({
+            material_id: material.id,
+            tanggal: new Date().toISOString(),
+            tipe_mutasi: 'pengembalian',
+            jumlah: quantityToRestore, // Positif karena pengembalian
+            keterangan: `Pengembalian stok untuk order: ${item.item_name} (${orderQty} unit × ${qtyPerUnit} bahan = ${quantityToRestore} total)`,
+            user_id: null
+          });
+        
+        if (movementError) {
+          console.error(`Error recording inventory movement for material ${material.nama}:`, movementError);
+        }
+        
+        console.log(`Successfully restored stock for material ${material.nama}: ${quantityToRestore} units`);
+      }
+    }
+    
+    console.log('Material stock restoration completed successfully');
+  } catch (error) {
+    console.error('Error in restoreMaterialStock:', error);
+    throw error;
+  }
+};
+
 export const generateOrderNumber = () => {
   const date = new Date();
   const year = date.getFullYear().toString().slice(-2);
@@ -149,6 +349,23 @@ export const updateExistingOrder = async (orderId: number, orderData: any) => {
 
     console.log('Order updated successfully:', updatedOrder);
 
+    // Get existing order items before deleting them (for stock restoration)
+    const { data: existingItems, error: fetchExistingError } = await supabase
+      .from('order_items')
+      .select('*')
+      .eq('order_id', orderId);
+
+    if (fetchExistingError) {
+      console.error('Error fetching existing order items:', fetchExistingError);
+      throw fetchExistingError;
+    }
+
+    // Restore material stock for existing items
+    if (existingItems && existingItems.length > 0) {
+      console.log('Restoring material stock for existing items:', existingItems);
+      await restoreMaterialStock(existingItems);
+    }
+
     // Delete existing order items first
     const { error: deleteItemsError } = await supabase
       .from('order_items')
@@ -188,6 +405,11 @@ export const updateExistingOrder = async (orderId: number, orderData: any) => {
       }
 
       console.log('Order items updated successfully');
+    }
+
+    // Reduce material stock for new items after updating order
+    if (items && items.length > 0) {
+      await reduceMaterialStock(items);
     }
 
     return updatedOrder;
@@ -285,6 +507,11 @@ export const createNewOrder = async (orderData: any) => {
       }
 
       console.log('Order items saved successfully');
+    }
+
+    // Reduce material stock after creating new order
+    if (items && items.length > 0) {
+      await reduceMaterialStock(items);
     }
 
     return savedOrder;

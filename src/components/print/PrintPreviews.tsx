@@ -26,41 +26,70 @@ export const SPKPreview: React.FC<PrintPreviewProps> = ({ orderData, orderList }
     <div className="space-y-4">
       <Card className="border-2 border-gray-300">
         <CardContent className="p-4">
-          <div className="text-center space-y-3">
-            <h2 className="text-xl font-bold">SURAT PERINTAH KERJA (SPK)</h2>
-            <div className="text-sm">
-              <p>Order Number: {orderData?.orderNumber || 'N/A'}</p>
-              <p>Customer: {orderData?.customerName || 'N/A'}</p>
+          {/* Header */}
+          <div className="text-center space-y-2">
+            <h2 className="text-xl font-bold">REQUEST ORDER</h2>
+            <p className="text-lg font-semibold">{orderData?.orderNumber || 'N/A'}</p>
+          </div>
+          
+          <Separator className="my-4" />
+          
+          {/* Print Type Checkboxes */}
+          <div className="space-y-2 mb-4">
+            <div className="flex gap-4 text-sm">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" defaultChecked className="rounded" />
+                <span>Outdoor/Indoor</span>
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" className="rounded" />
+                <span>Laser Printing</span>
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" className="rounded" />
+                <span>Mug/Nota/Stemple</span>
+              </label>
+            </div>
+          </div>
+          
+          {/* Order Details */}
+          <div className="space-y-2 mb-4">
+            <div className="grid grid-cols-1 gap-2 text-sm">
+              <div>
+                <span className="font-medium">Nama:</span>
+                <span className="ml-2">{orderData?.customerName || 'N/A'}</span>
+              </div>
+              <div>
+                <span className="font-medium">Tanggal:</span>
+                <span className="ml-2">{new Date().toLocaleDateString('id-ID')}</span>
+              </div>
+              <div>
+                <span className="font-medium">Deadline:</span>
+                <span className="ml-2">{new Date().toLocaleDateString('id-ID')} 14:30</span>
+              </div>
             </div>
           </div>
           
           <Separator className="my-4" />
           
-          <div className="space-y-2">
-            <h3 className="font-semibold text-sm">Items:</h3>
+          {/* Items List */}
+          <div className="space-y-3">
             {orderList?.map((item, index) => {
               const size = (item as any).ukuran || {};
+              const description = (item as any).description || (item as any).notes || '';
+              const unitType = (item as any).unitType || 'Lembaran'; // Lembaran, F.Lipet, etc.
               
               return (
-                <div key={item.id || index} className="border-b border-gray-100 pb-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium">{item.item}</span>
-                    <span>{new Intl.NumberFormat('id-ID', {
-                      style: 'currency',
-                      currency: 'IDR'
-                    }).format(item.subTotal)}</span>
-                  </div>
+                <div key={item.id || index} className="border border-gray-200 rounded p-3">
+                  <div className="font-medium text-sm mb-1">{item.item}</div>
+                  {description && (
+                    <div className="text-xs text-gray-600 mb-1">{description}</div>
+                  )}
                   {size.panjang && size.lebar && (
-                    <div className="text-xs text-gray-600">
-                      Ukuran: {size.panjang} x {size.lebar}
+                    <div className="text-xs text-gray-700">
+                      {size.panjang} x {size.lebar} @{item.quantity} {unitType}
                     </div>
                   )}
-                  <div className="text-xs text-gray-500">
-                    Qty: {item.quantity} x {new Intl.NumberFormat('id-ID', {
-                      style: 'currency',
-                      currency: 'IDR'
-                    }).format(item.quantity > 0 ? item.subTotal / item.quantity : 0)}
-                  </div>
                 </div>
               );
             })}
@@ -68,13 +97,16 @@ export const SPKPreview: React.FC<PrintPreviewProps> = ({ orderData, orderList }
           
           <Separator className="my-4" />
           
-          <div className="text-right">
-            <p className="font-bold">
-              Total: {new Intl.NumberFormat('id-ID', {
-                style: 'currency',
-                currency: 'IDR'
-              }).format(orderData?.totalAmount || 0)}
-            </p>
+          {/* Additional Information */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="font-medium">Kom:</span>
+              <span>1</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="font-medium">Designer:</span>
+              <span>Mila - Orderan Selesai</span>
+            </div>
           </div>
         </CardContent>
       </Card>

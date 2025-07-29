@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatCurrency } from '@/services/productPricing';
 import { useToast } from '@/hooks/use-toast';
 import { generateOrderNumber, fetchNextOrderNumber } from '@/services/orderService';
@@ -21,6 +22,7 @@ import { usePrintOverlay } from '@/hooks/usePrintOverlay';
 import { PrintOverlay } from '@/components/PrintOverlay';
 import { mapOrderItemsWithNames } from '@/utils/productMapping';
 import { useQuery } from '@tanstack/react-query';
+import AddStockModal from '@/components/AddStockModal';
 
 type PaymentType = string;
 
@@ -90,7 +92,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   const { createOrder, isCreatingOrder, updateOrder, isUpdatingOrder } = useOrders();
   const { data: products } = useProducts();
   // Tambahkan query untuk materials
-  const { data: materials = [] } = useQuery({
+  const { data: materials = [], refetch: refetchMaterials } = useQuery({
     queryKey: ['materials'],
     queryFn: async () => {
       const { data, error } = await supabase.from('materials').select('id, kode, nama, satuan, lebar_maksimum');
@@ -137,6 +139,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   const [initialFormDataSnapshot, setInitialFormDataSnapshot] = useState<FormData | null>(null);
   const [hasFormDataChanges, setHasFormDataChanges] = useState(false);
   const [hasItemsAdded, setHasItemsAdded] = useState(false);
+  const [showAddStockModal, setShowAddStockModal] = useState(false);
 
   const generateNextItemId = () => {
     const nextNumber = orderList.length + 1;
@@ -658,6 +661,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
                       onUpdateItem={handleUpdateItem}
                       isSaving={isCreatingOrder || isUpdatingOrder}
                       nextItemId={generateNextItemId()}
+                      onOpenAddStockModal={() => setShowAddStockModal(true)}
                     />
                   </div>
                 </ScrollArea>
@@ -713,19 +717,23 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
             >
               <div className="flex items-center gap-2 mr-2">
                 {statusesLoading ? (
-                  <span>Loading statuses...</span>
+                  <span className="text-sm text-gray-500">Loading statuses...</span>
                 ) : (
-                  <select
-                    id="status_id"
-                    value={formData.status_id ?? ''}
-                    onChange={e => handleFormDataChange('status_id', e.target.value ? Number(e.target.value) : null)}
-                    className="border rounded-md p-2 min-w-[120px]"
+                  <Select
+                    value={formData.status_id?.toString() || ''}
+                    onValueChange={(value) => handleFormDataChange('status_id', value ? Number(value) : null)}
                   >
-                    <option value="">Pilih Status</option>
-                    {statuses.map(status => (
-                      <option key={status.id} value={status.id}>{status.name}</option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-[140px] font-semibold">
+                      <SelectValue placeholder="Pilih Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statuses.map(status => (
+                        <SelectItem key={status.id} value={status.id.toString()}>
+                          {status.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
               </div>
             </OrderActionButtons>
@@ -742,6 +750,16 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
         orderList={printData.orderList}
         orderData={printData.orderData}
         printType={printType}
+      />
+
+      {/* Add Stock Modal */}
+      <AddStockModal
+        isOpen={showAddStockModal}
+        onClose={() => setShowAddStockModal(false)}
+        onSuccess={() => {
+          // Refresh materials data
+          refetchMaterials();
+        }}
       />
     </Dialog>
   );
