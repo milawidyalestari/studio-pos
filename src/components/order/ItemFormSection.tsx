@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -35,6 +35,7 @@ interface ItemFormSectionProps {
   onUpdateItem: () => void;
   isSaving: boolean;
   nextItemId: string;
+  onOpenAddStockModal?: () => void;
 }
 
 const ItemFormSection = ({
@@ -46,7 +47,8 @@ const ItemFormSection = ({
   onAddItem,
   onUpdateItem,
   isSaving,
-  nextItemId
+  nextItemId,
+  onOpenAddStockModal
 }: ItemFormSectionProps) => {
   const { data: products, isLoading: productsLoading, refetch: refetchProducts } = useProducts();
   const [showItemSelectionModal, setShowItemSelectionModal] = useState(false);
@@ -71,6 +73,15 @@ const ItemFormSection = ({
   });
 
   const createProduct = useCreateProduct();
+
+  const notesRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (notesRef.current) {
+      notesRef.current.style.height = 'auto';
+      notesRef.current.style.height = notesRef.current.scrollHeight + 'px';
+    }
+  }, [currentItem.notes]);
 
   // Set snapshot saat mulai edit item
   useEffect(() => {
@@ -153,13 +164,15 @@ const ItemFormSection = ({
     <div className="border rounded-lg p-3 mb-4">
            {/* Notes: pindahkan ke sini */}
            <div className="mb-1">
-        <Label htmlFor="notes" className="text-sm font-medium">Deskripsi</Label>
+        <Label htmlFor="notes" className="text-sm font-medium">Deskripsi <span className='text-red-500'>*</span></Label>
         <textarea
           id="notes"
+          ref={notesRef}
           value={currentItem.notes || ''}
           onChange={e => updateCurrentItem('notes', e.target.value)}
           placeholder="Deskripsi Order..."
-          className="mt-1 h-8 w-full border rounded-md pl-2 pt-0.5"
+          className="text-sm font-semibold mt-1 w-full border rounded-md py-2 px-3 resize-none overflow-hidden"
+          rows={1}
         />
       </div>
       
@@ -176,7 +189,7 @@ const ItemFormSection = ({
         </div>
         
         <div>
-          <Label htmlFor="namaItem" className="text-sm font-medium">Kode Item</Label>
+          <Label htmlFor="namaItem" className="text-sm font-medium">Kode Item <span className='text-red-500'>*</span></Label>
         <div className="flex mt-0">
           <Input
             id="kodeItem"
@@ -211,7 +224,7 @@ const ItemFormSection = ({
       {/* Row 5: Kode Bahan & Nama Bahan */}
       <div className="grid grid-cols-2 gap-4 mb-2">
       <div>
-          <Label htmlFor="namaBahan" className="text-sm font-medium">Nama Bahan</Label>
+          <Label htmlFor="namaBahan" className="text-sm font-medium">Nama Bahan </Label>
           <Input
             id="namaBahan"
             value={selectedMaterial?.nama || ''}
@@ -220,7 +233,7 @@ const ItemFormSection = ({
           />
         </div>
         <div>
-          <Label htmlFor="kodeBahan" className="text-sm font-medium">Kode Bahan</Label>
+          <Label htmlFor="kodeBahan" className="text-sm font-medium">Kode Bahan <span className='text-red-500'>*</span></Label>
           <div className="flex mt-1">
             <Input
               id="kodeBahan"
@@ -237,7 +250,13 @@ const ItemFormSection = ({
             >
               ?
             </Button>
-            <Button type="button" variant="outline" size="sm" className="ml-1 px-2 h-8">
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              className="ml-1 px-2 h-8"
+              onClick={() => onOpenAddStockModal?.()}
+            >
               +
             </Button>
           </div>
@@ -247,7 +266,7 @@ const ItemFormSection = ({
       {/* Row 3: Jumlah Pesanan & Dimensi */}
       <div className="flex gap-4 mb-3">
         <div className="w-1/4">
-          <Label htmlFor="jumlahPesanan" className="text-sm font-medium">Jml Pesanan</Label>
+          <Label htmlFor="jumlahPesanan" className="text-sm font-medium">Jml Pesanan <span className='text-red-500'>*</span> </Label>
           <Input
             id="jumlahPesanan"
             type="number"
@@ -405,24 +424,47 @@ const ItemFormSection = ({
           <ProductForm
             initialData={null}
             initialMaterials={[]}
+            initialMaterialData={[]}
             isEditing={false}
             materials={materials}
-            onSubmit={(data) => {
-              createProduct.mutate(data, {
-                onSuccess: () => {
-                  setShowProductForm(false);
-                  refetchProducts();
-                  refetchMaterials();
-                },
-                onError: (err) => {
-                  // TODO: tampilkan error toast jika perlu
+            onSubmit={async (data) => {
+              try {
+                const { materialData, ...productData } = data;
+                
+                // Buat produk terlebih dahulu
+                const createdProduct = await createProduct.mutateAsync(productData);
+                
+                // Jika ada materialData, simpan ke tabel product_materials
+                if (materialData && materialData.length > 0 && createdProduct) {
+                  const inserts = materialData.map((item: any) => ({
+                    product_id: createdProduct.id,
+                    material_id: item.material_id,
+                    quantity_per_unit: item.quantity_per_unit > 0 ? item.quantity_per_unit : 1
+                  }));
+                  
+                  const { error: materialError } = await supabase
+                    .from('product_materials')
+                    .insert(inserts);
+                    
+                  if (materialError) {
+                    console.error('Error saving material relations:', materialError);
+                    throw materialError;
+                  }
                 }
-              });
+                
+                setShowProductForm(false);
+                refetchProducts();
+                refetchMaterials();
+              } catch (error) {
+                console.error('Error creating product:', error);
+                // TODO: tampilkan error toast jika perlu
+              }
             }}
             onCancel={() => setShowProductForm(false)}
           />
         </DialogContent>
       </Dialog>
+
     </div>
   );
 };
