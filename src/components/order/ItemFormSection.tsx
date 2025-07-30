@@ -452,13 +452,13 @@ const ItemFormSection = ({
                   }
                 }
                 
-                setShowProductForm(false);
-                refetchProducts();
-                refetchMaterials();
+                  setShowProductForm(false);
+                  refetchProducts();
+                  refetchMaterials();
               } catch (error) {
                 console.error('Error creating product:', error);
-                // TODO: tampilkan error toast jika perlu
-              }
+                  // TODO: tampilkan error toast jika perlu
+                }
             }}
             onCancel={() => setShowProductForm(false)}
           />

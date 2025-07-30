@@ -38,6 +38,7 @@ export const usePrintOverlay = () => {
   const closePrintOverlay = useCallback(() => {
     setIsOpen(false);
     setPrintData({});
+    setPrintType('other');
   }, []);
 
   const handlePrint = useCallback(async () => {

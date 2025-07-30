@@ -22,6 +22,14 @@ interface PrintPreviewProps {
 }
 
 export const SPKPreview: React.FC<PrintPreviewProps> = ({ orderData, orderList }) => {
+  // Helper function to check if size is valid
+  const isValidSize = (panjang: any, lebar: any) => {
+    return panjang && lebar && 
+           panjang !== '' && lebar !== '' && 
+           panjang !== 'null' && lebar !== 'null' &&
+           panjang !== null && lebar !== null &&
+           panjang !== undefined && lebar !== undefined;
+  };
   return (
     <div className="space-y-4">
       <Card className="border-2 border-gray-300">
@@ -38,15 +46,46 @@ export const SPKPreview: React.FC<PrintPreviewProps> = ({ orderData, orderList }
           <div className="space-y-2 mb-4">
             <div className="flex gap-4 text-sm">
               <label className="flex items-center gap-2">
-                <input type="checkbox" defaultChecked className="rounded" />
+                <input 
+                  type="checkbox" 
+                  defaultChecked 
+                  className="rounded border-2 border-black bg-white checked:bg-black checked:border-black"
+                  style={{
+                    width: '12px',
+                    height: '12px',
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    MozAppearance: 'none'
+                  }}
+                />
                 <span>Outdoor/Indoor</span>
               </label>
               <label className="flex items-center gap-2">
-                <input type="checkbox" className="rounded" />
+                <input 
+                  type="checkbox" 
+                  className="rounded border-2 border-black bg-white checked:bg-black checked:border-black"
+                  style={{
+                    width: '12px',
+                    height: '12px',
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    MozAppearance: 'none'
+                  }}
+                />
                 <span>Laser Printing</span>
               </label>
               <label className="flex items-center gap-2">
-                <input type="checkbox" className="rounded" />
+                <input 
+                  type="checkbox" 
+                  className="rounded border-2 border-black bg-white checked:bg-black checked:border-black"
+                  style={{
+                    width: '12px',
+                    height: '12px',
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    MozAppearance: 'none'
+                  }}
+                />
                 <span>Mug/Nota/Stemple</span>
               </label>
             </div>
@@ -77,7 +116,12 @@ export const SPKPreview: React.FC<PrintPreviewProps> = ({ orderData, orderList }
             {orderList?.map((item, index) => {
               const size = (item as any).ukuran || {};
               const description = (item as any).description || (item as any).notes || '';
-              const unitType = (item as any).unitType || 'Lembaran'; // Lembaran, F.Lipet, etc.
+              const finishing = (item as any).finishing || 'Lembaran'; // Use finishing from database
+              console.log('PrintPreviews - item finishing:', (item as any).finishing); // Debug log
+              console.log('PrintPreviews - item size:', size); // Debug log
+              console.log('PrintPreviews - size.panjang:', size.panjang, 'size.lebar:', size.lebar); // Debug log
+              console.log('PrintPreviews - size.panjang type:', typeof size.panjang, 'size.lebar type:', typeof size.lebar); // Debug log
+              console.log('PrintPreviews - size.panjang === null:', size.panjang === null, 'size.lebar === null:', size.lebar === null); // Debug log
               
               return (
                 <div key={item.id || index} className="border border-gray-200 rounded p-3">
@@ -85,11 +129,9 @@ export const SPKPreview: React.FC<PrintPreviewProps> = ({ orderData, orderList }
                   {description && (
                     <div className="text-xs text-gray-600 mb-1">{description}</div>
                   )}
-                  {size.panjang && size.lebar && (
-                    <div className="text-xs text-gray-700">
-                      {size.panjang} x {size.lebar} @{item.quantity} {unitType}
-                    </div>
-                  )}
+                  <div className="text-xs text-gray-700">
+                    {isValidSize(size.panjang, size.lebar) ? `${size.panjang} x ${size.lebar}` : '-'} @{item.quantity} {finishing}
+                  </div>
                 </div>
               );
             })}
