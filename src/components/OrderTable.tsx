@@ -84,7 +84,12 @@ const OrderTable = ({ orders, onUpdateStatus, onOrderClick, onEditOrder }: Order
                       {currentStatus}
                     </Badge>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{new Date(order.tanggal).toLocaleDateString()}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{new Date(order.tanggal).toLocaleDateString('id-ID', {
+                    timeZone: 'Asia/Kuala_Lumpur',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                  })}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
                       <Button 

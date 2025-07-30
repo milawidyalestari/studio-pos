@@ -14,38 +14,26 @@ import { deleteOrderFromDatabase } from '@/services/deleteOrderService';
 import { Order, OrderWithItems, Employee } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useHasAccess } from '@/context/RoleAccessContext';
-import { usePrintOverlay } from '@/hooks/usePrintOverlay';
-import { PrintOverlay } from '@/components/PrintOverlay';
-// FIX: Temporarily comment out or remove the import that causes an error if the module does not exist
-// import { getStatusIdByName } from '@/utils/getStatusId';
+import { useProducts } from '@/hooks/useProducts';
 
 const Orderan = () => {
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(null);
   const [editingOrder, setEditingOrder] = useState<OrderWithItems | null>(null);
+  const [tempEditingOrder, setTempEditingOrder] = useState<OrderWithItems | null>(null);
   const { orders: dbOrders, isLoading, isFetching, updateOrder, deleteOrder, refetch } = useOrders(); // tambahkan isFetching
   const orders = dbOrders || [];
   const { toast } = useToast();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [fadeReload, setFadeReload] = useState(false);
   const hasAccess = useHasAccess();
-  const {
-    isOpen: isPrintOverlayOpen,
-    printType,
-    printData,
-    closePrintOverlay,
-    handlePrint,
-    printSPK,
-    printReceipt,
-    printNota,
-    printPelunasan,
-  } = usePrintOverlay();
+  const { data: products } = useProducts();
   
   React.useEffect(() => {
     supabase
       .from('employees')
-      .select('id, nama')
+      .select('id, nama, kode, posisi, status')
       .then(({ data }) => {
         setEmployees(data || []);
       });
@@ -148,77 +136,6 @@ const Orderan = () => {
     }, 250); // fade out dulu, lalu refetch dan fade in
   };
 
-  // Print handlers
-  const handlePrintSPK = (order: OrderWithItems) => {
-    const orderList = (order.order_items || []).map(item => ({
-      id: item.id,
-      item: item.item_name || 'Unknown Item',
-      quantity: item.quantity || 0,
-      subTotal: item.sub_total || 0,
-    }));
-
-    const orderData = {
-      orderNumber: order.order_number,
-      customerName: order.customer_name,
-      totalAmount: order.total_amount || 0,
-    };
-
-    printSPK({ orderList, orderData });
-  };
-
-  const handlePrintReceipt = (order: OrderWithItems) => {
-    const orderList = (order.order_items || []).map(item => ({
-      id: item.id,
-      item: item.item_name || 'Unknown Item',
-      quantity: item.quantity || 0,
-      subTotal: item.sub_total || 0,
-    }));
-
-    const orderData = {
-      orderNumber: order.order_number,
-      customerName: order.customer_name,
-      totalAmount: order.total_amount || 0,
-    };
-
-    printReceipt({ orderList, orderData });
-  };
-
-  const handlePrintNota = (order: OrderWithItems) => {
-    const orderList = (order.order_items || []).map(item => ({
-      id: item.id,
-      item: item.item_name || 'Unknown Item',
-      quantity: item.quantity || 0,
-      subTotal: item.sub_total || 0,
-    }));
-
-    const orderData = {
-      orderNumber: order.order_number,
-      customerName: order.customer_name,
-      totalAmount: order.total_amount || 0,
-    };
-
-    printNota({ orderList, orderData });
-  };
-
-  const handlePrintPelunasan = (order: OrderWithItems) => {
-    const orderList = (order.order_items || []).map(item => ({
-      id: item.id,
-      item: item.item_name || 'Unknown Item',
-      quantity: item.quantity || 0,
-      subTotal: item.sub_total || 0,
-    }));
-
-    const orderData = {
-      orderNumber: order.order_number,
-      customerName: order.customer_name,
-      totalAmount: order.total_amount || 0,
-      downPayment: order.down_payment || 0,
-      pelunasan: order.pelunasan || 0,
-    };
-
-    printPelunasan({ orderList, orderData });
-  };
-
   if (isLoading) {
     return (
       <div className="p-6">
@@ -305,15 +222,11 @@ const Orderan = () => {
               onEditOrder={handleEditOrder}
               onDeleteOrder={handleDeleteOrder}
               onUpdateOrderStatus={updateOrderStatus}
-              onPrintSPK={handlePrintSPK}
-              onPrintReceipt={handlePrintReceipt}
-              onPrintNota={handlePrintNota}
-              onPrintPelunasan={handlePrintPelunasan}
               employees={employees}
               fadeReload={fadeReload}
             />
           ) : (
-            <OrderTable orders={orders} onUpdateStatus={updateOrderStatus} onOrderClick={handleOrderClick} onEditOrder={handleEditOrder} fadeReload={fadeReload} />
+            <OrderTable orders={orders} onUpdateStatus={updateOrderStatus} onOrderClick={handleOrderClick} onEditOrder={handleEditOrder} />
           )}
         </>
       )}
@@ -323,17 +236,10 @@ const Orderan = () => {
         onClose={handleModalClose}
         onSubmit={handleOrderModalSubmit}
         editingOrder={editingOrder as any}
-      />
-
-      {/* Print Overlay */}
-      <PrintOverlay
-        isOpen={isPrintOverlayOpen}
-        onClose={closePrintOverlay}
-        onPrint={handlePrint}
-        title={`Print ${printType.toUpperCase()}`}
-        orderList={printData.orderList}
-        orderData={printData.orderData}
-        printType={printType}
+        onReopen={(restoredEditingOrder) => {
+          setEditingOrder(restoredEditingOrder as any);
+          setShowRequestModal(true);
+        }}
       />
 
       {/* Order Details Modal */}
@@ -347,48 +253,56 @@ const Orderan = () => {
               <div>
                 <label className="font-semibold">Customer:</label>
                 <p>
-                  {selectedOrder.customer_name ||
-                    selectedOrder.customer?.name ||
-                    selectedOrder.customer_id ||
-                    'Unknown'}
+                  {selectedOrder.customer_name || 'Unknown'}
                 </p>
               </div>
               <div>
                 <label className="font-semibold">Items:</label>
                 <div className="space-y-1">
-                  {(selectedOrder.order_items || []).map((orderItem: any, index: number) => (
-                    <span key={index} className="text-sm bg-gray-100 px-2 py-1 rounded mr-1 inline-block">
-                      {orderItem.item_name || orderItem.name || orderItem.title || 'Unknown Item'}
-                    </span>
-                  ))}
+                  {(selectedOrder.order_items || []).map((orderItem: any, index: number) => {
+                    // Cari nama produk berdasarkan item_name (kode produk)
+                    const product = products?.find(p => p.kode === orderItem.item_name);
+                    const displayName = product?.nama || orderItem.item_name || 'Item tidak diketahui';
+                    
+                    return (
+                      <div key={index} className="text-sm bg-gray-100 px-2 py-1 rounded mr-1 inline-block">
+                        <div className="font-medium">{displayName}</div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
               <div>
                 <label className="font-semibold">Total:</label>
-                <p className="text-[#0050C8] font-semibold">{selectedOrder.total}</p>
+                <p className="text-[#0050C8] font-semibold">{formatCurrency(selectedOrder.total_amount || 0)}</p>
               </div>
               <div>
                 <label className="font-semibold">Status:</label>
-                <p className="capitalize">{selectedOrder.order_statuses?.name || selectedOrder.status_id}</p>
+                <p className="capitalize">{selectedOrder.order_statuses?.name || 'Tidak diketahui'}</p>
               </div>
               <div>
-                <label className="font-semibold">Order Date:</label>
-                <p>{selectedOrder.date}</p>
+                <label className="font-semibold">Tanggal Order:</label>
+                <p>{selectedOrder.tanggal ? new Date(selectedOrder.tanggal).toLocaleDateString('id-ID', {
+                  timeZone: 'Asia/Kuala_Lumpur',
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit'
+                }) : 'Belum ditentukan'}</p>
               </div>
               <div>
-                <label className="font-semibold">Estimated Date:</label>
-                <p>{selectedOrder.estimatedDate}</p>
+                <label className="font-semibold">Estimasi:</label>
+                <p>{selectedOrder.estimasi || 'Belum ditentukan'}</p>
               </div>
               <div>
                 <label className="font-semibold">Admin:</label>
                 <p>
-                  {selectedOrder.admin?.nama || 'Not assigned'}
+                  {selectedOrder.admin?.nama || 'Belum ditugaskan'}
                 </p>
               </div>
               <div>
                 <label className="font-semibold">Designer:</label>
                 <p>
-                  {selectedOrder.desainer?.nama || 'Not assigned'}
+                  {selectedOrder.desainer?.nama || 'Belum ditugaskan'}
                 </p>
               </div>
             </div>

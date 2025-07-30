@@ -55,7 +55,12 @@ const OrdersTableContent: React.FC<OrdersTableContentProps> = ({ orders }) => {
             {orders.map((order) => (
               <TableRow key={order.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleRowClick(order)}>
                 <TableCell className="font-medium">{order.customer_name || '-'}</TableCell>
-                <TableCell>{order.tanggal ? new Date(order.tanggal).toLocaleDateString('id-ID') : '-'}</TableCell>
+                <TableCell>{order.tanggal ? new Date(order.tanggal).toLocaleDateString('id-ID', {
+                  timeZone: 'Asia/Kuala_Lumpur',
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit'
+                }) : '-'}</TableCell>
                 <TableCell>{order.estimasi || '-'}</TableCell>
                 <TableCell>
                   <Badge className={getStatusColor(order.order_statuses?.name || '-')}>
@@ -77,7 +82,12 @@ const OrdersTableContent: React.FC<OrdersTableContentProps> = ({ orders }) => {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-2">
                 <div><b>Customer:</b> {selectedOrder.customer_name || '-'}</div>
-                <div><b>Tanggal:</b> {selectedOrder.tanggal ? new Date(selectedOrder.tanggal).toLocaleDateString('id-ID') : '-'}</div>
+                <div><b>Tanggal:</b> {selectedOrder.tanggal ? new Date(selectedOrder.tanggal).toLocaleDateString('id-ID', {
+                  timeZone: 'Asia/Kuala_Lumpur',
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit'
+                }) : '-'}</div>
                 <div><b>Deadline:</b> {selectedOrder.estimasi || '-'}</div>
                 <div><b>Status:</b> {selectedOrder.order_statuses?.name || '-'}</div>
                 <div><b>Total:</b> {formatCurrency(selectedOrder.total_amount || 0)}</div>

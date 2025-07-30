@@ -12,6 +12,7 @@ export const formatDate = (date: string | Date): string => {
   if (isNaN(dateObj.getTime())) return 'Invalid Date';
   
   return dateObj.toLocaleDateString('id-ID', {
+    timeZone: 'Asia/Kuala_Lumpur',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -24,6 +25,7 @@ export const formatDateTime = (date: string | Date): string => {
   if (isNaN(dateObj.getTime())) return 'Invalid Date';
   
   return dateObj.toLocaleString('id-ID', {
+    timeZone: 'Asia/Kuala_Lumpur',
     year: 'numeric',
     month: 'long',
     day: 'numeric',

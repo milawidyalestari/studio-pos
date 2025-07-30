@@ -42,7 +42,7 @@ const OrderListSection = ({ orderList, onEditItem, onDeleteItem, editingItemId }
             return (
               <div 
                 key={item.id} 
-                className={`grid grid-cols-6 gap-1 text-xs py-2 px-2 border-b transition-all duration-5 ${
+                className={`grid grid-cols-6 gap-1 text-xs py-2 px-2 h-8 border-b transition-all duration-5 ${
                   editingItemId === item.id 
                     ? 'bg-blue-200 ' 
                     : 'hover:bg-gray-50'
@@ -60,10 +60,10 @@ const OrderListSection = ({ orderList, onEditItem, onDeleteItem, editingItemId }
                   type="button" 
                   size="sm" 
                   variant="ghost" 
-                  className="h-6 w-6 p-0"
+                  className="h-6 w-6"
                   onClick={() => onEditItem(item)}
                 >
-                  <Edit className="h-3 w-3" />
+                  <Edit className="h-3 w-3 mb-2 flex item-center" />
                 </Button>
                 <Button 
                   type="button" 
@@ -72,7 +72,7 @@ const OrderListSection = ({ orderList, onEditItem, onDeleteItem, editingItemId }
                   className="h-6 w-6 p-0 text-red-500"
                   onClick={() => onDeleteItem(item.id)}
                 >
-                  <Trash2 className="h-3 w-3" />
+                  <Trash2 className="h-3 w-3 mb-2 flex item-center" />
                 </Button>
               </div>
             );

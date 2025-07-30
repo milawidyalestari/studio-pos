@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 interface OrderActionButtonsProps {
   onNew: () => void;
   onSave: () => void;
+  onConfirm?: () => void;
   onSubmit: () => void;
   onPrintSPK?: () => void;
   onPrintReceipt?: () => void;
@@ -17,11 +18,14 @@ interface OrderActionButtonsProps {
   isEditingItem?: boolean;
   isEditMode?: boolean;
   hasEditChanges?: boolean;
+  isConfirmed?: boolean;
+  hasPostConfirmationChanges?: boolean;
 }
 
 const OrderActionButtons = ({ 
   onNew, 
   onSave, 
+  onConfirm,
   onSubmit, 
   onPrintSPK,
   onPrintReceipt,
@@ -34,7 +38,9 @@ const OrderActionButtons = ({
   disabledSaveOrder, 
   isEditingItem, 
   isEditMode, 
-  hasEditChanges 
+  hasEditChanges,
+  isConfirmed,
+  hasPostConfirmationChanges
 }: OrderActionButtonsProps) => {
   return (
     <div className="border-t px-6 py-4 bg-white flex-shrink-0">
@@ -44,18 +50,35 @@ const OrderActionButtons = ({
           <Button 
             type="button" 
             onClick={onSave}
-            disabled={isSaving || disabledSaveOrder || isEditingItem || (isEditMode && !hasEditChanges)}
+            disabled={isSaving || disabledSaveOrder || isEditingItem || (isEditMode && !hasEditChanges) || (isConfirmed && !hasPostConfirmationChanges)}
             className={
-              isSaving || disabledSaveOrder || isEditingItem || (isEditMode && !hasEditChanges)
+              isSaving || disabledSaveOrder || isEditingItem || (isEditMode && !hasEditChanges) || (isConfirmed && !hasPostConfirmationChanges)
                 ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                : hasUnsavedChanges
+                : hasUnsavedChanges || (isConfirmed && hasPostConfirmationChanges)
                 ? "bg-[#0050C8] hover:bg-[#003a9b] text-white"
                 : ""
             }
-            variant={hasUnsavedChanges && !disabledSaveOrder && !isEditingItem && !(isEditMode && !hasEditChanges) ? "default" : "outline"}
+            variant={(hasUnsavedChanges || (isConfirmed && hasPostConfirmationChanges)) && !disabledSaveOrder && !isEditingItem && !(isEditMode && !hasEditChanges) && !(isConfirmed && !hasPostConfirmationChanges) ? "default" : "outline"}
           >
             {isSaving ? "Saving..." : "Save Order"}
           </Button>
+          {onConfirm && (
+            <Button 
+              type="button" 
+              onClick={onConfirm}
+              disabled={isSaving || disabledSaveOrder || isEditingItem || (isEditMode && !hasEditChanges) || (isConfirmed && !hasPostConfirmationChanges)}
+              className={
+                isSaving || disabledSaveOrder || isEditingItem || (isEditMode && !hasEditChanges) || (isConfirmed && !hasPostConfirmationChanges)
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : hasUnsavedChanges || (isConfirmed && hasPostConfirmationChanges)
+                  ? "bg-[#0050C8] hover:bg-[#003a9b] text-white"
+                  : ""
+              }
+              variant={(hasUnsavedChanges || (isConfirmed && hasPostConfirmationChanges)) && !disabledSaveOrder && !isEditingItem && !(isEditMode && !hasEditChanges) && !(isConfirmed && !hasPostConfirmationChanges) ? "default" : "outline"}
+            >
+              Konfirmasi
+            </Button>
+          )}
           <Button
             type="button"
             className={
