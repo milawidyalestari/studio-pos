@@ -26,6 +26,7 @@ const PrintDemo: React.FC = () => {
       quantity: 2,
       subTotal: 500000,
       ukuran: { panjang: '280', lebar: '160' },
+      description: 'Banner untuk promosi outdoor dengan tahan cuaca',
     },
     {
       id: '2',
@@ -33,6 +34,7 @@ const PrintDemo: React.FC = () => {
       quantity: 10,
       subTotal: 250000,
       ukuran: { panjang: '21', lebar: '29.7' },
+      description: 'Sticker untuk kendaraan dengan adhesive kuat',
     },
     {
       id: '3',
@@ -40,6 +42,7 @@ const PrintDemo: React.FC = () => {
       quantity: 5,
       subTotal: 75000,
       ukuran: { panjang: '25.4', lebar: '20.3' },
+      description: 'Print foto keluarga dengan kualitas tinggi',
     },
   ];
 

@@ -1,9 +1,10 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Edit, Calendar, Trash2 } from 'lucide-react';
 import { DraggableProvided, DraggableStateSnapshot } from 'react-beautiful-dnd';
 import { useProducts } from '@/hooks/useProducts';
@@ -46,11 +47,17 @@ function safeLocaleDateString(dateValue: string | undefined) {
 function formatCreatedAt(dateStr: string) {
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return '-';
-  return d.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  return d.toLocaleDateString('id-ID', { 
+    timeZone: 'Asia/Kuala_Lumpur',
+    day: '2-digit', 
+    month: '2-digit', 
+    year: '2-digit' 
+  });
 }
 
 const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDeleteOrder, isOptimisticallyMoved, isDoneColumn, onMarkPickedUp }: OrderCardProps) => {
   const { data: products } = useProducts();
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const formatDeadline = (dateString: string) => {
     if (!dateString || dateString === '-' || dateString === '') return 'No deadline';
     const date = new Date(dateString);
@@ -82,7 +89,7 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
   };
 
   const handleCardClick = () => {
-    if (onOrderClick) {
+    if (onOrderClick && !showDeleteDialog) {
       onOrderClick(order);
     }
   };
@@ -96,9 +103,18 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    setShowDeleteDialog(true);
+  };
+
+  const handleConfirmDelete = () => {
     if (onDeleteOrder) {
       onDeleteOrder(order.id);
     }
+    setShowDeleteDialog(false);
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteDialog(false);
   };
 
   const handleMarkPickedUp = (e: React.MouseEvent) => {
@@ -148,7 +164,7 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
                   <p>Edit order</p>
                 </TooltipContent>
               </Tooltip>
-              {onMarkPickedUp && order.status === 'Done' && order.status !== 'Selesai-Diambil' && (
+              {onMarkPickedUp && order.status === 'Done' && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -217,8 +233,8 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
               </Tooltip>
 
               {/* Delete Button */}
-              <Tooltip>
-                <TooltipTrigger asChild>
+              <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+                <AlertDialogTrigger asChild>
                   <Button 
                     size="sm" 
                     variant="ghost" 
@@ -227,11 +243,29 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
                   >
                     <Trash2 className="h-3 w-3" />
                   </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Delete order</p>
-                </TooltipContent>
-              </Tooltip>
+                </AlertDialogTrigger>
+                <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Hapus Order</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Apakah Anda yakin ingin menghapus order ini? 
+                      <br />
+                      <strong>Order #{order.orderNumber}</strong> - <strong>{order.customer}</strong>
+                      <br />
+                      <span className="text-red-600 font-medium">Tindakan ini tidak dapat dibatalkan!</span>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel onClick={(e) => { e.stopPropagation(); handleCancelDelete(); }}>Batal</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={(e) => { e.stopPropagation(); handleConfirmDelete(); }}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      Hapus Order
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
         </CardHeader>
