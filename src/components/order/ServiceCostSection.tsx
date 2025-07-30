@@ -30,7 +30,7 @@ const ServiceCostSection = ({ formData, totalPrice, onFormDataChange, designers,
     <>
       <div className="grid grid-cols-3 gap-4 mb-4">
         <div>
-          <Label htmlFor="jasaDesain" className="text-sm font-medium">Design Service</Label>
+          <Label htmlFor="jasaDesain" className="text-sm font-medium">Biaya Desain</Label>
           <Input
             id="jasaDesain"
             value={formData.jasaDesain ? `IDR ${parseFloat(formData.jasaDesain).toLocaleString('id-ID')}` : ''}
@@ -43,7 +43,7 @@ const ServiceCostSection = ({ formData, totalPrice, onFormDataChange, designers,
           />
         </div>
         <div>
-          <Label htmlFor="biayaLain" className="text-sm font-medium">Other Costs</Label>
+          <Label htmlFor="biayaLain" className="text-sm font-medium">Biaya Lain</Label>
           <Input
             id="biayaLain"
             value={formData.biayaLain ? `IDR ${parseFloat(formData.biayaLain).toLocaleString('id-ID')}` : ''}
@@ -102,7 +102,7 @@ const ServiceCostSection = ({ formData, totalPrice, onFormDataChange, designers,
           </Select>
         </div>
         <div>
-          <Label htmlFor="komputer" className="text-sm font-medium">Computer</Label>
+          <Label htmlFor="komputer" className="text-sm font-medium">Komputer</Label>
           <Input
             id="komputer"
             value={formData.komputer}

@@ -77,6 +77,7 @@ interface RequestOrderModalProps {
   onClose: () => void;
   onSubmit: (orderData: SubmittedOrderData) => void;
   editingOrder?: Order | null;
+  onReopen?: (editingOrder?: Order | null) => void;
 }
 
 // Helper to safely parse and format a date string, defaulting to today if missing/invalid
@@ -87,7 +88,7 @@ function safeDateString(dateValue: unknown): string {
   return isNaN(d.getTime()) ? today : d.toISOString().split('T')[0];
 }
 
-const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrderModalProps) => {
+const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: RequestOrderModalProps) => {
   const { toast } = useToast();
   const { createOrder, isCreatingOrder, updateOrder, isUpdatingOrder } = useOrders();
   const { data: products } = useProducts();
@@ -108,6 +109,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
     closePrintOverlay,
     handlePrint,
     printReceipt,
+    openPrintOverlay,
   } = usePrintOverlay();
   
   const [formData, setFormData] = useState<FormData>({
@@ -140,6 +142,14 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   const [hasFormDataChanges, setHasFormDataChanges] = useState(false);
   const [hasItemsAdded, setHasItemsAdded] = useState(false);
   const [showAddStockModal, setShowAddStockModal] = useState(false);
+  const [shouldReopenModal, setShouldReopenModal] = useState(false);
+  const [tempFormData, setTempFormData] = useState<FormData | null>(null);
+  const [tempOrderList, setTempOrderList] = useState<OrderItem[]>([]);
+  const [tempEditingOrder, setTempEditingOrder] = useState<Order | null>(null);
+  const [isRestoringData, setIsRestoringData] = useState(false);
+  const [isConfirmed, setIsConfirmed] = useState(false);
+  const [hasItemFormChanges, setHasItemFormChanges] = useState(false);
+  const [hasPostConfirmationChanges, setHasPostConfirmationChanges] = useState(false);
 
   const generateNextItemId = () => {
     const nextNumber = orderList.length + 1;
@@ -165,6 +175,57 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
       setHasUnsavedChanges(true);
     }
   }, [currentItem, editingItemId]);
+
+  // Reset isConfirmed when there are changes
+  useEffect(() => {
+    if (hasUnsavedChanges || hasEditChanges || hasFormDataChanges || hasItemsAdded || hasItemFormChanges) {
+      setIsConfirmed(false);
+    }
+  }, [hasUnsavedChanges, hasEditChanges, hasFormDataChanges, hasItemsAdded, hasItemFormChanges]);
+
+  // Track changes after confirmation for specific fields
+  useEffect(() => {
+    if (isConfirmed) {
+      const hasJasaDesainChanged = formData.jasaDesain !== initialFormDataSnapshot?.jasaDesain;
+      const hasBiayaLainChanged = formData.biayaLain !== initialFormDataSnapshot?.biayaLain;
+      const hasSubTotalChanged = totalPrice !== (initialFormDataSnapshot ? 
+        calculateOrderTotal(
+          orderList,
+          parseFloat(initialFormDataSnapshot.jasaDesain) || 0,
+          parseFloat(initialFormDataSnapshot.biayaLain) || 0,
+          initialFormDataSnapshot.discount || 0,
+          initialFormDataSnapshot.ppn || 10,
+          initialFormDataSnapshot.taxChecked
+        ).total : 0);
+      const hasAdminChanged = formData.admin !== initialFormDataSnapshot?.admin;
+      const hasDesainerChanged = formData.desainer !== initialFormDataSnapshot?.desainer;
+      const hasKomputerChanged = formData.komputer !== initialFormDataSnapshot?.komputer;
+
+      const hasRelevantChanges = hasJasaDesainChanged || hasBiayaLainChanged || hasSubTotalChanged || 
+                                hasAdminChanged || hasDesainerChanged || hasKomputerChanged;
+      
+      setHasPostConfirmationChanges(hasRelevantChanges);
+    } else {
+      setHasPostConfirmationChanges(false);
+    }
+  }, [
+    isConfirmed, 
+    formData.jasaDesain, 
+    formData.biayaLain, 
+    formData.admin, 
+    formData.desainer, 
+    formData.komputer,
+    totalPrice,
+    orderList,
+    initialFormDataSnapshot
+  ]);
+
+  // Detect changes in item form
+  useEffect(() => {
+    const hasChanges = currentItem.item || currentItem.bahan || currentItem.quantity || currentItem.finishing || 
+                      currentItem.ukuran.panjang || currentItem.ukuran.lebar;
+    setHasItemFormChanges(!!hasChanges);
+  }, [currentItem]);
 
   // Deteksi perubahan pada customer, date, service costs, dan order action
   useEffect(() => {
@@ -228,6 +289,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
       finishing: 'Lembaran'
     });
     setEditingItemId(null);
+    setHasItemFormChanges(false);
   };
 
   const calculateItemSubTotal = (item: typeof currentItem): number => {
@@ -288,6 +350,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
     setOrderList(prev => [...prev, newOrderItem]);
     setHasItemsAdded(true);
     resetCurrentItem();
+    setHasItemFormChanges(false);
   };
 
   const deleteFromOrderList = (itemId: string) => {
@@ -439,6 +502,101 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
     }
   };
 
+  const handleConfirm = async () => {
+    try {
+      if (editingItemId && currentItem.item && currentItem.quantity && currentItem.bahan) {
+        const subTotal = calculateItemSubTotal(currentItem);
+
+        const updatedItem: OrderItem = {
+          ...currentItem,
+          id: editingItemId,
+          subTotal
+        };
+
+        // Update item yang ada secara langsung tanpa mengubah urutan
+        setOrderList(prev => 
+          prev.map(item => item.id === editingItemId ? updatedItem : item)
+        );
+        resetCurrentItem();
+      }
+      
+      const totals = calculateOrderTotal(
+        orderList,
+        parseFloat(formData.jasaDesain) || 0,
+        parseFloat(formData.biayaLain) || 0,
+        formData.discount || 0,
+        formData.ppn || 10,
+        formData.taxChecked
+      );
+
+      const orderData = {
+        customer_id: formData.customerId || null,
+        customer_name: formData.customer,
+        tanggal: formData.tanggal,
+        waktu: formData.waktu || null,
+        estimasi: formData.estimasi || null,
+        estimasi_waktu: formData.estimasiWaktu || null,
+        outdoor: formData.outdoor || false,
+        laser_printing: formData.laserPrinting || false,
+        mug_nota: formData.mugNota || false,
+        jasa_desain: parseFloat(formData.jasaDesain) || 0,
+        biaya_lain: parseFloat(formData.biayaLain) || 0,
+        sub_total: totals.subtotal,
+        discount: formData.discount || 0,
+        ppn: formData.taxChecked ? (formData.ppn || 10) : null,
+        total_amount: totals.total,
+        payment_type: formData.paymentType || null,
+        bank: formData.bank || null,
+        komputer: formData.komputer || null,
+        notes: (editingOrder && 'notes' in editingOrder && editingOrder.notes) ? String(editingOrder.notes) : '',
+        status_id: formData.status_id,
+        admin_id: formData.admin || null,
+        desainer_id: formData.desainer || null,
+        down_payment: parseFloat(formData.downPayment) || null,
+        pelunasan: parseFloat(formData.pelunasan) || null,
+        tax_checked: formData.taxChecked || false,
+      } as any; // Use type assertion to bypass strict typing for now
+
+      // Saat mapping orderItems untuk insert/update ke supabase
+      const items = orderList.map((item) => ({
+        item_name: item.item,
+        bahan: item.bahan || null,
+        panjang: item.ukuran?.panjang ? parseFloat(item.ukuran.panjang) : null,
+        lebar: item.ukuran?.lebar ? parseFloat(item.ukuran.lebar) : null,
+        quantity: parseInt(item.quantity) || 0,
+        finishing: item.finishing || null,
+        sub_total: item.subTotal || 0,
+        description: item.notes || null
+      }));
+
+      if (editingOrder) {
+        updateOrder({ orderId: editingOrder.id, orderData, items });
+      } else {
+        createOrder({ orderData: { ...orderData, order_number: formData.orderNumber }, items });
+      }
+      
+      onSubmit({
+        ...formData,
+        items: orderList,
+        totalPrice: formatCurrency(totals.total)
+      });
+      
+      setHasUnsavedChanges(false);
+      setHasEditChanges(false);
+      setHasFormDataChanges(false);
+      setHasItemsAdded(false);
+      setIsConfirmed(true); // Set confirmed state
+      // Save snapshot after confirmation for tracking post-confirmation changes
+      setInitialFormDataSnapshot({ ...formData });
+      setHasPostConfirmationChanges(false);
+      // Don't close modal after confirmation
+      
+      console.log('Order confirmed successfully');
+    } catch (error) {
+      console.error('Error confirming order:', error);
+    }
+  };
+
   const handlePrintReceipt = async () => {
     // Map order items to include product names
     const mappedOrderList = mapOrderItemsWithNames(orderList, products || []);
@@ -459,10 +617,66 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
       orderNumber: formData.orderNumber,
       customerName: formData.customer,
       totalAmount: totalPrice,
+      outdoor: formData.outdoor,
+      laserPrinting: formData.laserPrinting,
+      mugNota: formData.mugNota,
     };
 
     // Open print overlay
     printReceipt({ orderList: printOrderList, orderData });
+  };
+
+  const handlePrintSPK = async () => {
+    // Map order items to include product names
+    const mappedOrderList = mapOrderItemsWithNames(orderList, products || []);
+    
+    // Untuk printOrderList dan mapping lain yang butuh string:
+    const printOrderList = mappedOrderList.map(item => ({
+      id: item.id,
+      item: item.itemName || item.item, // Use name instead of code
+      quantity: parseInt(item.quantity) || 0,
+      subTotal: item.subTotal,
+      description: item.notes || '', // Add description from notes
+      finishing: item.finishing || '', // Add finishing data
+      ukuran: {
+        panjang: item.ukuran?.panjang ? String(item.ukuran.panjang) : '',
+        lebar: item.ukuran?.lebar ? String(item.ukuran.lebar) : '',
+      },
+    }));
+
+    // Get designer name from ID
+    const designer = employees.find(emp => emp.id === formData.desainer);
+    const designerName = designer?.nama || 'Belum ditugaskan';
+    
+    const orderData = {
+      orderNumber: formData.orderNumber,
+      customerName: formData.customer,
+      totalAmount: totalPrice,
+      outdoor: formData.outdoor,
+      laserPrinting: formData.laserPrinting,
+      mugNota: formData.mugNota,
+      estimasi: formData.estimasi,
+      estimasiWaktu: formData.estimasiWaktu,
+      komputer: formData.komputer || '???',
+      desainer: designerName,
+    };
+
+    // Save current form data and order list before closing
+    console.log('Saving data before print overlay:', { formData, orderList, editingOrder });
+    setTempFormData(formData);
+    setTempOrderList(orderList);
+    setTempEditingOrder(editingOrder || null);
+    // Set flag to reopen modal when print overlay closes
+    setShouldReopenModal(true);
+    // Close Request Order modal and open print overlay for SPK
+    onClose();
+    openPrintOverlay('spk', { orderList: printOrderList, orderData });
+  };
+
+  const handleReopenRequestOrderModal = () => {
+    setShouldReopenModal(false);
+    // Reopen the Request Order modal
+    onClose(); // This will trigger the parent to reopen the modal
   };
 
   const resetForm = async () => {
@@ -483,7 +697,9 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
     setHasEditChanges(false);
     setHasFormDataChanges(false);
     setHasItemsAdded(false);
+    setHasItemFormChanges(false);
     setInitialFormDataSnapshot(null);
+    setIsConfirmed(false); // Reset confirmed state
     setOrderNumberLoading(false);
   };
 
@@ -494,6 +710,9 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
 
   // Pre-fill form with editing order data
   useEffect(() => {
+    // Skip this effect if we're restoring data from print overlay
+    if (isRestoringData) return;
+    
     if (editingOrder && open && !loadingEmployees && !loadingAdmins) {
       console.log('editingOrder:', editingOrder);
       if ('order_items' in editingOrder && editingOrder.order_items) {
@@ -555,10 +774,12 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
       setIsEditMode(false);
       setHasEditChanges(false);
       setHasItemsAdded(false);
+      setHasItemFormChanges(false);
       setInitialFormDataSnapshot(null);
+      setIsConfirmed(false); // Reset confirmed state for new order
       resetForm();
     }
-  }, [editingOrder, open, loadingEmployees, loadingAdmins]);
+  }, [editingOrder, open, loadingEmployees, loadingAdmins, isRestoringData]);
 
   // Set default status_id to 'Design' when statuses are loaded and not editing
   useEffect(() => {
@@ -629,7 +850,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent 
-        className="max-w-7xl h-[95vh] max-h-[95vh] p-0 flex flex-col"
+        className="max-w-7xl h-[95vh] max-h-[95vh] p-0 flex flex-col animate-in fade-in-0 zoom-in-95 duration-300"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
@@ -706,7 +927,9 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
             <OrderActionButtons
               onNew={resetForm}
               onSave={handleSave}
+              onConfirm={handleConfirm}
               onSubmit={handlePrintReceipt}
+              onPrintSPK={handlePrintSPK}
               isSaving={isCreatingOrder || isUpdatingOrder}
               hasUnsavedChanges={hasUnsavedChanges}
               disabledPrintSPK={!formData.admin || !formData.desainer}
@@ -714,6 +937,8 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
               isEditingItem={!!editingItemId}
               isEditMode={isEditMode}
               hasEditChanges={hasEditChanges || hasFormDataChanges || hasItemsAdded}
+              isConfirmed={isConfirmed}
+              hasPostConfirmationChanges={hasPostConfirmationChanges}
             >
               <div className="flex items-center gap-2 mr-2">
                 {statusesLoading ? (
@@ -750,6 +975,23 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder }: RequestOrd
         orderList={printData.orderList}
         orderData={printData.orderData}
         printType={printType}
+        onCloseAndReopenRequestOrder={printType === 'spk' && onReopen ? () => {
+          // Restore saved data and reopen Request Order modal
+          if (tempFormData && tempOrderList) {
+            console.log('Restoring data from print overlay:', { tempFormData, tempOrderList, tempEditingOrder });
+            setIsRestoringData(true);
+            setFormData(tempFormData);
+            setOrderList(tempOrderList);
+            setTempFormData(null);
+            setTempOrderList([]);
+            // Reset the flag after a short delay to allow useEffect to complete
+            setTimeout(() => {
+              setIsRestoringData(false);
+              console.log('Data restoration completed');
+            }, 100);
+          }
+          onReopen(tempEditingOrder);
+        } : undefined}
       />
 
       {/* Add Stock Modal */}

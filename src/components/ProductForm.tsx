@@ -132,10 +132,10 @@ export const ProductForm: React.FC<ProductFormProps & {
   useEffect(() => {
     if (isEditing && initialMaterials.length > 0 && materials.length > 0) {
       const selectedMats = initialMaterials
-        .map(id => {
-          const mat = materials.find((m: any) => m.id === id);
-          return mat ? { value: mat.id, label: mat.nama } : null;
-        })
+          .map(id => {
+            const mat = materials.find((m: any) => m.id === id);
+            return mat ? { value: mat.id, label: mat.nama } : null;
+          })
         .filter(Boolean);
       setSelectedMaterials(selectedMats);
       // Inisialisasi materialQuantities dari initialMaterialData

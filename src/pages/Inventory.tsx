@@ -768,7 +768,7 @@ const Inventory = () => {
                 <Input value={addForm.kode} readOnly className={`h-8 text-gray-400 bg-gray-50`} />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium">Lebar Maksimum</label>
+                <label className="text-sm font-medium">Lebar Maksimum <span className='text-red-500'>*</span></label>
                 <Input type="number" value={addForm.lebar_maksimum} onChange={e => handleAddFormChange('lebar_maksimum', e.target.value)} className={`h-8${errors.lebar_maksimum ? ' border-red-500' : ''}`} placeholder="Maksimum ukuran cetak" />
                 {errors.lebar_maksimum && <p className="text-red-500 text-xs mt-1">{errors.lebar_maksimum}</p>}
               </div>
@@ -875,7 +875,7 @@ const Inventory = () => {
                 {editErrors.kode && <p className="text-red-500 text-xs mt-1">{editErrors.kode}</p>}
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium">Lebar Maksimum</label>
+                <label className="text-sm font-medium">Lebar Maksimum <span className='text-red-500'>*</span></label>
                 <Input type="number" value={editForm.lebar_maksimum} onChange={e => handleEditFormChange('lebar_maksimum', e.target.value)} className={`h-8${editErrors.lebar_maksimum ? ' border-red-500' : ''}`} />
                 {editErrors.lebar_maksimum && <p className="text-red-500 text-xs mt-1">{editErrors.lebar_maksimum}</p>}
               </div>
