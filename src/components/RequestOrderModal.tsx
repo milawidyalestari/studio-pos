@@ -725,7 +725,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
       setHasEditChanges(false);
       const newFormData = {
         orderNumber: (editingOrder as any).order_number || editingOrder.orderNumber || '',
-        customer: editingOrder.customer_name || editingOrder.customer || (editingOrder.customer && editingOrder.customer.name) || '',
+        customer: editingOrder.customer_name || editingOrder.customer || '',
         customerId: (editingOrder as Order & { customer_id?: string }).customer_id || '',
         tanggal: safeDateString(editingOrder.date),
         waktu: (editingOrder as any).waktu || new Date().toTimeString().slice(0, 5),
@@ -745,7 +745,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
         desainer: (editingOrder as any).desainer_id || '',
         komputer: (editingOrder as any).komputer || '',
         notes: (editingOrder as any).notes || '',
-        status_id: editingOrder.status_id || null,
+        status_id: (editingOrder as any).status || editingOrder.status || null,
         downPayment: (editingOrder as any).down_payment || '',
         pelunasan: (editingOrder as any).pelunasan || '',
         taxChecked: (editingOrder as any).tax_checked || false,
@@ -981,18 +981,18 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
         onCloseAndReopenRequestOrder={printType === 'spk' && onReopen ? () => {
           // Restore saved data and reopen Request Order modal
           if (tempFormData && tempOrderList) {
-            console.log('Restoring data from print overlay:', { tempFormData, tempOrderList, tempEditingOrder });
+            console.log('Restoring data from print overlay:', { tempFormData, tempOrderList, tempEditingOrder, wasConfirmedBeforePrint });
             setIsRestoringData(true);
             setFormData(tempFormData);
             setOrderList(tempOrderList);
+            // Immediately restore the confirmation state to ensure modal shows confirmed state
+            setIsConfirmed(wasConfirmedBeforePrint);
             setTempFormData(null);
             setTempOrderList([]);
-            // Reset the flag after a short delay to allow useEffect to complete
+            // Clear restoration flag after a delay
             setTimeout(() => {
               setIsRestoringData(false);
-              // Restore the confirmation state after data restoration
-              setIsConfirmed(wasConfirmedBeforePrint);
-              console.log('Data restoration completed, confirmed state restored:', wasConfirmedBeforePrint);
+              console.log('Data restoration completed, confirmed state:', wasConfirmedBeforePrint);
             }, 100);
           }
           onReopen(tempEditingOrder);
