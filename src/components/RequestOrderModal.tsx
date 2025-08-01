@@ -983,19 +983,25 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
           if (tempFormData && tempOrderList) {
             console.log('Restoring data from print overlay:', { tempFormData, tempOrderList, tempEditingOrder, wasConfirmedBeforePrint });
             setIsRestoringData(true);
+            
+            // First, restore all the data states
             setFormData(tempFormData);
             setOrderList(tempOrderList);
-            // Immediately restore the confirmation state to ensure modal shows confirmed state
             setIsConfirmed(wasConfirmedBeforePrint);
+            
+            // Clear temp data
             setTempFormData(null);
             setTempOrderList([]);
-            // Clear restoration flag after a delay
+            
+            // Wait for state to settle, then open modal
             setTimeout(() => {
               setIsRestoringData(false);
               console.log('Data restoration completed, confirmed state:', wasConfirmedBeforePrint);
-            }, 100);
+              onReopen(tempEditingOrder);
+            }, 50);
+          } else {
+            onReopen(tempEditingOrder);
           }
-          onReopen(tempEditingOrder);
         } : undefined}
       />
 
