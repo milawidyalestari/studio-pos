@@ -150,6 +150,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [hasItemFormChanges, setHasItemFormChanges] = useState(false);
   const [hasPostConfirmationChanges, setHasPostConfirmationChanges] = useState(false);
+  const [wasConfirmedBeforePrint, setWasConfirmedBeforePrint] = useState(false);
 
   const generateNextItemId = () => {
     const nextNumber = orderList.length + 1;
@@ -666,6 +667,8 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
     setTempFormData(formData);
     setTempOrderList(orderList);
     setTempEditingOrder(editingOrder || null);
+    // Save the current confirmation state
+    setWasConfirmedBeforePrint(isConfirmed);
     // Set flag to reopen modal when print overlay closes
     setShouldReopenModal(true);
     // Close Request Order modal and open print overlay for SPK
@@ -987,7 +990,9 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
             // Reset the flag after a short delay to allow useEffect to complete
             setTimeout(() => {
               setIsRestoringData(false);
-              console.log('Data restoration completed');
+              // Restore the confirmation state after data restoration
+              setIsConfirmed(wasConfirmedBeforePrint);
+              console.log('Data restoration completed, confirmed state restored:', wasConfirmedBeforePrint);
             }, 100);
           }
           onReopen(tempEditingOrder);
