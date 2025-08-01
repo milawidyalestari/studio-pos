@@ -722,9 +722,9 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
       setHasEditChanges(false);
       const newFormData = {
         orderNumber: (editingOrder as any).order_number || editingOrder.orderNumber || '',
-        customer: editingOrder.customer_name || editingOrder.customer || (editingOrder.customer && editingOrder.customer.name) || '',
-        customerId: (editingOrder as Order & { customer_id?: string }).customer_id || '',
-        tanggal: safeDateString(editingOrder.date),
+        customer: editingOrder.customer_name || editingOrder.customer || '',
+        customerId: (editingOrder as any).customer_id || '',
+        tanggal: safeDateString((editingOrder as any).tanggal),
         waktu: (editingOrder as any).waktu || new Date().toTimeString().slice(0, 5),
         estimasi: editingOrder.estimatedDate || (editingOrder as any).estimasi || '',
         estimasiWaktu: (editingOrder as any).estimasi_waktu || '',
@@ -742,7 +742,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
         desainer: (editingOrder as any).desainer_id || '',
         komputer: (editingOrder as any).komputer || '',
         notes: (editingOrder as any).notes || '',
-        status_id: editingOrder.status_id || null,
+        status_id: (editingOrder as any).status_id || null,
         downPayment: (editingOrder as any).down_payment || '',
         pelunasan: (editingOrder as any).pelunasan || '',
         taxChecked: (editingOrder as any).tax_checked || false,
@@ -852,6 +852,8 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
       <DialogContent 
         className="max-w-7xl h-[95vh] max-h-[95vh] p-0 flex flex-col animate-in fade-in-0 zoom-in-95 duration-300"
         onOpenAutoFocus={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
       >
         <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
           <DialogTitle className="text-xl font-bold">
