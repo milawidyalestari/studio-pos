@@ -505,6 +505,8 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
 
   const handleConfirm = async () => {
     try {
+      let updatedOrderList = orderList;
+      
       if (editingItemId && currentItem.item && currentItem.quantity && currentItem.bahan) {
         const subTotal = calculateItemSubTotal(currentItem);
 
@@ -515,14 +517,13 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
         };
 
         // Update item yang ada secara langsung tanpa mengubah urutan
-        setOrderList(prev => 
-          prev.map(item => item.id === editingItemId ? updatedItem : item)
-        );
+        updatedOrderList = orderList.map(item => item.id === editingItemId ? updatedItem : item);
+        setOrderList(updatedOrderList);
         resetCurrentItem();
       }
       
       const totals = calculateOrderTotal(
-        orderList,
+        updatedOrderList,
         parseFloat(formData.jasaDesain) || 0,
         parseFloat(formData.biayaLain) || 0,
         formData.discount || 0,
@@ -559,7 +560,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
       } as any; // Use type assertion to bypass strict typing for now
 
       // Saat mapping orderItems untuk insert/update ke supabase
-      const items = orderList.map((item) => ({
+      const items = updatedOrderList.map((item) => ({
         item_name: item.item,
         bahan: item.bahan || null,
         panjang: item.ukuran?.panjang ? parseFloat(item.ukuran.panjang) : null,
@@ -578,7 +579,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
       
       onSubmit({
         ...formData,
-        items: orderList,
+        items: updatedOrderList,
         totalPrice: formatCurrency(totals.total)
       });
       
@@ -628,8 +629,11 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
   };
 
   const handlePrintSPK = async () => {
+    // Use a fresh state read to ensure we get the latest orderList
+    const currentOrderList = orderList;
+    
     // Map order items to include product names
-    const mappedOrderList = mapOrderItemsWithNames(orderList, products || []);
+    const mappedOrderList = mapOrderItemsWithNames(currentOrderList, products || []);
     
     // Untuk printOrderList dan mapping lain yang butuh string:
     const printOrderList = mappedOrderList.map(item => ({
@@ -663,9 +667,10 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
     };
 
     // Save current form data and order list before closing
-    console.log('Saving data before print overlay:', { formData, orderList, editingOrder });
-    setTempFormData(formData);
-    setTempOrderList(orderList);
+    // Use the latest confirmed orderList state
+    console.log('Saving data before print overlay:', { formData, currentOrderList, editingOrder, isConfirmed });
+    setTempFormData({ ...formData });
+    setTempOrderList([...currentOrderList]); // Create new array to ensure fresh state
     setTempEditingOrder(editingOrder || null);
     // Save the current confirmation state
     setWasConfirmedBeforePrint(isConfirmed);
