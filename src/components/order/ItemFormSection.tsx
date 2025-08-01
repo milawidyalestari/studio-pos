@@ -61,6 +61,7 @@ const ItemFormSection = ({
 
   // Tambahkan state untuk input manual finishing
   const [customFinishing, setCustomFinishing] = useState('');
+  const [isCustomFinishingSelected, setIsCustomFinishingSelected] = useState(false);
 
   // Query data bahan/materials dari tabel materials
   const { data: materials = [], isLoading: materialsLoading, error: materialsError, refetch: refetchMaterials } = useQuery({
@@ -91,6 +92,28 @@ const ItemFormSection = ({
       setInitialItemData(null);
     }
   }, [editingItemId]);
+
+  // Reset customFinishing when not editing (when editingItemId becomes null)
+  useEffect(() => {
+    if (!editingItemId) {
+      setCustomFinishing('');
+      setIsCustomFinishingSelected(false);
+    }
+  }, [editingItemId]);
+
+  // Initialize customFinishing when editing an item with custom finishing
+  useEffect(() => {
+    if (editingItemId && currentItem.finishing) {
+      const isCustomFinishing = !["Lembaran", "FL", "F.Lipet", "Potong Press", "Cutting", "Laminating"].includes(currentItem.finishing);
+      if (isCustomFinishing) {
+        setCustomFinishing(currentItem.finishing);
+        setIsCustomFinishingSelected(true);
+      } else {
+        setCustomFinishing('');
+        setIsCustomFinishingSelected(false);
+      }
+    }
+  }, [editingItemId, currentItem.finishing]);
 
   // Deteksi perubahan nyata pada item
   useEffect(() => {
@@ -333,16 +356,19 @@ const ItemFormSection = ({
       <div className="mb-4">
         <Label htmlFor="finishing" className="text-sm font-medium">Finishing</Label>
         <Select
-          value={["Lembaran", "FL", "F.Lipet", "Potong Press", "L. Bambu Kiri-Kanan", "L. Bambu Atas Bawah"].includes(currentItem.finishing) ? currentItem.finishing : 'custom'}
+          value={["Lembaran", "FL", "F.Lipet", "Potong Press", "Cutting", "Laminating"].includes(currentItem.finishing) ? currentItem.finishing : (currentItem.finishing && currentItem.finishing !== '' ? 'custom' : '')}
           onValueChange={(value) => {
-            if (["Lembaran", "FL", "F.Lipet", "Potong Press", "L. Bambu Kiri-Kanan", "L. Bambu Atas Bawah"].includes(value)) {
+            if (["Lembaran", "FL", "F.Lipet", "Potong Press", "Cutting", "Laminating"].includes(value)) {
               setCustomFinishing('');
+              setIsCustomFinishingSelected(false);
               updateCurrentItem('finishing', value);
             } else if (value === 'custom') {
-              setCustomFinishing(currentItem.finishing && !["Lembaran", "FL", "F.Lipet", "Potong Press", "L. Bambu Kiri-Kanan", "L. Bambu Atas Bawah"].includes(currentItem.finishing) ? currentItem.finishing : '');
-              updateCurrentItem('finishing', currentItem.finishing && !["Lembaran", "FL", "F.Lipet", "Potong Press", "L. Bambu Kiri-Kanan", "L. Bambu Atas Bawah"].includes(currentItem.finishing) ? currentItem.finishing : '');
+              setIsCustomFinishingSelected(true);
+              setCustomFinishing(currentItem.finishing && !["Lembaran", "FL", "F.Lipet", "Potong Press", "Cutting", "Laminating"].includes(currentItem.finishing) ? currentItem.finishing : '');
+              updateCurrentItem('finishing', currentItem.finishing && !["Lembaran", "FL", "F.Lipet", "Potong Press", "Cutting", "Laminating"].includes(currentItem.finishing) ? currentItem.finishing : '');
             } else {
               setCustomFinishing('');
+              setIsCustomFinishingSelected(false);
               updateCurrentItem('finishing', '');
             }
           }}
@@ -355,12 +381,12 @@ const ItemFormSection = ({
             <SelectItem value="FL">FL</SelectItem>
             <SelectItem value="F.Lipet">F.Lipet</SelectItem>
             <SelectItem value="Potong Press">Potong Press</SelectItem>
-            <SelectItem value="L. Bambu Kiri-Kanan">L.Bambu Kiri-Kanan</SelectItem>
-            <SelectItem value="L. Bambu Atas Bawah">L.Bambu Atas Bawah</SelectItem>
+            <SelectItem value="Cutting">Cutting</SelectItem>
+            <SelectItem value="Laminating">Laminating</SelectItem>
             <SelectItem value="custom">Lainnya (isi manual)</SelectItem>
           </SelectContent>
         </Select>
-        {(!["Lembaran", "FL", "F.Lipet", "Potong Press", "L. Bambu Kiri-Kanan", "L. Bambu Atas Bawah"].includes(currentItem.finishing) || (customFinishing !== '' && !["Lembaran", "FL", "F.Lipet", "Potong Press", "L. Bambu Kiri-Kanan", "L. Bambu Atas Bawah"].includes(customFinishing))) && (
+        {(isCustomFinishingSelected || (!["Lembaran", "FL", "F.Lipet", "Potong Press", "Cutting", "Laminating"].includes(currentItem.finishing) && currentItem.finishing !== '')) && (
           <Input
             className="mt-2 h-8 border-blue-600"
             placeholder="Isi finishing manual..."
@@ -395,7 +421,7 @@ const ItemFormSection = ({
             className="bg-[#0050C8] hover:bg-[#003a9b]"
             disabled={!currentItem.item}
           >
-            Add Item
+            Tambah
           </Button>
         )}
       </div>
