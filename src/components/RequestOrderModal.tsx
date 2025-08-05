@@ -148,6 +148,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
   const [isModalPaused, setIsModalPaused] = useState(false);
   const [hasItemFormChanges, setHasItemFormChanges] = useState(false);
   const [hasPostConfirmationChanges, setHasPostConfirmationChanges] = useState(false);
+  const [wasConfirmedBeforePrint, setWasConfirmedBeforePrint] = useState(false);
 
   const generateNextItemId = () => {
     const nextNumber = orderList.length + 1;
@@ -506,6 +507,8 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
 
   const handleConfirm = async () => {
     try {
+      let updatedOrderList = orderList;
+      
       if (editingItemId && currentItem.item && currentItem.quantity && currentItem.bahan) {
         const subTotal = calculateItemSubTotal(currentItem);
 
@@ -516,14 +519,13 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
         };
 
         // Update item yang ada secara langsung tanpa mengubah urutan
-        setOrderList(prev => 
-          prev.map(item => item.id === editingItemId ? updatedItem : item)
-        );
+        updatedOrderList = orderList.map(item => item.id === editingItemId ? updatedItem : item);
+        setOrderList(updatedOrderList);
         resetCurrentItem();
       }
       
       const totals = calculateOrderTotal(
-        orderList,
+        updatedOrderList,
         parseFloat(formData.jasaDesain) || 0,
         parseFloat(formData.biayaLain) || 0,
         formData.discount || 0,
@@ -560,7 +562,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
       } as any; // Use type assertion to bypass strict typing for now
 
       // Saat mapping orderItems untuk insert/update ke supabase
-      const items = orderList.map((item) => ({
+      const items = updatedOrderList.map((item) => ({
         item_name: item.item,
         bahan: item.bahan || null,
         panjang: item.ukuran?.panjang && item.ukuran.panjang !== '' && item.ukuran.panjang !== 'null' ? parseFloat(item.ukuran.panjang) : null,
@@ -579,7 +581,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
       
       onSubmit({
         ...formData,
-        items: orderList,
+        items: updatedOrderList,
         totalPrice: formatCurrency(totals.total)
       });
       
@@ -630,8 +632,11 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
   };
 
   const handlePrintSPK = async () => {
+    // Use a fresh state read to ensure we get the latest orderList
+    const currentOrderList = orderList;
+    
     // Map order items to include product names
-    const mappedOrderList = mapOrderItemsWithNames(orderList, products || []);
+    const mappedOrderList = mapOrderItemsWithNames(currentOrderList, products || []);
     
     // Untuk printOrderList dan mapping lain yang butuh string:
     const printOrderList = mappedOrderList.map(item => ({
@@ -715,7 +720,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
       setHasEditChanges(false);
       const newFormData = {
         orderNumber: (editingOrder as any).order_number || editingOrder.orderNumber || '',
-        customer: editingOrder.customer_name || editingOrder.customer || (editingOrder.customer && editingOrder.customer.name) || '',
+        customer: editingOrder.customer_name || editingOrder.customer || '',
         customerId: (editingOrder as Order & { customer_id?: string }).customer_id || '',
         tanggal: safeDateString(editingOrder.date),
         waktu: (editingOrder as any).waktu || new Date().toTimeString().slice(0, 5),
@@ -735,7 +740,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
         desainer: (editingOrder as any).desainer_id || '',
         komputer: (editingOrder as any).komputer || '',
         notes: (editingOrder as any).notes || '',
-        status_id: editingOrder.status_id || null,
+        status_id: (editingOrder as any).status || editingOrder.status || null,
         downPayment: (editingOrder as any).down_payment || '',
         pelunasan: (editingOrder as any).pelunasan || '',
         taxChecked: (editingOrder as any).tax_checked || false,
