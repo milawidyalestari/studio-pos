@@ -861,29 +861,15 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
   return (
     <Dialog open={open && !isModalPaused} onOpenChange={handleModalClose}>
       <DialogContent 
-        className="max-w-7xl h-[95vh] max-h-[95vh] p-0 flex flex-col animate-in fade-in-0 zoom-in-95 duration-300 [&>button]:hidden"
+        className="max-w-7xl h-[95vh] max-h-[95vh] p-0 flex flex-col animate-in fade-in-0 zoom-in-95 duration-300"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <DialogHeader className="px-6 py-4 border-b flex-shrink-0 flex items-center">
-          <DialogTitle className="text-xl font-bold flex-1">
+        <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
+          <DialogTitle className="text-xl font-bold text-left">
             {editingOrder
               ? `Edit Order${formData.orderNumber ? ` ${formData.orderNumber}` : ''}`
               : `Request Order${formData.orderNumber ? ` ${formData.orderNumber}` : ''}`}
           </DialogTitle>
-          <button
-            onClick={() => {
-              if (!isModalPaused) {
-                // Reset all states and force close modal
-                resetForm();
-                onClose();
-              }
-            }}
-            className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
-            disabled={isModalPaused}
-          >
-            <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
-          </button>
         </DialogHeader>
         
         <div className="flex-1 overflow-hidden">
