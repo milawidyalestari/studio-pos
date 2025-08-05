@@ -849,17 +849,12 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
   // Function to handle modal close with unsaved changes check
   const handleModalClose = (newOpen: boolean) => {
     if (!newOpen) {
-      // Check if there are unsaved changes
-      const hasChanges = hasUnsavedChanges || hasEditChanges || hasFormDataChanges || hasItemsAdded || hasItemsDeleted || hasItemFormChanges;
-      
-      if (hasChanges) {
-        // Don't close the modal if there are unsaved changes
-        return;
+      // Always allow closing if not paused (user explicitly wants to close)
+      if (!isModalPaused) {
+        // Reset all states when closing
+        resetForm();
+        onClose();
       }
-    }
-    // Close modal if not paused
-    if (!isModalPaused) {
-      onClose();
     }
   };
 
@@ -878,10 +873,9 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
           <button
             onClick={() => {
               if (!isModalPaused) {
-                const hasChanges = hasUnsavedChanges || hasEditChanges || hasFormDataChanges || hasItemsAdded || hasItemsDeleted || hasItemFormChanges;
-                if (!hasChanges) {
-                  onClose();
-                }
+                // Reset all states and force close modal
+                resetForm();
+                onClose();
               }
             }}
             className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
