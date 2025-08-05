@@ -60,9 +60,9 @@ const OrderActionButtons = ({
             }
             variant={(hasUnsavedChanges || (isConfirmed && hasPostConfirmationChanges)) && !disabledSaveOrder && !isEditingItem && !(isEditMode && !hasEditChanges) && !(isConfirmed && !hasPostConfirmationChanges) ? "default" : "outline"}
           >
-            {isSaving ? "Saving..." : "Save Order"}
+            {isSaving ? "Save Order" : "Save Order"}
           </Button>
-          {onConfirm && (
+          {onConfirm && isEditMode && (
             <Button 
               type="button" 
               onClick={onConfirm}
