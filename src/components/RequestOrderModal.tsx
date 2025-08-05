@@ -864,8 +864,8 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
         className="max-w-7xl h-[95vh] max-h-[95vh] p-0 flex flex-col animate-in fade-in-0 zoom-in-95 duration-300"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <DialogHeader className="px-6 py-4 border-b flex-shrink-0 flex justify-between items-center">
-          <DialogTitle className="text-xl font-bold">
+        <DialogHeader className="px-6 py-4 border-b flex-shrink-0 flex items-center">
+          <DialogTitle className="text-xl font-bold flex-1">
             {editingOrder
               ? `Edit Order${formData.orderNumber ? ` ${formData.orderNumber}` : ''}`
               : `Request Order${formData.orderNumber ? ` ${formData.orderNumber}` : ''}`}
