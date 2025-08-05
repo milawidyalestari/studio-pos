@@ -106,7 +106,6 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
 
   // Convert orderList to PrintItem format for SPK
   const printItems = orderList.map((item, index) => {
-    console.log('PrintOverlay - item finishing:', item.finishing); // Debug log
     const printItem = {
       id: item.id || index.toString(),
       name: item.item,

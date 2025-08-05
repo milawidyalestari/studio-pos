@@ -23,9 +23,10 @@ interface ServiceCostSectionProps {
   loadingDesigners?: boolean;
   admins: Employee[];
   loadingAdmins?: boolean;
+  isEditingItem?: boolean;
 }
 
-const ServiceCostSection = ({ formData, totalPrice, onFormDataChange, designers, loadingDesigners, admins, loadingAdmins }: ServiceCostSectionProps) => {
+const ServiceCostSection = ({ formData, totalPrice, onFormDataChange, designers, loadingDesigners, admins, loadingAdmins, isEditingItem }: ServiceCostSectionProps) => {
   return (
     <>
       <div className="grid grid-cols-3 gap-4 mb-4">
@@ -39,7 +40,8 @@ const ServiceCostSection = ({ formData, totalPrice, onFormDataChange, designers,
               onFormDataChange('jasaDesain', rawValue);
             }}
             placeholder="IDR 0"
-            className="mt-1 h-8"
+            className={`mt-1 h-8 ${isEditingItem ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+            disabled={isEditingItem}
           />
         </div>
         <div>
@@ -52,7 +54,8 @@ const ServiceCostSection = ({ formData, totalPrice, onFormDataChange, designers,
               onFormDataChange('biayaLain', rawValue);
             }}
             placeholder="IDR 0"
-            className="mt-1 h-8"
+            className={`mt-1 h-8 ${isEditingItem ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+            disabled={isEditingItem}
           />
         </div>
         <div>
@@ -69,8 +72,8 @@ const ServiceCostSection = ({ formData, totalPrice, onFormDataChange, designers,
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div>
           <Label htmlFor="admin" className="text-sm font-medium">Admin</Label>
-          <Select value={formData.admin} onValueChange={(value) => onFormDataChange('admin', value)}>
-            <SelectTrigger className="mt-1 h-8">
+          <Select value={formData.admin} onValueChange={(value) => onFormDataChange('admin', value)} disabled={isEditingItem}>
+            <SelectTrigger className={`mt-1 h-8 ${isEditingItem ? 'bg-gray-100 cursor-not-allowed' : ''}`}>
               <SelectValue placeholder="Pilih Admin" />
             </SelectTrigger>
             <SelectContent>
@@ -86,8 +89,8 @@ const ServiceCostSection = ({ formData, totalPrice, onFormDataChange, designers,
         </div>
         <div>
           <Label htmlFor="desainer" className="text-sm font-medium">Designer</Label>
-          <Select value={formData.desainer} onValueChange={(value) => onFormDataChange('desainer', value)}>
-            <SelectTrigger className="mt-1 h-8">
+          <Select value={formData.desainer} onValueChange={(value) => onFormDataChange('desainer', value)} disabled={isEditingItem}>
+            <SelectTrigger className={`mt-1 h-8 ${isEditingItem ? 'bg-gray-100 cursor-not-allowed' : ''}`}>
               <SelectValue placeholder="Pilih Designer" />
             </SelectTrigger>
             <SelectContent>
@@ -108,7 +111,8 @@ const ServiceCostSection = ({ formData, totalPrice, onFormDataChange, designers,
             value={formData.komputer}
             onChange={(e) => onFormDataChange('komputer', e.target.value)}
             placeholder="Computer info"
-            className="mt-1 h-8"
+            className={`mt-1 h-8 ${isEditingItem ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+            disabled={isEditingItem}
           />
         </div>
       </div>

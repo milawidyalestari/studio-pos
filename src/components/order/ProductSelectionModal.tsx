@@ -100,7 +100,7 @@ const ProductSelectionModal = ({
                     <span className="w-32 font-medium text-blue-600 truncate">{item.kode}</span>
                     <span className="flex-1 min-w-0 break-words whitespace-pre-line">{item.nama}</span>
                     {items ? <span className="w-24 text-center">{item.satuan ?? '-'}</span> : <span><span className={`px-2 py-1 rounded-full text-xs ${item.jenis === 'Material' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>{item.jenis}</span></span>}
-                    {items ? <span className="w-24 text-center">{item.stok_akhir ?? '-'}</span> : <span>{item.satuan}</span>}
+                    {items ? <span className="w-24 text-center font-medium">{item.stok_akhir !== null && item.stok_akhir !== undefined && item.stok_akhir !== '' ? item.stok_akhir.toString() : '-'}</span> : <span>{item.satuan}</span>}
                     {items ? null : <span className="text-green-600 font-medium">{formatCurrency(item.harga_jual || 0)}</span>}
                     <span className="w-32 flex justify-center">
                       <Button

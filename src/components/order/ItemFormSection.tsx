@@ -36,6 +36,7 @@ interface ItemFormSectionProps {
   isSaving: boolean;
   nextItemId: string;
   onOpenAddStockModal?: () => void;
+  onEditingStateChange?: (isEditing: boolean) => void;
 }
 
 const ItemFormSection = ({
@@ -48,7 +49,8 @@ const ItemFormSection = ({
   onUpdateItem,
   isSaving,
   nextItemId,
-  onOpenAddStockModal
+  onOpenAddStockModal,
+  onEditingStateChange
 }: ItemFormSectionProps) => {
   const { data: products, isLoading: productsLoading, refetch: refetchProducts } = useProducts();
   const [showItemSelectionModal, setShowItemSelectionModal] = useState(false);
@@ -123,6 +125,11 @@ const ItemFormSection = ({
     }
     setHasItemUnsavedChanges(JSON.stringify(currentItem) !== JSON.stringify(initialItemData));
   }, [currentItem, editingItemId, initialItemData]);
+
+  // Notify parent when editing state changes
+  useEffect(() => {
+    onEditingStateChange?.(!!editingItemId);
+  }, [editingItemId, onEditingStateChange]);
 
   // Filter products by type for different select options
   const services = products?.filter(p => p.jenis === 'Service') || [];

@@ -23,6 +23,7 @@ import { PrintOverlay } from '@/components/PrintOverlay';
 import { mapOrderItemsWithNames } from '@/utils/productMapping';
 import { useQuery } from '@tanstack/react-query';
 import AddStockModal from '@/components/AddStockModal';
+import { X } from 'lucide-react';
 
 type PaymentType = string;
 
@@ -141,13 +142,10 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
   const [initialFormDataSnapshot, setInitialFormDataSnapshot] = useState<FormData | null>(null);
   const [hasFormDataChanges, setHasFormDataChanges] = useState(false);
   const [hasItemsAdded, setHasItemsAdded] = useState(false);
+  const [hasItemsDeleted, setHasItemsDeleted] = useState(false);
   const [showAddStockModal, setShowAddStockModal] = useState(false);
-  const [shouldReopenModal, setShouldReopenModal] = useState(false);
-  const [tempFormData, setTempFormData] = useState<FormData | null>(null);
-  const [tempOrderList, setTempOrderList] = useState<OrderItem[]>([]);
-  const [tempEditingOrder, setTempEditingOrder] = useState<Order | null>(null);
-  const [isRestoringData, setIsRestoringData] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [isModalPaused, setIsModalPaused] = useState(false);
   const [hasItemFormChanges, setHasItemFormChanges] = useState(false);
   const [hasPostConfirmationChanges, setHasPostConfirmationChanges] = useState(false);
 
@@ -178,10 +176,10 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
 
   // Reset isConfirmed when there are changes
   useEffect(() => {
-    if (hasUnsavedChanges || hasEditChanges || hasFormDataChanges || hasItemsAdded || hasItemFormChanges) {
+    if (hasUnsavedChanges || hasEditChanges || hasFormDataChanges || hasItemsAdded || hasItemsDeleted || hasItemFormChanges) {
       setIsConfirmed(false);
     }
-  }, [hasUnsavedChanges, hasEditChanges, hasFormDataChanges, hasItemsAdded, hasItemFormChanges]);
+  }, [hasUnsavedChanges, hasEditChanges, hasFormDataChanges, hasItemsAdded, hasItemsDeleted, hasItemFormChanges]);
 
   // Track changes after confirmation for specific fields
   useEffect(() => {
@@ -191,8 +189,8 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
       const hasSubTotalChanged = totalPrice !== (initialFormDataSnapshot ? 
         calculateOrderTotal(
           orderList,
-          parseFloat(initialFormDataSnapshot.jasaDesain) || 0,
-          parseFloat(initialFormDataSnapshot.biayaLain) || 0,
+          initialFormDataSnapshot.jasaDesain ? parseFloat(initialFormDataSnapshot.jasaDesain) || 0 : 0,
+          initialFormDataSnapshot.biayaLain ? parseFloat(initialFormDataSnapshot.biayaLain) || 0 : 0,
           initialFormDataSnapshot.discount || 0,
           initialFormDataSnapshot.ppn || 10,
           initialFormDataSnapshot.taxChecked
@@ -290,6 +288,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
     });
     setEditingItemId(null);
     setHasItemFormChanges(false);
+    // This will automatically re-enable the fields in ServiceCostSection
   };
 
   const calculateItemSubTotal = (item: typeof currentItem): number => {
@@ -299,9 +298,9 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
     const product = products.find(p => p.kode === item.item);
     if (!product) return 0;
 
-    const panjang = parseFloat(item.ukuran.panjang as string) || 0;
-    const lebar = parseFloat(item.ukuran.lebar as string) || 0;
-    const quantity = parseInt(item.quantity) || 0;
+    const panjang = (item.ukuran.panjang && item.ukuran.panjang !== '' && item.ukuran.panjang !== 'null') ? parseFloat(item.ukuran.panjang as string) || 0 : 0;
+    const lebar = (item.ukuran.lebar && item.ukuran.lebar !== '' && item.ukuran.lebar !== 'null') ? parseFloat(item.ukuran.lebar as string) || 0 : 0;
+    const quantity = item.quantity ? parseInt(item.quantity) || 0 : 0;
 
     // Ambil data material dari tabel materials (lebar_maksimum)
     const material = materials.find((m: any) => m.kode === item.bahan);
@@ -361,6 +360,8 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
         id: (index + 1).toString().padStart(3, '0')
       }));
     });
+    // Set flag untuk tracking penghapusan item
+    setHasItemsDeleted(true);
   };
 
   const editOrderItem = (item: OrderItem) => {
@@ -468,8 +469,8 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
       const items = orderList.map((item) => ({
         item_name: item.item,
         bahan: item.bahan || null,
-        panjang: item.ukuran?.panjang ? parseFloat(item.ukuran.panjang) : null,
-        lebar: item.ukuran?.lebar ? parseFloat(item.ukuran.lebar) : null,
+        panjang: item.ukuran?.panjang && item.ukuran.panjang !== '' && item.ukuran.panjang !== 'null' ? parseFloat(item.ukuran.panjang) : null,
+        lebar: item.ukuran?.lebar && item.ukuran.lebar !== '' && item.ukuran.lebar !== 'null' ? parseFloat(item.ukuran.lebar) : null,
         quantity: parseInt(item.quantity) || 0,
         finishing: item.finishing || null,
         sub_total: item.subTotal || 0,
@@ -492,6 +493,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
       setHasEditChanges(false);
       setHasFormDataChanges(false);
       setHasItemsAdded(false);
+      setHasItemsDeleted(false);
       setInitialFormDataSnapshot(null);
       resetForm();
       onClose();
@@ -561,8 +563,8 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
       const items = orderList.map((item) => ({
         item_name: item.item,
         bahan: item.bahan || null,
-        panjang: item.ukuran?.panjang ? parseFloat(item.ukuran.panjang) : null,
-        lebar: item.ukuran?.lebar ? parseFloat(item.ukuran.lebar) : null,
+        panjang: item.ukuran?.panjang && item.ukuran.panjang !== '' && item.ukuran.panjang !== 'null' ? parseFloat(item.ukuran.panjang) : null,
+        lebar: item.ukuran?.lebar && item.ukuran.lebar !== '' && item.ukuran.lebar !== 'null' ? parseFloat(item.ukuran.lebar) : null,
         quantity: parseInt(item.quantity) || 0,
         finishing: item.finishing || null,
         sub_total: item.subTotal || 0,
@@ -585,6 +587,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
       setHasEditChanges(false);
       setHasFormDataChanges(false);
       setHasItemsAdded(false);
+      setHasItemsDeleted(false);
       setIsConfirmed(true); // Set confirmed state
       // Save snapshot after confirmation for tracking post-confirmation changes
       setInitialFormDataSnapshot({ ...formData });
@@ -661,20 +664,12 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
       desainer: designerName,
     };
 
-    // Save current form data and order list before closing
-    console.log('Saving data before print overlay:', { formData, orderList, editingOrder });
-    setTempFormData(formData);
-    setTempOrderList(orderList);
-    setTempEditingOrder(editingOrder || null);
-    // Set flag to reopen modal when print overlay closes
-    setShouldReopenModal(true);
-    // Close Request Order modal and open print overlay for SPK
-    onClose();
+    // Pause modal instead of closing it
+    setIsModalPaused(true);
     openPrintOverlay('spk', { orderList: printOrderList, orderData });
   };
 
   const handleReopenRequestOrderModal = () => {
-    setShouldReopenModal(false);
     // Reopen the Request Order modal
     onClose(); // This will trigger the parent to reopen the modal
   };
@@ -697,6 +692,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
     setHasEditChanges(false);
     setHasFormDataChanges(false);
     setHasItemsAdded(false);
+    setHasItemsDeleted(false);
     setHasItemFormChanges(false);
     setInitialFormDataSnapshot(null);
     setIsConfirmed(false); // Reset confirmed state
@@ -710,9 +706,6 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
 
   // Pre-fill form with editing order data
   useEffect(() => {
-    // Skip this effect if we're restoring data from print overlay
-    if (isRestoringData) return;
-    
     if (editingOrder && open && !loadingEmployees && !loadingAdmins) {
       console.log('editingOrder:', editingOrder);
       if ('order_items' in editingOrder && editingOrder.order_items) {
@@ -722,9 +715,9 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
       setHasEditChanges(false);
       const newFormData = {
         orderNumber: (editingOrder as any).order_number || editingOrder.orderNumber || '',
-        customer: editingOrder.customer_name || editingOrder.customer || '',
-        customerId: (editingOrder as any).customer_id || '',
-        tanggal: safeDateString((editingOrder as any).tanggal),
+        customer: editingOrder.customer_name || editingOrder.customer || (editingOrder.customer && editingOrder.customer.name) || '',
+        customerId: (editingOrder as Order & { customer_id?: string }).customer_id || '',
+        tanggal: safeDateString(editingOrder.date),
         waktu: (editingOrder as any).waktu || new Date().toTimeString().slice(0, 5),
         estimasi: editingOrder.estimatedDate || (editingOrder as any).estimasi || '',
         estimasiWaktu: (editingOrder as any).estimasi_waktu || '',
@@ -742,7 +735,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
         desainer: (editingOrder as any).desainer_id || '',
         komputer: (editingOrder as any).komputer || '',
         notes: (editingOrder as any).notes || '',
-        status_id: (editingOrder as any).status_id || null,
+        status_id: editingOrder.status_id || null,
         downPayment: (editingOrder as any).down_payment || '',
         pelunasan: (editingOrder as any).pelunasan || '',
         taxChecked: (editingOrder as any).tax_checked || false,
@@ -774,12 +767,13 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
       setIsEditMode(false);
       setHasEditChanges(false);
       setHasItemsAdded(false);
+      setHasItemsDeleted(false);
       setHasItemFormChanges(false);
       setInitialFormDataSnapshot(null);
       setIsConfirmed(false); // Reset confirmed state for new order
       resetForm();
     }
-  }, [editingOrder, open, loadingEmployees, loadingAdmins, isRestoringData]);
+  }, [editingOrder, open, loadingEmployees, loadingAdmins]);
 
   // Set default status_id to 'Design' when statuses are loaded and not editing
   useEffect(() => {
@@ -847,20 +841,50 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
       });
   }, [open]);
 
+  // Function to handle modal close with unsaved changes check
+  const handleModalClose = (newOpen: boolean) => {
+    if (!newOpen) {
+      // Check if there are unsaved changes
+      const hasChanges = hasUnsavedChanges || hasEditChanges || hasFormDataChanges || hasItemsAdded || hasItemsDeleted || hasItemFormChanges;
+      
+      if (hasChanges) {
+        // Don't close the modal if there are unsaved changes
+        return;
+      }
+    }
+    // Close modal if not paused
+    if (!isModalPaused) {
+      onClose();
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open && !isModalPaused} onOpenChange={handleModalClose}>
       <DialogContent 
         className="max-w-7xl h-[95vh] max-h-[95vh] p-0 flex flex-col animate-in fade-in-0 zoom-in-95 duration-300"
         onOpenAutoFocus={(e) => e.preventDefault()}
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
       >
-        <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
+        <DialogHeader className="px-6 py-4 border-b flex-shrink-0 flex justify-between items-center">
           <DialogTitle className="text-xl font-bold">
             {editingOrder
               ? `Edit Order${formData.orderNumber ? ` ${formData.orderNumber}` : ''}`
               : `Request Order${formData.orderNumber ? ` ${formData.orderNumber}` : ''}`}
           </DialogTitle>
+          <button
+            onClick={() => {
+              if (!isModalPaused) {
+                const hasChanges = hasUnsavedChanges || hasEditChanges || hasFormDataChanges || hasItemsAdded || hasItemsDeleted || hasItemFormChanges;
+                if (!hasChanges) {
+                  onClose();
+                }
+              }
+            }}
+            className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+            disabled={isModalPaused}
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </button>
         </DialogHeader>
         
         <div className="flex-1 overflow-hidden">
@@ -885,6 +909,9 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
                       isSaving={isCreatingOrder || isUpdatingOrder}
                       nextItemId={generateNextItemId()}
                       onOpenAddStockModal={() => setShowAddStockModal(true)}
+                      onEditingStateChange={(isEditing) => {
+                        // This will be handled by the existing editingItemId state
+                      }}
                     />
                   </div>
                 </ScrollArea>
@@ -907,6 +934,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
                       loadingDesigners={loadingEmployees}
                       admins={admins}
                       loadingAdmins={loadingAdmins}
+                      isEditingItem={!!editingItemId}
                     />
                   </div>
                 </ScrollArea>
@@ -938,7 +966,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
               disabledSaveOrder={orderList.length === 0}
               isEditingItem={!!editingItemId}
               isEditMode={isEditMode}
-              hasEditChanges={hasEditChanges || hasFormDataChanges || hasItemsAdded}
+              hasEditChanges={hasEditChanges || hasFormDataChanges || hasItemsAdded || hasItemsDeleted}
               isConfirmed={isConfirmed}
               hasPostConfirmationChanges={hasPostConfirmationChanges}
             >
@@ -977,22 +1005,9 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
         orderList={printData.orderList}
         orderData={printData.orderData}
         printType={printType}
-        onCloseAndReopenRequestOrder={printType === 'spk' && onReopen ? () => {
-          // Restore saved data and reopen Request Order modal
-          if (tempFormData && tempOrderList) {
-            console.log('Restoring data from print overlay:', { tempFormData, tempOrderList, tempEditingOrder });
-            setIsRestoringData(true);
-            setFormData(tempFormData);
-            setOrderList(tempOrderList);
-            setTempFormData(null);
-            setTempOrderList([]);
-            // Reset the flag after a short delay to allow useEffect to complete
-            setTimeout(() => {
-              setIsRestoringData(false);
-              console.log('Data restoration completed');
-            }, 100);
-          }
-          onReopen(tempEditingOrder);
+        onCloseAndReopenRequestOrder={printType === 'spk' ? () => {
+          // Resume modal when PrintOverlay is closed
+          setIsModalPaused(false);
         } : undefined}
       />
 

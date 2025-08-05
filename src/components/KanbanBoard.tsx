@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { DragDropContext, DropResult, DragUpdate } from 'react-beautiful-dnd';
-import { useToast } from '@/hooks/use-toast';
 import KanbanColumn from './kanban/KanbanColumn';
 import AddColumnDialog from './kanban/AddColumnDialog';
 import AddColumnButton from './kanban/AddColumnButton';
@@ -66,7 +65,6 @@ const KanbanBoard = ({
   const [newColumnTitle, setNewColumnTitle] = useState('');
   const [columnOrderSequence, setColumnOrderSequence] = useState<{[columnId: string]: string[]}>({});
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
-  const { toast } = useToast();
   const { statuses } = useOrderStatus();
   const hasInitialized = useRef(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -167,7 +165,6 @@ const KanbanBoard = ({
       return updated;
     });
     setIsUpdating(draggableId);
-    toast({ title: 'Order Moved', description: 'Order berhasil dipindahkan', variant: 'default' });
 
     try {
       if (sourceStatus !== newStatus && onUpdateOrderStatus) {
@@ -181,9 +178,9 @@ const KanbanBoard = ({
     } catch (error) {
       setColumnOrderSequence(columnOrderSequence);
       setIsUpdating(null);
-      toast({ title: 'Error', description: 'Gagal memindahkan order. Perubahan dibatalkan.', variant: 'destructive' });
+      // Toast error dihapus untuk menghindari notifikasi yang mengganggu
     }
-  }, [columnOrderSequence, statuses, onUpdateOrderStatus, toast, onDragEnd]);
+      }, [columnOrderSequence, statuses, onUpdateOrderStatus, onDragEnd]);
 
   const handleAddColumn = useCallback(() => {
     if (!newColumnTitle.trim()) return;
@@ -195,13 +192,13 @@ const KanbanBoard = ({
     setColumns(prev => [...prev, newColumn]);
     setNewColumnTitle('');
     setShowAddColumn(false);
-    toast({ title: 'Status added', description: `New status "${newColumnTitle}" has been added` });
-  }, [newColumnTitle, toast]);
+    // Toast notification dihapus untuk menghindari notifikasi yang mengganggu
+  }, [newColumnTitle]);
 
   const handleDeleteOrder = (orderId: string) => {
     if (onDeleteOrder) {
       onDeleteOrder(orderId);
-      toast({ title: 'Order deleted', description: 'Order has been permanently deleted from the system' });
+      // Toast notification dihapus untuk menghindari notifikasi yang mengganggu
     }
   };
 
@@ -213,7 +210,7 @@ const KanbanBoard = ({
   const handleMarkAsTaken = async (orderId: string) => {
     const diambilStatus = statuses.find(s => s.name === 'Selesai-Diambil');
     if (!diambilStatus) {
-      toast({ title: 'Error', description: 'Status "Selesai-Diambil" tidak ditemukan', variant: 'destructive' });
+      // Toast error dihapus untuk menghindari notifikasi yang mengganggu
       return;
     }
     setIsUpdating(orderId);
@@ -221,9 +218,9 @@ const KanbanBoard = ({
       if (onUpdateOrderStatus) {
         await onUpdateOrderStatus(orderId, String(diambilStatus.id));
       }
-      toast({ title: 'Order Diambil', description: 'Order telah diubah ke status Selesai-Diambil', variant: 'default' });
+      // Toast success dihapus untuk menghindari notifikasi yang mengganggu
     } catch (error) {
-      toast({ title: 'Error', description: 'Gagal mengubah status order.', variant: 'destructive' });
+      // Toast error dihapus untuk menghindari notifikasi yang mengganggu
     } finally {
       setIsUpdating(null);
     }
