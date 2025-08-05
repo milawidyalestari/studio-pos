@@ -861,7 +861,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
   return (
     <Dialog open={open && !isModalPaused} onOpenChange={handleModalClose}>
       <DialogContent 
-        className="max-w-7xl h-[95vh] max-h-[95vh] p-0 flex flex-col animate-in fade-in-0 zoom-in-95 duration-300"
+        className="max-w-7xl h-[95vh] max-h-[95vh] p-0 flex flex-col animate-in fade-in-0 zoom-in-95 duration-300 [&>button]:hidden"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <DialogHeader className="px-6 py-4 border-b flex-shrink-0 flex items-center">
