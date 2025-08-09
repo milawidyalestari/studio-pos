@@ -42,6 +42,7 @@ import {
 } from '@/components/ui/pagination';
 
 const Inventory = () => {
+  const hasAccess = useHasAccess();
   // State for log modal and logs
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [logs, setLogs] = useState<any[]>([]);

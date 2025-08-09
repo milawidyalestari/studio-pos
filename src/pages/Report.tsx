@@ -40,8 +40,10 @@ import { addTestOrders, clearTestOrders } from '@/services/testDataService';
 import { addSampleOrdersToLocalStorage, clearSampleOrdersFromLocalStorage } from '@/services/localStorageService';
 import { useQuery } from '@tanstack/react-query';
 import { databaseManager } from '@/lib/database-manager';
+import { useHasAccess } from '@/context/RoleAccessContext';
 
 const Report = () => {
+  const hasAccess = useHasAccess();
   const [activeTab, setActiveTab] = useState('daily-orders');
   const [dateFilter, setDateFilter] = useState('today');
   const [searchTerm, setSearchTerm] = useState('');

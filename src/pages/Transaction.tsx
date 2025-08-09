@@ -26,6 +26,7 @@ import { OrderWithItems } from '@/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useHasAccess } from '@/context/RoleAccessContext';
 
 // Interface untuk data transaksi dari orders
 interface PaymentTransaction {
@@ -43,6 +44,7 @@ interface PaymentTransaction {
 }
 
 const TransactionPage = () => {
+  const hasAccess = useHasAccess();
   const { orders = [], isLoading, refetch } = useOrders({ enableAutoRefresh: false });
   const { data: paymentTypes = [] } = usePaymentTypes();
   const { data: products } = useProducts();
@@ -289,6 +291,21 @@ const TransactionPage = () => {
     )) ||
     (filterField !== 'tanggal' && filterValue.trim() !== '');
 
+  // Check access to Transaction page
+  if (!hasAccess('Transaction', 'view_transactions')) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <CheckSquare className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Akses Ditolak</h2>
+            <p className="text-gray-600">Anda tidak memiliki izin untuk mengakses halaman transaksi.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -380,18 +397,22 @@ const TransactionPage = () => {
               </div>
             </PopoverContent>
           </Popover>
-          <Button variant="outline" className="gap-2">
-            <FileDown className="h-4 w-4" />
-            Export
-          </Button>
+          {hasAccess('Transaction', 'export_data') && (
+            <Button variant="outline" className="gap-2">
+              <FileDown className="h-4 w-4" />
+              Export
+            </Button>
+          )}
           <Button variant="outline" className="gap-2" onClick={handleRefresh}>
             <RefreshCw className="h-4 w-4" />
             Sync
           </Button>
-          <Button variant="outline" className="gap-2">
-            <Download className="h-4 w-4" />
-            Download
-          </Button>
+          {hasAccess('Transaction', 'export_data') && (
+            <Button variant="outline" className="gap-2">
+              <Download className="h-4 w-4" />
+              Download
+            </Button>
+          )}
         </div>
       </div>
 
