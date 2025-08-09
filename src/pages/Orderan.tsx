@@ -26,7 +26,16 @@ const Orderan = () => {
   const [showPrintOverlay, setShowPrintOverlay] = useState(false);
   const [printOrderData, setPrintOrderData] = useState<OrderWithItems | null>(null);
   const { orders: dbOrders, isLoading, isFetching, updateOrder, deleteOrder, refetch } = useOrders({ enableAutoRefresh: false }); // disable auto polling
-  const orders = dbOrders || [];
+  
+  // Filter orders untuk table view - sembunyikan order dengan status "Selesai-Diambil"
+  const allOrders = dbOrders || [];
+  const filteredOrdersForTable = allOrders.filter(order => {
+    const statusName = order.order_statuses?.name;
+    return statusName !== 'Selesai-Diambil';
+  });
+  
+  // Untuk kanban view, gunakan semua orders (tidak difilter)
+  const orders = viewMode === 'table' ? filteredOrdersForTable : allOrders;
   const { toast } = useToast();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [fadeReload, setFadeReload] = useState(false);

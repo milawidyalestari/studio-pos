@@ -15,6 +15,7 @@ interface OrderWithItemsExtended extends OrderWithItems {
   order_statuses?: { id: number; name: string } | null;
   admin?: { id: string; nama: string } | null;
   desainer?: { id: string; nama: string } | null;
+  payment_types?: { id: string; type: string; payment_method: string } | null;
 }
 
 export const useOrders = (options?: { enableAutoRefresh?: boolean }) => {
@@ -32,7 +33,8 @@ export const useOrders = (options?: { enableAutoRefresh?: boolean }) => {
           order_items (*),
           order_statuses (id, name),
           admin:admin_id (id, nama),
-          desainer:desainer_id (id, nama)
+          desainer:desainer_id (id, nama),
+          payment_types (id, type, payment_method)
         `)
         .order('created_at', { ascending: false });
 

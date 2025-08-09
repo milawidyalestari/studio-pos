@@ -6,7 +6,7 @@ export const APP_CONFIG = {
 } as const;
 
 export const ROUTES = {
-  DASHBOARD: '/',
+  DASHBOARD: '/dashboard',
   ORDERAN: '/orderan',
   TRANSACTION: '/transaction',
   CASHIER: '/cashier',

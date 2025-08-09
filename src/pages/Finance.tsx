@@ -50,6 +50,8 @@ import ExportDialog from '@/components/ExportDialog';
 import QuickExport from '@/components/QuickExport';
 import { useHasAccess } from '@/context/RoleAccessContext';
 import ExportAnalytics from '@/components/ExportAnalytics';
+import { useOrders } from '@/hooks/useOrders';
+import { AddTransactionModal } from '@/components/AddTransactionModal';
 
 
 const Finance: React.FC = () => {
@@ -78,6 +80,9 @@ const Finance: React.FC = () => {
     refreshData
   } = useDatabase();
 
+  // Orders hook for financial analysis
+  const { orders } = useOrders({ enableAutoRefresh: false });
+
   // Chart data
   const [monthlyData, setMonthlyData] = useState<any[]>([]);
   const [categoryData, setCategoryData] = useState<any[]>([]);
@@ -85,6 +90,10 @@ const Finance: React.FC = () => {
 
   // Export dialog state
   const [showExportDialog, setShowExportDialog] = useState(false);
+  
+  // Add transaction modal state
+  const [showAddTransactionModal, setShowAddTransactionModal] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   // Update chart data when transactions change
   useEffect(() => {
@@ -92,6 +101,97 @@ const Finance: React.FC = () => {
       generateChartData(transactions);
     }
   }, [transactions]);
+
+  // Calculate financial analysis data from orders
+  const calculateFinancialData = () => {
+    if (!orders || orders.length === 0) {
+      return [
+        { category: 'Pendapatan', amount: '0', percentage: '0%', type: 'income' },
+        { category: 'Biaya Material', amount: '0', percentage: '0%', type: 'expense' },
+        { category: 'Biaya Tenaga Kerja', amount: '0', percentage: '0%', type: 'expense' },
+        { category: 'Laba Bersih', amount: '0', percentage: '0%', type: 'profit' },
+      ];
+    }
+
+    const totalRevenue = orders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
+    const totalDownPayments = orders.reduce((sum, order) => sum + (order.down_payment || 0), 0);
+    const totalPelunasan = orders.reduce((sum, order) => sum + ((order as any).pelunasan || 0), 0);
+    
+    // Estimate costs (you can adjust these percentages)
+    const materialCosts = Math.round(totalRevenue * 0.35); // 35% of revenue
+    const laborCosts = Math.round(totalRevenue * 0.25); // 25% of revenue
+    const netProfit = totalRevenue - materialCosts - laborCosts;
+
+    return [
+      { 
+        category: 'Pendapatan', 
+        amount: totalRevenue.toLocaleString('id-ID'), 
+        percentage: '+0%', // You can calculate this vs previous period
+        type: 'income' 
+      },
+      { 
+        category: 'Biaya Material', 
+        amount: materialCosts.toLocaleString('id-ID'), 
+        percentage: '+0%', 
+        type: 'expense' 
+      },
+      { 
+        category: 'Biaya Tenaga Kerja', 
+        amount: laborCosts.toLocaleString('id-ID'), 
+        percentage: '+0%', 
+        type: 'expense' 
+      },
+      { 
+        category: 'Laba Bersih', 
+        amount: netProfit.toLocaleString('id-ID'), 
+        percentage: '+0%', 
+        type: 'profit' 
+      },
+    ];
+  };
+
+  const financialAnalysisData = calculateFinancialData();
+
+  // Handler for add transaction
+  const handleAddTransaction = () => {
+    setEditingTransaction(null);
+    setShowAddTransactionModal(true);
+  };
+
+  // Handler for edit transaction
+  const handleEditTransaction = (transaction: Transaction) => {
+    setEditingTransaction(transaction);
+    setShowAddTransactionModal(true);
+  };
+
+  // Handler for save transaction
+  const handleSaveTransaction = async (transactionData: Partial<Transaction>) => {
+    try {
+      if (editingTransaction) {
+        // Update existing transaction
+        await updateTransaction(editingTransaction.id, transactionData);
+      } else {
+        // Add new transaction
+        await addTransaction(transactionData);
+      }
+      setShowAddTransactionModal(false);
+      setEditingTransaction(null);
+    } catch (error) {
+      console.error('Error saving transaction:', error);
+    }
+  };
+
+  // Handler for delete transaction
+  const handleDeleteTransaction = async (transactionId: string) => {
+    if (window.confirm('Apakah Anda yakin ingin menghapus transaksi ini?')) {
+      try {
+        await deleteTransaction(transactionId);
+      } catch (error) {
+        console.error('Error deleting transaction:', error);
+        alert('Gagal menghapus transaksi');
+      }
+    }
+  };
 
 
 
@@ -302,7 +402,10 @@ const Finance: React.FC = () => {
             </Button>
           )}
           {hasAccess('Finance', 'manage_expenses') && (
-            <Button className="gap-2 bg-blue-700">
+            <Button 
+              className="gap-2 bg-blue-700"
+              onClick={handleAddTransaction}
+            >
               <Plus className="h-4 w-4" />
               Tambah Transaksi
             </Button>
@@ -375,8 +478,11 @@ const Finance: React.FC = () => {
 
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+          {hasAccess('Finance', 'financial_analysis') && (
+            <TabsTrigger value="financial-analysis">Analisis Keuangan</TabsTrigger>
+          )}
           <TabsTrigger value="transactions">Transaksi</TabsTrigger>
           <TabsTrigger value="reports">Laporan</TabsTrigger>
           <TabsTrigger value="settings">Pengaturan</TabsTrigger>
@@ -467,6 +573,57 @@ const Finance: React.FC = () => {
            {/* Export Analytics */}
            <ExportAnalytics className="mt-6" />
          </TabsContent>
+
+        {/* Financial Analysis Tab */}
+        {hasAccess('Finance', 'financial_analysis') && (
+          <TabsContent value="financial-analysis" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {financialAnalysisData.map((item, index) => (
+              <Card key={index}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-600">{item.category}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-gray-900">IDR {item.amount}</div>
+                  <p className={`text-xs font-medium ${
+                    item.type === 'income' || item.type === 'profit' ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {item.percentage} dari periode sebelumnya
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-[#0050C8]" />
+                Ringkasan Analisis Keuangan
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {financialAnalysisData.map((item, index) => (
+                  <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <p className="font-medium text-gray-900">{item.category}</p>
+                      <p className="text-sm text-gray-600">Pertumbuhan: {item.percentage}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-lg font-semibold ${
+                        item.type === 'income' || item.type === 'profit' ? 'text-green-600' : 
+                        item.type === 'expense' ? 'text-red-600' : 'text-[#0050C8]'
+                      }`}>
+                        IDR {item.amount}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          </TabsContent>
+        )}
 
         {/* Transactions Tab */}
         <TabsContent value="transactions" className="space-y-6">
@@ -563,15 +720,34 @@ const Finance: React.FC = () => {
                         </div>
                         {getStatusBadge(transaction.status)}
                         <div className="flex gap-2">
-                          <Button variant="ghost" size="sm">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            title="Lihat Detail"
+                          >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="text-red-600">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {hasAccess('Finance', 'manage_expenses') && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleEditTransaction(transaction)}
+                              title="Edit Transaksi"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {hasAccess('Finance', 'manage_expenses') && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-red-600"
+                              onClick={() => handleDeleteTransaction(transaction.id)}
+                              title="Hapus Transaksi"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -821,6 +997,15 @@ const Finance: React.FC = () => {
               totalTransactions: transactions.length
             }
           }}
+          categories={categories}
+        />
+
+        {/* Add Transaction Modal */}
+        <AddTransactionModal
+          open={showAddTransactionModal}
+          onClose={() => setShowAddTransactionModal(false)}
+          onSave={handleSaveTransaction}
+          editingTransaction={editingTransaction}
           categories={categories}
         />
       </div>

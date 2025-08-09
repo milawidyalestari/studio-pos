@@ -47,7 +47,18 @@ import { EmployeesTab } from '@/components/master-data/EmployeesTab';
 import { ProductOverlayCards } from '@/components/master-data/ProductOverlayCards';
 
 const MasterData = () => {
-  const [activeTab, setActiveTab] = useState('products');
+  const hasAccess = useHasAccess();
+  
+  // Determine first accessible tab
+  const getFirstAccessibleTab = () => {
+    if (hasAccess('Master Data', 'view_products')) return 'products';
+    if (hasAccess('Master Data', 'view_suppliers')) return 'suppliers';
+    if (hasAccess('Master Data', 'view_customers')) return 'customers';
+    if (hasAccess('Master Data', 'view_employees')) return 'employees';
+    return 'products'; // fallback
+  };
+  
+  const [activeTab, setActiveTab] = useState(getFirstAccessibleTab());
   const [searchTerm, setSearchTerm] = useState('');
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
@@ -135,8 +146,24 @@ const MasterData = () => {
   };
   React.useEffect(() => { fetchPositions(); }, []);
 
-  const hasAccess = useHasAccess();
   const productsTabRef = useRef<ProductsTabRef>(null);
+
+  // Function to get tab grid columns based on available tabs
+  const getTabGridCols = () => {
+    let count = 0;
+    if (hasAccess('Master Data', 'view_products')) count++;
+    if (hasAccess('Master Data', 'view_suppliers')) count++;
+    if (hasAccess('Master Data', 'view_customers')) count++;
+    if (hasAccess('Master Data', 'view_employees')) count++;
+    
+    switch (count) {
+      case 1: return 'grid-cols-1';
+      case 2: return 'grid-cols-2';
+      case 3: return 'grid-cols-3';
+      case 4: return 'grid-cols-4';
+      default: return 'grid-cols-1';
+    }
+  };
 
   const handleAddProduct = () => {
     if (!hasAccess('Master Data', 'create')) return;
@@ -733,68 +760,84 @@ const MasterData = () => {
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="products" className="gap-2">
-            <Package className="h-4 w-4" />
-            Produk & Jasa
-          </TabsTrigger>
-          <TabsTrigger value="suppliers" className="gap-2">
-            <Truck className="h-4 w-4" />
-            Supplier
-          </TabsTrigger>
-          <TabsTrigger value="customers" className="gap-2">
-            <Users className="h-4 w-4" />
-            Customer
-          </TabsTrigger>
-          <TabsTrigger value="employees" className="gap-2">
-            <Users className="h-4 w-4" />
-            Karyawan
-          </TabsTrigger>
+        <TabsList className={`grid w-full ${getTabGridCols()}`}>
+          {hasAccess('Master Data', 'view_products') && (
+            <TabsTrigger value="products" className="gap-2">
+              <Package className="h-4 w-4" />
+              Produk & Jasa
+            </TabsTrigger>
+          )}
+          {hasAccess('Master Data', 'view_suppliers') && (
+            <TabsTrigger value="suppliers" className="gap-2">
+              <Truck className="h-4 w-4" />
+              Supplier
+            </TabsTrigger>
+          )}
+          {hasAccess('Master Data', 'view_customers') && (
+            <TabsTrigger value="customers" className="gap-2">
+              <Users className="h-4 w-4" />
+              Customer
+            </TabsTrigger>
+          )}
+          {hasAccess('Master Data', 'view_employees') && (
+            <TabsTrigger value="employees" className="gap-2">
+              <Users className="h-4 w-4" />
+              Karyawan
+            </TabsTrigger>
+          )}
         </TabsList>
 
-        <TabsContent value="products">
-          <ProductsTab
-            ref={productsTabRef}
-            products={products}
-            productsLoading={productsLoading}
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            onAddProduct={handleAddProduct}
-            onEditProduct={handleEditProduct}
-            onDeleteProduct={handleDeleteProduct}
-            sampleGroups={groups}
-            sampleCategories={dbCategories}
-            sampleUnits={units}
-            samplePaymentTypes={paymentTypes}
-            categoriesLoading={dbCategoriesLoading || groupsLoading || unitsLoading || paymentTypesLoading}
-            onOverlayOpen={handleOverlayOpen}
-            canAdd={hasAccess('Master Data', 'create')}
-          />
-        </TabsContent>
+        {hasAccess('Master Data', 'view_products') && (
+          <TabsContent value="products">
+            <ProductsTab
+              ref={productsTabRef}
+              products={products}
+              productsLoading={productsLoading}
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+              onAddProduct={handleAddProduct}
+              onEditProduct={handleEditProduct}
+              onDeleteProduct={handleDeleteProduct}
+              sampleGroups={groups}
+              sampleCategories={dbCategories}
+              sampleUnits={units}
+              samplePaymentTypes={paymentTypes}
+              categoriesLoading={dbCategoriesLoading || groupsLoading || unitsLoading || paymentTypesLoading}
+              onOverlayOpen={handleOverlayOpen}
+              canAdd={hasAccess('Master Data', 'manage_products')}
+            />
+          </TabsContent>
+        )}
 
-        <TabsContent value="suppliers">
-          <SuppliersTab
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            onAction={handleAction}
-          />
-        </TabsContent>
+        {hasAccess('Master Data', 'view_suppliers') && (
+          <TabsContent value="suppliers">
+            <SuppliersTab
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+              onAction={handleAction}
+            />
+          </TabsContent>
+        )}
 
-        <TabsContent value="customers">
-          <CustomersTab
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            onAction={handleAction}
-          />
-        </TabsContent>
+        {hasAccess('Master Data', 'view_customers') && (
+          <TabsContent value="customers">
+            <CustomersTab
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+              onAction={handleAction}
+            />
+          </TabsContent>
+        )}
 
-        <TabsContent value="employees">
-          <EmployeesTab
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            onAction={handleAction}
-          />
-        </TabsContent>
+        {hasAccess('Master Data', 'view_employees') && (
+          <TabsContent value="employees">
+            <EmployeesTab
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+              onAction={handleAction}
+            />
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Product Form Dialog */}

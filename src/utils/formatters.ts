@@ -58,3 +58,37 @@ export const generateOrderNumber = (): string => {
   const random = Math.floor(Math.random() * 1000);
   return `#${timestamp.toString().slice(-6)}${random.toString().padStart(3, '0')}`;
 };
+
+// Simple currency input formatting functions
+export const formatCurrencyInput = (value: string | number): string => {
+  // Convert to string and remove non-digit characters
+  const stringValue = value.toString().replace(/[^\d]/g, '');
+  
+  // Handle empty input
+  if (!stringValue) return '';
+  
+  // Convert to number
+  const numValue = parseInt(stringValue);
+  
+  // Handle invalid numbers
+  if (isNaN(numValue)) return '';
+  
+  // Format with thousands separator (period for Indonesian)
+  return numValue.toLocaleString('id-ID');
+};
+
+export const parseCurrencyInput = (formattedValue: string): number => {
+  // Remove all non-digit characters
+  const cleaned = formattedValue.replace(/[^\d]/g, '');
+  
+  // Handle empty input
+  if (!cleaned) return 0;
+  
+  // Convert to integer
+  const result = parseInt(cleaned);
+  return isNaN(result) ? 0 : result;
+};
+
+export const formatCurrencyDisplay = (amount: number): string => {
+  return `IDR ${amount.toLocaleString('id-ID')}`;
+};

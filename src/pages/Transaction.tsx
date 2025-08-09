@@ -20,12 +20,16 @@ import {
   Printer,
   DollarSign,
   FileText,
-  CheckSquare
+  CheckSquare,
+  AlertCircle,
+  CreditCard,
+  Users
 } from 'lucide-react';
 import { OrderWithItems } from '@/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useHasAccess } from '@/context/RoleAccessContext';
 
 // Interface untuk data transaksi dari orders
@@ -48,6 +52,7 @@ const TransactionPage = () => {
   const { orders = [], isLoading, refetch } = useOrders({ enableAutoRefresh: false });
   const { data: paymentTypes = [] } = usePaymentTypes();
   const { data: products } = useProducts();
+  const [activeTab, setActiveTab] = useState('transactions');
   const [searchTerm, setSearchTerm] = useState('');
   const [localReceipt, setLocalReceipt] = useState<Record<string, boolean>>({});
   const [filterOpen, setFilterOpen] = useState(false);
@@ -71,11 +76,12 @@ const TransactionPage = () => {
   // Helper untuk akses pelunasan secara aman
   type OrderWithMaybePelunasan = OrderWithItems & { pelunasan?: number | null };
 
-  const paymentTransactions = (orders as OrderWithMaybePelunasan[])
+  const allTransactionData = (orders as OrderWithMaybePelunasan[])
     .map(order => {
       const uangMuka = order.down_payment || 0;
       const pelunasan = order.pelunasan || 0;
       const totalOrder = order.total_amount || 0;
+      const sisaPembayaran = totalOrder - (uangMuka + pelunasan);
       let statusPembayaran = 'Belum Dibayar';
       if (uangMuka === 0 && pelunasan === 0) statusPembayaran = 'Belum Dibayar';
       else if (uangMuka + pelunasan < totalOrder) statusPembayaran = 'Belum Lunas';
@@ -87,24 +93,48 @@ const TransactionPage = () => {
         tanggal: order.tanggal,
         down_payment: uangMuka,
         pelunasan: pelunasan,
-        remaining_payment: order.remaining_payment || 0,
+        remaining_payment: sisaPembayaran,
         total_amount: totalOrder,
         payment_type: paymentTypeMap[order.payment_type as string] || '-',
         status_pembayaran: statusPembayaran,
         receipt_printed: (order as any).receipt_printed || false,
         order_status_name: order.order_statuses?.name || '',
       };
-    })
-    .filter(t =>
-      t.down_payment > 0 ||
-      t.pelunasan > 0 ||
-      t.receipt_printed === true ||
-      t.order_status_name === 'Done' ||
-      t.order_status_name === 'Selesai-Diambil'
-    );
+    });
 
-  // Filter berdasarkan search term
+  // Filter untuk transaksi yang sudah ada pembayaran
+  const paymentTransactions = allTransactionData.filter(t =>
+    t.down_payment > 0 ||
+    t.pelunasan > 0 ||
+    t.receipt_printed === true ||
+    t.order_status_name === 'Done' ||
+    t.order_status_name === 'Selesai-Diambil'
+  );
+
+  // Filter untuk piutang (order yang belum lunas)
+  const piutangData = allTransactionData.filter(t => {
+    const totalPaid = t.down_payment + t.pelunasan;
+    return totalPaid < t.total_amount && totalPaid >= 0;
+  });
+
+  // Filter berdasarkan search term untuk transaksi
   const filteredTransactions = paymentTransactions.filter(transaction => {
+    if (filterField === 'tanggal') {
+      const tgl = new Date(transaction.tanggal);
+      if (dateMode === 'single' && singleDate) {
+        return tgl.toDateString() === singleDate.toDateString();
+      } else if (dateMode === 'range' && range.from && range.to) {
+        return tgl >= range.from && tgl <= range.to;
+      }
+      return true;
+    } else {
+      const fieldValue = (transaction[filterField] || '').toString().toLowerCase();
+      return !filterValue || fieldValue.includes(filterValue.toLowerCase());
+    }
+  });
+
+  // Filter berdasarkan search term untuk piutang
+  const filteredPiutang = piutangData.filter(transaction => {
     if (filterField === 'tanggal') {
       const tgl = new Date(transaction.tanggal);
       if (dateMode === 'single' && singleDate) {

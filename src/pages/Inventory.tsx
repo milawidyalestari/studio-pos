@@ -40,6 +40,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
+import { useHasAccess } from '@/context/RoleAccessContext';
 
 const Inventory = () => {
   const hasAccess = useHasAccess();

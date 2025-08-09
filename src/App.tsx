@@ -24,6 +24,7 @@ import React from 'react';
 import { RoleAccessProvider } from '@/context/RoleAccessContext';
 import { useDatabaseInit } from '@/hooks/use-database-init';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { AutoRedirect, NoAccessPage } from '@/components/AutoRedirect';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -123,22 +124,26 @@ const App = () => {
                       path="/*"
                       element={
                         <RequireAuth>
-                          <Layout>
-                            <Routes>
-                              <Route path="/" element={<Dashboard />} />
-                              <Route path="/orderan" element={<Orderan />} />
-                              <Route path="/transaction" element={<TransactionPage />} />
-                              <Route path="/inventory" element={<Inventory />} />
-                              <Route path="/report" element={<Report />} />
-                              <Route path="/master-data" element={<MasterData />} />
-                              <Route path="/settings" element={<Settings />} />
-                              <Route path="/cashier" element={<Cashier />} />
-                              <Route path="/finance" element={<Finance />} />
-                              <Route path="/suppliers" element={<Suppliers />} />
-                              <Route path="/print-demo" element={<PrintDemo />} />
-                              <Route path="*" element={<NotFound />} />
-                            </Routes>
-                          </Layout>
+                          <AutoRedirect>
+                            <Layout>
+                              <Routes>
+                                <Route path="/" element={<div>Redirecting...</div>} />
+                                <Route path="/dashboard" element={<Dashboard />} />
+                                <Route path="/orderan" element={<Orderan />} />
+                                <Route path="/transaction" element={<TransactionPage />} />
+                                <Route path="/inventory" element={<Inventory />} />
+                                <Route path="/report" element={<Report />} />
+                                <Route path="/master-data" element={<MasterData />} />
+                                <Route path="/settings" element={<Settings />} />
+                                <Route path="/cashier" element={<Cashier />} />
+                                <Route path="/finance" element={<Finance />} />
+                                <Route path="/suppliers" element={<Suppliers />} />
+                                <Route path="/print-demo" element={<PrintDemo />} />
+                                <Route path="/no-access" element={<NoAccessPage />} />
+                                <Route path="*" element={<NotFound />} />
+                              </Routes>
+                            </Layout>
+                          </AutoRedirect>
                         </RequireAuth>
                       }
                     />

@@ -5,6 +5,7 @@ import AddColumnDialog from './kanban/AddColumnDialog';
 import AddColumnButton from './kanban/AddColumnButton';
 import { KanbanColumn as KanbanColumnType, KanbanBoardProps, DEFAULT_COLUMNS } from './kanban/KanbanTypes';
 import { useOrderStatus } from '@/hooks/useOrderStatus';
+import { useProducts } from '@/hooks/useProducts';
 import { Employee, OrderWithItems, Order } from '@/types';
 
 interface KanbanBoardWithEmployeesProps extends KanbanBoardProps {
@@ -28,7 +29,7 @@ function getOrderStatus(order: OrderWithItems): string {
   return 'Design';
 }
 
-function mapOrderWithItemsToOrder(order: OrderWithItems, employeeMap: Map<string, Employee>, statuses: any[]): Order {
+function mapOrderWithItemsToOrder(order: OrderWithItems, employeeMap: Map<string, Employee>, statuses: any[], products: any[]): Order {
   // Get designer info from the joined data if available, otherwise fallback to employeeMap
   let designer = undefined;
   if (order.desainer && order.desainer.nama) {
@@ -52,7 +53,11 @@ function mapOrderWithItemsToOrder(order: OrderWithItems, employeeMap: Map<string
     id: order.id,
     orderNumber: order.order_number || '-',
     customer: order.customer_name || '-',
-    items: order.order_items ? order.order_items.map(item => item.item_name || 'Unknown Item') : [],
+    items: order.order_items ? order.order_items.map(item => {
+      // Cari nama produk berdasarkan item_name (kode produk)
+      const product = products?.find(p => p.kode === item.item_name);
+      return product?.nama || item.item_name || 'Unknown Item';
+    }) : [],
     total: order.total_amount?.toString() || '-',
     status: status as Order['status'],
     date: order.created_at || order.tanggal || '-',
@@ -78,6 +83,7 @@ const KanbanBoard = ({
 }: KanbanBoardWithEmployeesProps) => {
   const [columns, setColumns] = useState<KanbanColumnType[]>(DEFAULT_COLUMNS);
   const [showAddColumn, setShowAddColumn] = useState(false);
+  const { data: products } = useProducts();
   const [newColumnTitle, setNewColumnTitle] = useState('');
   const [columnOrderSequence, setColumnOrderSequence] = useState<{[columnId: string]: string[]}>({});
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
@@ -130,8 +136,8 @@ const KanbanBoard = ({
       if (aIndex !== -1) return -1;
       if (bIndex !== -1) return 1;
       return new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime();
-    }).map(order => mapOrderWithItemsToOrder(order, employeeMap, statuses));
-  }, [localOrders, columnOrderSequence, employeeMap, statuses]);
+    }).map(order => mapOrderWithItemsToOrder(order, employeeMap, statuses, products));
+  }, [localOrders, columnOrderSequence, employeeMap, statuses, products]);
 
   // Saat drag & drop, update localOrders secara optimistik
   const handleDragEnd = useCallback(async (result: DropResult) => {
@@ -419,7 +425,11 @@ const KanbanBoard = ({
                 customer: order.customer_name || order.customer || 'Tidak diketahui',
                 estimatedDate: order.estimasi || order.estimatedDate || '',
                 items: order.items || (order.order_items
-                  ? order.order_items.map(item => item.item_name || item.name || item.title || 'Item tidak diketahui')
+                  ? order.order_items.map(item => {
+                      // Cari nama produk berdasarkan item_name (kode produk)
+                      const product = products?.find(p => p.kode === (item.item_name || item.name || item.title));
+                      return product?.nama || item.item_name || item.name || item.title || 'Item tidak diketahui';
+                    })
                   : []),
                 created_at: order.created_at,
                 designer: order.designer

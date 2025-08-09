@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Edit, Trash2 } from 'lucide-react';
 import { OrderWithItems } from '@/types';
 import { formatCurrency } from '@/services/masterData';
+import { useProducts } from '@/hooks/useProducts';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +29,7 @@ interface OrderTableProps {
 const OrderTable = ({ orders, onUpdateStatus, onOrderClick, onEditOrder, onDeleteOrder }: OrderTableProps) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<OrderWithItems | null>(null);
+  const { data: products } = useProducts();
 
   const handleDeleteClick = (e: React.MouseEvent, order: OrderWithItems) => {
     e.stopPropagation();
@@ -109,7 +111,11 @@ const OrderTable = ({ orders, onUpdateStatus, onOrderClick, onEditOrder, onDelet
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.order_number}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.customer_name}</td>
                   <td className="px-6 py-4 text-sm text-gray-900">
-                    {order.order_items?.map(item => item.item_name).join(', ')}
+                    {order.order_items?.map(item => {
+                      // Cari nama produk berdasarkan item_name (kode produk)
+                      const product = products?.find(p => p.kode === item.item_name);
+                      return product?.nama || item.item_name || 'Item tidak diketahui';
+                    }).join(', ')}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[#0050C8]">{formatCurrency(order.total_amount || 0)}</td>
                   <td className="px-6 py-4 whitespace-nowrap">

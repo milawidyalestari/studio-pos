@@ -96,6 +96,12 @@ const MENU_TREE = [
         ]
       },
       {
+        label: 'Analisis Keuangan',
+        children: [
+          { action: 'financial_analysis', label: 'Analisis Keuangan' }
+        ]
+      },
+      {
         label: 'Laporan Keuangan',
         children: [
           { action: 'financial_reports', label: 'Laporan Keuangan' }
@@ -173,8 +179,7 @@ const MENU_TREE = [
       {
         label: 'Analitik Lanjutan',
         children: [
-          { action: 'export_reports', label: 'Ekspor Laporan' },
-          { action: 'financial_analysis', label: 'Analisis Keuangan' }
+          { action: 'export_reports', label: 'Ekspor Laporan' }
         ]
       }
     ]
@@ -239,20 +244,20 @@ const ROLE_PRESETS = {
     'Dashboard': ['view_stats', 'view_orders', 'view_income', 'view_calendar', 'view_inbox'],
     'Orderan': ['view_orders', 'create_order', 'edit_order', 'delete_order', 'print_spk', 'print_nota', 'change_status'],
     'Transaction': ['view_transactions', 'print_receipt', 'export_data', 'filter_data'],
-    'Finance': ['view_finance', 'view_profit_loss', 'view_cash_flow', 'manage_expenses', 'financial_reports'],
+    'Finance': ['view_finance', 'view_profit_loss', 'view_cash_flow', 'manage_expenses', 'financial_analysis', 'financial_reports'],
     'Inventory': ['view_inventory', 'add_stock', 'adjust_stock', 'view_materials', 'manage_stock_minimum'],
     'Master Data': ['view_products', 'manage_products', 'view_customers', 'manage_customers', 'view_suppliers', 'manage_suppliers', 'view_employees', 'manage_employees'],
-    'Report': ['view_reports', 'daily_reports', 'monthly_reports', 'export_reports', 'financial_analysis'],
+    'Report': ['view_reports', 'daily_reports', 'monthly_reports', 'export_reports'],
     'Settings': ['view_settings', 'program_settings', 'database_settings', 'hardware_settings', 'user_management', 'role_management', 'system_tools']
   },
   'Manager': {
     'Dashboard': ['view_stats', 'view_orders', 'view_income', 'view_calendar', 'view_inbox'],
     'Orderan': ['view_orders', 'create_order', 'edit_order', 'delete_order', 'print_spk', 'print_nota', 'change_status'],
     'Transaction': ['view_transactions', 'print_receipt', 'export_data', 'filter_data'],
-    'Finance': ['view_finance', 'view_profit_loss', 'view_cash_flow', 'financial_reports'],
+    'Finance': ['view_finance', 'view_profit_loss', 'view_cash_flow', 'financial_analysis', 'financial_reports'],
     'Inventory': ['view_inventory', 'add_stock', 'adjust_stock', 'view_materials', 'manage_stock_minimum'],
     'Master Data': ['view_products', 'manage_products', 'view_customers', 'manage_customers', 'view_suppliers', 'manage_suppliers'],
-    'Report': ['view_reports', 'daily_reports', 'monthly_reports', 'export_reports', 'financial_analysis'],
+    'Report': ['view_reports', 'daily_reports', 'monthly_reports', 'export_reports'],
     'Settings': ['view_settings', 'program_settings']
   },
   'Supervisor': {

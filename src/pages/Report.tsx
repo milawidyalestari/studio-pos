@@ -1,18 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { 
   Download,
   FileDown,
   FileSpreadsheet,
   FileText,
-  Filter,
   Search,
   Calendar,
-  TrendingUp,
   Receipt,
   BarChart3,
   ChevronDown,
@@ -35,17 +35,19 @@ import {
 import { useOrders } from '@/hooks/useOrders';
 import { useOrderStatus } from '@/hooks/useOrderStatus';
 import { useToast } from '@/hooks/use-toast';
-import { addSampleOrders, clearSampleOrders } from '@/services/sampleDataService';
-import { addTestOrders, clearTestOrders } from '@/services/testDataService';
-import { addSampleOrdersToLocalStorage, clearSampleOrdersFromLocalStorage } from '@/services/localStorageService';
+
 import { useQuery } from '@tanstack/react-query';
 import { databaseManager } from '@/lib/database-manager';
-import { useHasAccess } from '@/context/RoleAccessContext';
+
 
 const Report = () => {
-  const hasAccess = useHasAccess();
   const [activeTab, setActiveTab] = useState('daily-orders');
   const [dateFilter, setDateFilter] = useState('today');
+  const [customDateRange, setCustomDateRange] = useState<{
+    from: Date | undefined;
+    to: Date | undefined;
+  }>({ from: undefined, to: undefined });
+  const [showCustomCalendar, setShowCustomCalendar] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   
@@ -76,6 +78,13 @@ const Report = () => {
     
     const normalizedToday = normalizeDate(today);
     const normalizedOrderDate = normalizeDate(orderDateObj);
+    
+    // Check custom date range first
+    if (dateFilter === 'custom' && customDateRange.from) {
+      const fromDate = normalizeDate(customDateRange.from);
+      const toDate = customDateRange.to ? normalizeDate(customDateRange.to) : fromDate;
+      return normalizedOrderDate >= fromDate && normalizedOrderDate <= toDate;
+    }
     
     switch (dateFilter) {
       case 'today':
@@ -122,55 +131,7 @@ const Report = () => {
     return matchesSearch && matchesStatus && matchesDate;
   }) || [];
 
-  // Calculate real financial data from orders
-  const calculateFinancialData = () => {
-    if (!filteredOrders || filteredOrders.length === 0) {
-      return [
-        { category: 'Pendapatan', amount: '0', percentage: '0%', type: 'income' },
-        { category: 'Biaya Material', amount: '0', percentage: '0%', type: 'expense' },
-        { category: 'Biaya Tenaga Kerja', amount: '0', percentage: '0%', type: 'expense' },
-        { category: 'Laba Bersih', amount: '0', percentage: '0%', type: 'profit' },
-      ];
-    }
 
-    const totalRevenue = filteredOrders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
-    const totalDownPayments = filteredOrders.reduce((sum, order) => sum + (order.down_payment || 0), 0);
-    const totalPelunasan = filteredOrders.reduce((sum, order) => sum + ((order as any).pelunasan || 0), 0);
-    
-    // Estimate costs (you can adjust these percentages)
-    const materialCosts = Math.round(totalRevenue * 0.35); // 35% of revenue
-    const laborCosts = Math.round(totalRevenue * 0.25); // 25% of revenue
-    const netProfit = totalRevenue - materialCosts - laborCosts;
-
-    return [
-      { 
-        category: 'Pendapatan', 
-        amount: totalRevenue.toLocaleString('id-ID'), 
-        percentage: '+0%', // You can calculate this vs previous period
-        type: 'income' 
-      },
-      { 
-        category: 'Biaya Material', 
-        amount: materialCosts.toLocaleString('id-ID'), 
-        percentage: '+0%', 
-        type: 'expense' 
-      },
-      { 
-        category: 'Biaya Tenaga Kerja', 
-        amount: laborCosts.toLocaleString('id-ID'), 
-        percentage: '+0%', 
-        type: 'expense' 
-      },
-      { 
-        category: 'Laba Bersih', 
-        amount: netProfit.toLocaleString('id-ID'), 
-        percentage: '+0%', 
-        type: 'profit' 
-      },
-    ];
-  };
-
-  const financialData = calculateFinancialData();
 
   // Calculate real sales data from orders
   const calculateSalesData = () => {
@@ -183,15 +144,7 @@ const Report = () => {
     filteredOrders.forEach(order => {
       if (order.order_items) {
         order.order_items.forEach(item => {
-          // Debug: Log item structure to understand available data (development only)
-          if (process.env.NODE_ENV === 'development' && Math.random() < 0.1) {
-            // Only log 10% of items to avoid console spam
-            console.log('Sample order item data:', {
-              item_name: item.item_name,
-              bahan: item.bahan,
-              description: item.description
-            });
-          }
+
           
           // Create a more descriptive product name
           let productName = item.item_name || 'Produk Tidak Diketahui';
@@ -231,6 +184,44 @@ const Report = () => {
 
   const salesData = calculateSalesData();
 
+  // Helper function to format date range display
+  const formatDateRange = () => {
+    if (dateFilter === 'custom' && customDateRange.from) {
+      if (customDateRange.to) {
+        return `${customDateRange.from.toLocaleDateString('id-ID')} - ${customDateRange.to.toLocaleDateString('id-ID')}`;
+      }
+      return customDateRange.from.toLocaleDateString('id-ID');
+    }
+    
+    switch (dateFilter) {
+      case 'today': return 'Hari Ini';
+      case 'yesterday': return 'Kemarin';
+      case 'week': return 'Minggu Ini';
+      case 'month': return 'Bulan Ini';
+      case 'quarter': return 'Kuartal Ini';
+      case 'year': return 'Tahun Ini';
+      default: return 'Semua Tanggal';
+    }
+  };
+
+  // Handle calendar date selection
+  const handleCalendarSelect = (range: { from: Date | undefined; to: Date | undefined } | undefined) => {
+    if (range) {
+      setCustomDateRange(range);
+      setDateFilter('custom');
+    }
+  };
+
+  // Handle date filter change
+  const handleDateFilterChange = (value: string) => {
+    setDateFilter(value);
+    if (value === 'custom') {
+      setShowCustomCalendar(true);
+    } else {
+      setShowCustomCalendar(false);
+    }
+  };
+
   // Use real transaction data from filteredOrders
   const transactionData = filteredOrders.map(order => ({
     id: order.order_number || 'N/A',
@@ -262,7 +253,6 @@ const Report = () => {
   }));
 
   const handleExport = (format: string) => {
-    console.log(`Exporting ${activeTab} report as ${format}`);
     toast({
       title: "Ekspor Dimulai",
       description: `Mengekspor laporan dalam format ${format.toUpperCase()}`,
@@ -277,155 +267,7 @@ const Report = () => {
     });
   };
 
-  const handleAddSampleData = async () => {
-    try {
-      const result = await addSampleOrders();
-      if (result.success) {
-        refetch();
-        toast({
-          title: "Data Contoh Ditambahkan",
-          description: "Order contoh telah ditambahkan ke database",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "Gagal menambahkan data contoh",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Gagal menambahkan data contoh",
-        variant: "destructive",
-      });
-    }
-  };
 
-  const handleClearSampleData = async () => {
-    try {
-      const result = await clearSampleOrders();
-      if (result.success) {
-        refetch();
-        toast({
-          title: "Data Contoh Dihapus",
-          description: "Order contoh telah dihapus dari database",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "Gagal menghapus data contoh",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to clear sample data",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleAddTestData = async () => {
-    try {
-      const result = await addTestOrders();
-      if (result.success) {
-        refetch();
-        toast({
-          title: "Data Test Ditambahkan",
-          description: "Order test telah ditambahkan ke database",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "Gagal menambahkan data test",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to add test data",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleClearTestData = async () => {
-    try {
-      const result = await clearTestOrders();
-      if (result.success) {
-        refetch();
-        toast({
-          title: "Data Test Dihapus",
-          description: "Order test telah dihapus dari database",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "Gagal menghapus data test",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to clear test data",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleAddLocalStorageData = async () => {
-    try {
-      const result = addSampleOrdersToLocalStorage();
-      if (result.success) {
-        refetch();
-        toast({
-          title: "Local Storage Data Added",
-          description: "Sample orders have been added to localStorage",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to add localStorage data",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to add localStorage data",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleClearLocalStorageData = async () => {
-    try {
-      const result = clearSampleOrdersFromLocalStorage();
-      if (result.success) {
-        refetch();
-        toast({
-          title: "Local Storage Data Cleared",
-          description: "Sample orders have been removed from localStorage",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to clear localStorage data",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to clear localStorage data",
-        variant: "destructive",
-      });
-    }
-  };
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -491,108 +333,19 @@ const Report = () => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="gap-2">
-                <Filter className="h-4 w-4" />
-                Data Contoh
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleAddSampleData} className="gap-2">
-                <FileText className="h-4 w-4" />
-                Tambah Order Contoh
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleClearSampleData} className="gap-2">
-                <FileDown className="h-4 w-4" />
-                Hapus Order Contoh
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleAddTestData} className="gap-2">
-                <FileText className="h-4 w-4" />
-                Tambah Order Test
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleClearTestData} className="gap-2">
-                <FileDown className="h-4 w-4" />
-                Hapus Order Test
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleAddLocalStorageData} className="gap-2">
-                <FileText className="h-4 w-4" />
-                Tambah Order LocalStorage
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleClearLocalStorageData} className="gap-2">
-                <FileDown className="h-4 w-4" />
-                Hapus Order LocalStorage
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button 
-            variant="outline" 
-            className="gap-2"
-            onClick={() => {
-              console.log('Current orders:', orders);
-              console.log('Filtered orders:', filteredOrders);
-              console.log('Database info:', dbInfo);
-            }}
-          >
-            Debug
-          </Button>
+
+
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center justify-between bg-white p-4 rounded-lg border">
-        <div className="flex items-center gap-3 flex-1">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input 
-              placeholder="Cari order berdasarkan ID atau customer..." 
-              className="pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Select value={statusFilter} onValueChange={setStatusFilter} disabled={statusesLoading}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder={statusesLoading ? "Memuat..." : "Semua Status"} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Semua Status</SelectItem>
-              {orderStatuses?.map((status) => (
-                <SelectItem key={status.id} value={status.name.toLowerCase()}>
-                  {status.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={dateFilter} onValueChange={setDateFilter}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="today">Hari Ini</SelectItem>
-              <SelectItem value="yesterday">Kemarin</SelectItem>
-              <SelectItem value="week">Minggu Ini</SelectItem>
-              <SelectItem value="month">Bulan Ini</SelectItem>
-              <SelectItem value="quarter">Kuartal Ini</SelectItem>
-              <SelectItem value="year">Tahun Ini</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+
 
       {/* Report Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="daily-orders" className="gap-2">
             <Calendar className="h-4 w-4" />
             Order Harian
-          </TabsTrigger>
-          <TabsTrigger value="financial" className="gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Keuangan
           </TabsTrigger>
           <TabsTrigger value="sales" className="gap-2">
             <BarChart3 className="h-4 w-4" />
@@ -606,6 +359,90 @@ const Report = () => {
 
         {/* Daily Orders Report */}
         <TabsContent value="daily-orders" className="space-y-4">
+          {/* Search and Filters for Daily Orders */}
+          <div className="bg-white p-4 rounded-lg border">
+            <div className="flex items-center justify-between gap-4">
+              {/* Search Bar - Left */}
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input 
+                  placeholder="Cari order berdasarkan ID atau customer..." 
+                  className="pl-10"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              
+              {/* Filters - Right */}
+              <div className="flex items-center gap-2">
+                {/* Calendar Filter Dropdown */}
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-4 w-4 text-[#0050C8]" />
+                  <Select value={dateFilter} onValueChange={handleDateFilterChange}>
+                    <SelectTrigger className="w-[150px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="today">Hari Ini</SelectItem>
+                      <SelectItem value="yesterday">Kemarin</SelectItem>
+                      <SelectItem value="week">Minggu Ini</SelectItem>
+                      <SelectItem value="month">Bulan Ini</SelectItem>
+                      <SelectItem value="quarter">Kuartal Ini</SelectItem>
+                      <SelectItem value="year">Tahun Ini</SelectItem>
+                      <SelectItem value="custom">
+                        {dateFilter === 'custom' && customDateRange.from ? 
+                          (customDateRange.to ? 
+                            `${customDateRange.from.toLocaleDateString('id-ID')} - ${customDateRange.to.toLocaleDateString('id-ID')}` :
+                            customDateRange.from.toLocaleDateString('id-ID')
+                          ) : 
+                          'Pilih Rentang Tanggal'
+                        }
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Custom Calendar Popover */}
+                {showCustomCalendar && (
+                  <Popover open={showCustomCalendar} onOpenChange={setShowCustomCalendar}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <Calendar className="h-4 w-4" />
+                        Pilih Tanggal
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <div className="p-3">
+                        <h4 className="font-medium text-sm mb-2">Pilih Rentang Tanggal</h4>
+                        <CalendarComponent
+                          mode="range"
+                          selected={customDateRange}
+                          onSelect={handleCalendarSelect}
+                          numberOfMonths={1}
+                          className="rounded-md border"
+                        />
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
+                
+                {/* Status Filter */}
+                <Select value={statusFilter} onValueChange={setStatusFilter} disabled={statusesLoading}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder={statusesLoading ? "Memuat..." : "Semua Status"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Status</SelectItem>
+                    {orderStatuses?.map((status) => (
+                      <SelectItem key={status.id} value={status.name.toLowerCase()}>
+                        {status.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -664,7 +501,7 @@ const Report = () => {
                             IDR {order.total_amount?.toLocaleString() || '0'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {order.payment_type || 'Cash'}
+                            {order.payment_types?.payment_method || order.payment_type || 'Belum Ditentukan'}
                           </td>
                         </tr>
                       ))}
@@ -676,57 +513,78 @@ const Report = () => {
           </Card>
         </TabsContent>
 
-        {/* Financial Report */}
-        <TabsContent value="financial" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {financialData.map((item, index) => (
-              <Card key={index}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600">{item.category}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-gray-900">IDR {item.amount}</div>
-                  <p className={`text-xs font-medium ${
-                    item.type === 'income' || item.type === 'profit' ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {item.percentage} dari periode sebelumnya
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-[#0050C8]" />
-                Ringkasan Keuangan
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {financialData.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <p className="font-medium text-gray-900">{item.category}</p>
-                      <p className="text-sm text-gray-600">Pertumbuhan: {item.percentage}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className={`text-lg font-semibold ${
-                        item.type === 'income' || item.type === 'profit' ? 'text-green-600' : 
-                        item.type === 'expense' ? 'text-red-600' : 'text-[#0050C8]'
-                      }`}>
-                        IDR {item.amount}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         {/* Sales Report */}
         <TabsContent value="sales" className="space-y-4">
+          {/* Filters for Sales */}
+          <div className="bg-white p-4 rounded-lg border">
+            <div className="flex items-center justify-end gap-2">
+              {/* Calendar Filter Dropdown */}
+              <div className="flex items-center gap-1">
+                <Calendar className="h-4 w-4 text-[#0050C8]" />
+                <Select value={dateFilter} onValueChange={handleDateFilterChange}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="today">Hari Ini</SelectItem>
+                    <SelectItem value="yesterday">Kemarin</SelectItem>
+                    <SelectItem value="week">Minggu Ini</SelectItem>
+                    <SelectItem value="month">Bulan Ini</SelectItem>
+                    <SelectItem value="quarter">Kuartal Ini</SelectItem>
+                    <SelectItem value="year">Tahun Ini</SelectItem>
+                    <SelectItem value="custom">
+                      {dateFilter === 'custom' && customDateRange.from ? 
+                        (customDateRange.to ? 
+                          `${customDateRange.from.toLocaleDateString('id-ID')} - ${customDateRange.to.toLocaleDateString('id-ID')}` :
+                          customDateRange.from.toLocaleDateString('id-ID')
+                        ) : 
+                        'Pilih Rentang Tanggal'
+                      }
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Custom Calendar Popover */}
+              {showCustomCalendar && (
+                <Popover open={showCustomCalendar} onOpenChange={setShowCustomCalendar}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Pilih Tanggal
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <div className="p-3">
+                      <h4 className="font-medium text-sm mb-2">Pilih Rentang Tanggal</h4>
+                      <CalendarComponent
+                        mode="range"
+                        selected={customDateRange}
+                        onSelect={handleCalendarSelect}
+                        numberOfMonths={1}
+                        className="rounded-md border"
+                      />
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+              
+              {/* Status Filter */}
+              <Select value={statusFilter} onValueChange={setStatusFilter} disabled={statusesLoading}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder={statusesLoading ? "Memuat..." : "Semua Status"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Status</SelectItem>
+                  {orderStatuses?.map((status) => (
+                    <SelectItem key={status.id} value={status.name.toLowerCase()}>
+                      {status.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -763,6 +621,90 @@ const Report = () => {
 
         {/* Transaction Report (Read-only) */}
         <TabsContent value="transactions" className="space-y-4">
+          {/* Search and Filters for Transactions */}
+          <div className="bg-white p-4 rounded-lg border">
+            <div className="flex items-center justify-between gap-4">
+              {/* Search Bar - Left */}
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input 
+                  placeholder="Cari transaksi berdasarkan ID atau customer..." 
+                  className="pl-10"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              
+              {/* Filters - Right */}
+              <div className="flex items-center gap-2">
+                {/* Calendar Filter Dropdown */}
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-4 w-4 text-[#0050C8]" />
+                  <Select value={dateFilter} onValueChange={handleDateFilterChange}>
+                    <SelectTrigger className="w-[150px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="today">Hari Ini</SelectItem>
+                      <SelectItem value="yesterday">Kemarin</SelectItem>
+                      <SelectItem value="week">Minggu Ini</SelectItem>
+                      <SelectItem value="month">Bulan Ini</SelectItem>
+                      <SelectItem value="quarter">Kuartal Ini</SelectItem>
+                      <SelectItem value="year">Tahun Ini</SelectItem>
+                      <SelectItem value="custom">
+                        {dateFilter === 'custom' && customDateRange.from ? 
+                          (customDateRange.to ? 
+                            `${customDateRange.from.toLocaleDateString('id-ID')} - ${customDateRange.to.toLocaleDateString('id-ID')}` :
+                            customDateRange.from.toLocaleDateString('id-ID')
+                          ) : 
+                          'Pilih Rentang Tanggal'
+                        }
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Custom Calendar Popover */}
+                {showCustomCalendar && (
+                  <Popover open={showCustomCalendar} onOpenChange={setShowCustomCalendar}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <Calendar className="h-4 w-4" />
+                        Pilih Tanggal
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <div className="p-3">
+                        <h4 className="font-medium text-sm mb-2">Pilih Rentang Tanggal</h4>
+                        <CalendarComponent
+                          mode="range"
+                          selected={customDateRange}
+                          onSelect={handleCalendarSelect}
+                          numberOfMonths={1}
+                          className="rounded-md border"
+                        />
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
+                
+                {/* Status Filter */}
+                <Select value={statusFilter} onValueChange={setStatusFilter} disabled={statusesLoading}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder={statusesLoading ? "Memuat..." : "Semua Status"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Status</SelectItem>
+                    {orderStatuses?.map((status) => (
+                      <SelectItem key={status.id} value={status.name.toLowerCase()}>
+                        {status.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

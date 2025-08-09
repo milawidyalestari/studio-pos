@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useState } from 'react';
 import { formatCurrency } from '@/services/productPricing';
+import { useProducts } from '@/hooks/useProducts';
 import type { OrderWithItems } from '@/types';
 import type { Database } from '@/integrations/supabase/types';
 type OrderItem = Database['public']['Tables']['order_items']['Row'];
@@ -20,6 +21,8 @@ interface OrdersTableContentProps {
 }
 
 const OrdersTableContent: React.FC<OrdersTableContentProps> = ({ orders }) => {
+  const { data: products } = useProducts();
+  
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'desain': return 'bg-yellow-100 text-yellow-800';
@@ -107,16 +110,22 @@ const OrdersTableContent: React.FC<OrdersTableContentProps> = ({ orders }) => {
                     <span>Finishing</span>
                   </div>
                   {selectedOrder.order_items && selectedOrder.order_items.length > 0 ? (
-                    selectedOrder.order_items.map((item: OrderItem, idx: number) => (
-                      <div key={item.id || idx} className="grid grid-cols-6 gap-1 text-xs py-2 px-2 border-b">
-                        <span>{idx + 1}</span>
-                        <span className="truncate" title={item.item_name}>{item.item_name}</span>
-                        <span>{item.quantity}</span>
-                        <span className="text-green-600 font-semibold">{formatCurrency(item.sub_total || 0)}</span>
-                        <span>{item.bahan || '-'}</span>
-                        <span>{item.finishing || '-'}</span>
-                      </div>
-                    ))
+                    selectedOrder.order_items.map((item: OrderItem, idx: number) => {
+                      // Cari nama produk berdasarkan item_name (kode produk)
+                      const product = products?.find(p => p.kode === item.item_name);
+                      const displayName = product?.nama || item.item_name || 'Item tidak diketahui';
+                      
+                      return (
+                        <div key={item.id || idx} className="grid grid-cols-6 gap-1 text-xs py-2 px-2 border-b">
+                          <span>{idx + 1}</span>
+                          <span className="truncate" title={displayName}>{displayName}</span>
+                          <span>{item.quantity}</span>
+                          <span className="text-green-600 font-semibold">{formatCurrency(item.sub_total || 0)}</span>
+                          <span>{item.bahan || '-'}</span>
+                          <span>{item.finishing || '-'}</span>
+                        </div>
+                      );
+                    })
                   ) : (
                     <div className="p-2 text-xs text-gray-500">Tidak ada item order.</div>
                   )}
