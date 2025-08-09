@@ -226,11 +226,11 @@ const Inventory = () => {
     if (!editingProduct) return;
     try {
       // await updateProduct.mutateAsync({ id: editingProduct.id, ...productData }); // This line was removed
-      toast({ title: 'Success', description: 'Product updated successfully' });
+      toast({ title: 'Berhasil', description: 'Produk berhasil diperbarui' });
       setIsProductFormOpen(false);
       setEditingProduct(null);
     } catch (error) {
-      toast({ title: 'Error', description: 'Failed to update product', variant: 'destructive' });
+      toast({ title: 'Gagal', description: 'Gagal memperbarui produk', variant: 'destructive' });
     }
   };
 
@@ -632,7 +632,7 @@ const Inventory = () => {
                     </SelectContent>
                   </Select>
                 ) : (
-                  <Input value={filterValue} onChange={e => setFilterValue(e.target.value)} className="h-8" placeholder="Isi filter..." />
+                  <Input value={filterValue} onChange={e => setFilterValue(e.target.value)} className="h-6" placeholder="Isi filter..." />
                 )}
               </div>
               <div className="flex justify-end gap-2">

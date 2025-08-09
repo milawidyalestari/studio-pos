@@ -1,29 +1,34 @@
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface OrderStatus {
   id: number;
   name: string;
+  display_order: number;
+  color: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 export function useOrderStatus() {
-  const [statuses, setStatuses] = useState<OrderStatus[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchStatuses() {
-      setLoading(true);
+  return useQuery({
+    queryKey: ['order-statuses'],
+    queryFn: async () => {
+      console.log('Fetching order statuses from database...');
+      
       const { data, error } = await supabase
         .from('order_statuses')
-        .select('id, name')
-        .order('id', { ascending: true });
-      if (!error && data) {
-        setStatuses(data);
-      }
-      setLoading(false);
-    }
-    fetchStatuses();
-  }, []);
+        .select('*')
+        .order('display_order', { ascending: true });
 
-  return { statuses, loading };
+      if (error) {
+        console.error('Error fetching order statuses:', error);
+        throw error;
+      }
+
+      console.log('Order statuses fetched successfully:', data);
+      return data as OrderStatus[];
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
+  });
 } 

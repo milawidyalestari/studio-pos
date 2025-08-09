@@ -31,7 +31,7 @@ const AddColumnDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Add New Status</DialogTitle>
+          <DialogTitle>Tambah Status</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <Input

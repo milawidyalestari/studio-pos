@@ -6,7 +6,11 @@ import { ProgramSettings } from './ProgramSettings';
 import { DatabaseSettings } from './DatabaseSettings';
 import { ProgramTools } from './ProgramTools';
 import { UserSettings } from './UserSettings';
-import { UserProfile } from './UserProfile';
+import HardwareSettings from './HardwareSettings';
+import DatabaseTest from '../DatabaseTest';
+import MigrationWizard from '../MigrationWizard';
+import DatabaseDebug from '../DatabaseDebug';
+import { NotaSettings } from './NotaSettings';
 
 export const SettingsTabs = () => {
   return (
@@ -19,12 +23,16 @@ export const SettingsTabs = () => {
       </div>
 
       <Tabs defaultValue="program" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="program">Program</TabsTrigger>
           <TabsTrigger value="database">Database</TabsTrigger>
+          <TabsTrigger value="hardware">Hardware</TabsTrigger>
           <TabsTrigger value="tools">Tools</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="nota">Nota</TabsTrigger>
+          <TabsTrigger value="test">Test</TabsTrigger>
+          <TabsTrigger value="migration">Migration</TabsTrigger>
+          <TabsTrigger value="debug">Debug</TabsTrigger>
         </TabsList>
 
         <TabsContent value="program" className="space-y-4">
@@ -55,6 +63,10 @@ export const SettingsTabs = () => {
           </Card>
         </TabsContent>
 
+        <TabsContent value="hardware" className="space-y-4">
+          <HardwareSettings />
+        </TabsContent>
+
         <TabsContent value="tools" className="space-y-4">
           <Card>
             <CardHeader>
@@ -83,18 +95,30 @@ export const SettingsTabs = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="profile" className="space-y-4">
+        <TabsContent value="nota" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Edit User Profile</CardTitle>
+              <CardTitle>Nota Settings</CardTitle>
               <CardDescription>
-                View and edit your personal profile information.
+                Customize header, logo, and footer for Nota prints.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <UserProfile />
+              <NotaSettings />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="test" className="space-y-4">
+          <DatabaseTest />
+        </TabsContent>
+
+        <TabsContent value="migration" className="space-y-4">
+          <MigrationWizard />
+        </TabsContent>
+
+        <TabsContent value="debug" className="space-y-4">
+          <DatabaseDebug />
         </TabsContent>
       </Tabs>
     </div>

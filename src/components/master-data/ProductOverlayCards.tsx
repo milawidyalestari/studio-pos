@@ -30,7 +30,7 @@ export const ProductOverlayCards: React.FC<ProductOverlayCardsProps> = ({
             <div>
               <h3 className="font-semibold">Data Kelompok</h3>
               <p className="text-sm text-gray-600">
-                {categoriesLoading ? 'Loading...' : `${sampleGroups.length} groups`}
+                {categoriesLoading ? 'Loading...' : `${sampleGroups.length} Kelompok`}
               </p>
             </div>
           </div>
@@ -44,7 +44,7 @@ export const ProductOverlayCards: React.FC<ProductOverlayCardsProps> = ({
             <div>
               <h3 className="font-semibold">Data Kategori</h3>
               <p className="text-sm text-gray-600">
-                {categoriesLoading ? 'Loading...' : `${sampleCategories.length} categories`}
+                {categoriesLoading ? 'Loading...' : `${sampleCategories.length} Kategori`}
               </p>
             </div>
           </div>
@@ -58,7 +58,7 @@ export const ProductOverlayCards: React.FC<ProductOverlayCardsProps> = ({
             <div>
               <h3 className="font-semibold">Data Satuan</h3>
               <p className="text-sm text-gray-600">
-                {categoriesLoading ? 'Loading...' : `${sampleUnits.length} units`}
+                {categoriesLoading ? 'Loading...' : `${sampleUnits.length} Unit`}
               </p>
             </div>
           </div>
@@ -70,9 +70,9 @@ export const ProductOverlayCards: React.FC<ProductOverlayCardsProps> = ({
           <div className="flex items-center gap-3">
             <CreditCard className="h-8 w-8 text-[#0050C8]" />
             <div>
-              <h3 className="font-semibold">Jenis Non Tunai</h3>
+              <h3 className="font-semibold">Tipe Pembayaran</h3>
               <p className="text-sm text-gray-600">
-                {categoriesLoading ? 'Loading...' : `${samplePaymentTypes.length} types`}
+                {categoriesLoading ? 'Loading...' : `${samplePaymentTypes.length} Tipe`}
               </p>
             </div>
           </div>
@@ -86,7 +86,7 @@ export const ProductOverlayCards: React.FC<ProductOverlayCardsProps> = ({
             <div>
               <h3 className="font-semibold">Data Posisi</h3>
               <p className="text-sm text-gray-600">
-                {categoriesLoading ? 'Loading...' : `${samplePositions.length} positions`}
+                {categoriesLoading ? 'Loading...' : `${samplePositions.length} Posisi`}
               </p>
             </div>
           </div>

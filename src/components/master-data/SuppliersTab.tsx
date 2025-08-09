@@ -193,11 +193,11 @@ export const SuppliersTab: React.FC<SuppliersTabProps> = ({
                   disabled={!filterValue}
                   className="w-full"
                 >
-                  Add Filter
+                  Tambah Filter
                 </Button>
                 {filters.length > 0 && (
                   <div className="mt-2 space-y-1">
-                    <div className="text-xs text-gray-500">Active Filters:</div>
+                    <div className="text-xs text-gray-500">Filter Aktif:</div>
                     {filters.map((f, i) => (
                       <div key={i} className="flex items-center gap-2 text-xs bg-gray-100 rounded px-2 py-1">
                         <span>{filterFields.find(ff => ff.value === f.field)?.label}</span>
@@ -226,18 +226,18 @@ export const SuppliersTab: React.FC<SuppliersTabProps> = ({
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact Person</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Whatsapp</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Telepon</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Address</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Alamat</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredSuppliers.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                      {searchTerm ? 'No suppliers found matching your search.' : 'No suppliers found. Click "Add New" to create the first supplier.'}
+                      {searchTerm ? 'Tidak ada supplier yang cocok dengan pencarian Anda.' : 'Belum ada supplier. Klik "Tambah Baru" untuk membuat supplier pertama.'}
                     </td>
                   </tr>
                 ) : (

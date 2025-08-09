@@ -3,7 +3,7 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { usePrintOverlay } from '../hooks/usePrintOverlay';
 import { PrintOverlay } from './PrintOverlay';
-import { FileText, Printer, Receipt, CreditCard } from 'lucide-react';
+import { FileText, Printer, CreditCard } from 'lucide-react';
 
 const PrintDemo: React.FC = () => {
   const {
@@ -13,7 +13,6 @@ const PrintDemo: React.FC = () => {
     closePrintOverlay,
     handlePrint,
     printSPK,
-    printReceipt,
     printNota,
     printPelunasan,
   } = usePrintOverlay();
@@ -61,13 +60,6 @@ const PrintDemo: React.FC = () => {
     });
   };
 
-  const handlePrintReceiptDemo = () => {
-    printReceipt({
-      orderList: sampleOrderList,
-      orderData: sampleOrderData,
-    });
-  };
-
   const handlePrintNotaDemo = () => {
     printNota({
       orderList: sampleOrderList,
@@ -89,7 +81,7 @@ const PrintDemo: React.FC = () => {
         <p className="text-gray-600">Demo untuk menampilkan berbagai jenis print overlay</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handlePrintSPKDemo}>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -100,20 +92,6 @@ const PrintDemo: React.FC = () => {
           <CardContent>
             <p className="text-sm text-gray-600">
               Surat Perintah Kerja untuk tim produksi
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handlePrintReceiptDemo}>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Receipt className="h-5 w-5 text-green-600" />
-              Print Receipt
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-600">
-              Receipt untuk customer
             </p>
           </CardContent>
         </Card>

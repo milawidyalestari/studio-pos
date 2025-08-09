@@ -14,7 +14,8 @@ import {
   Menu,
   Calculator,
   Truck,
-  Printer
+  Printer,
+  DollarSign
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -42,6 +43,7 @@ const menuItems = [
   { path: ROUTES.ORDERAN, label: 'Orderan', icon: FileText },
   { path: ROUTES.TRANSACTION, label: 'Transaction', icon: Receipt },
   { path: ROUTES.CASHIER, label: 'Cashier', icon: Calculator },
+  { path: '/finance', label: 'Keuangan', icon: DollarSign },
   { path: ROUTES.INVENTORY, label: 'Inventory', icon: Package },
   { path: ROUTES.SUPPLIERS, label: 'Suppliers', icon: Truck },
   { path: ROUTES.REPORT, label: 'Report', icon: BarChart3 },

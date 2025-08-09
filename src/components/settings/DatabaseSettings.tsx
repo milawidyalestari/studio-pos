@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Database, TestTube } from 'lucide-react';
+import DatabaseStatus from '@/components/DatabaseStatus';
 
 export const DatabaseSettings = () => {
   const { toast } = useToast();
@@ -57,6 +58,11 @@ export const DatabaseSettings = () => {
 
   return (
     <div className="space-y-6">
+      {/* Database Status */}
+      <DatabaseStatus />
+
+      <Separator />
+
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <Database className="h-5 w-5" />

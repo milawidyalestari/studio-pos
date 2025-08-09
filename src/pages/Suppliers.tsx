@@ -6,45 +6,15 @@ import { SearchInput } from '@/components/common/SearchInput';
 import { DataTable, Column } from '@/components/common/DataTable';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import SupplierModal from '@/components/SupplierModal';
-import { Supplier } from '@/types';
+import { useSuppliers } from '@/hooks/useSuppliers';
 import { formatCurrency } from '@/utils/formatters';
 import { PAGINATION } from '@/utils/constants';
+import type { Database } from '@/integrations/supabase/types';
 
-const initialSuppliers: Supplier[] = [
-  {
-    id: '1',
-    name: 'ABC Printing Supplies',
-    contactPerson: 'John Smith',
-    email: 'john@abcprinting.com',
-    phone: '+1-555-0123',
-    paymentTerms: 'Net 30',
-    outstandingBalance: 2500.00,
-    address: '123 Industrial Ave, City, State 12345'
-  },
-  {
-    id: '2',
-    name: 'Digital Media Corp',
-    contactPerson: 'Sarah Johnson',
-    email: 'sarah@digitalmedia.com',
-    phone: '+1-555-0456',
-    paymentTerms: 'Net 15',
-    outstandingBalance: 1750.50,
-    address: '456 Tech Blvd, City, State 12345'
-  },
-  {
-    id: '3',
-    name: 'Quality Papers Ltd',
-    contactPerson: 'Mike Wilson',
-    email: 'mike@qualitypapers.com',
-    phone: '+1-555-0789',
-    paymentTerms: 'COD',
-    outstandingBalance: 0.00,
-    address: '789 Paper Mill Rd, City, State 12345'
-  }
-];
+type Supplier = Database['public']['Tables']['suppliers']['Row'];
 
 const Suppliers = () => {
-  const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
+  const { suppliers = [], isLoading, createSupplier, updateSupplier, deleteSupplier, isCreatingSupplier, isUpdatingSupplier, isDeletingSupplier } = useSuppliers();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
@@ -53,8 +23,8 @@ const Suppliers = () => {
   const filteredSuppliers = useMemo(() => {
     return suppliers.filter(supplier =>
       supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      supplier.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      supplier.email.toLowerCase().includes(searchTerm.toLowerCase())
+      (supplier.contact_person && supplier.contact_person.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (supplier.email && supplier.email.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [suppliers, searchTerm]);
 
@@ -75,63 +45,72 @@ const Suppliers = () => {
     setIsModalOpen(true);
   };
 
-  const handleDeleteSupplier = (id: string) => {
+  const handleDeleteSupplier = async (id: string) => {
     if (confirm('Are you sure you want to delete this supplier?')) {
-      setSuppliers(prev => prev.filter(supplier => supplier.id !== id));
+      try {
+        await deleteSupplier(id);
+      } catch (error) {
+        console.error('Error deleting supplier:', error);
+      }
     }
   };
 
-  const handleSaveSupplier = (supplierData: Omit<Supplier, 'id'>) => {
-    if (editingSupplier) {
-      setSuppliers(prev => prev.map(supplier => 
-        supplier.id === editingSupplier.id 
-          ? { ...supplierData, id: editingSupplier.id }
-          : supplier
-      ));
-    } else {
-      const newSupplier: Supplier = {
-        ...supplierData,
-        id: Date.now().toString()
-      };
-      setSuppliers(prev => [...prev, newSupplier]);
+  const handleSaveSupplier = async (supplierData: any) => {
+    try {
+      if (editingSupplier) {
+        await updateSupplier({ id: editingSupplier.id, ...supplierData });
+      } else {
+        await createSupplier(supplierData);
+      }
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving supplier:', error);
     }
-    setIsModalOpen(false);
   };
 
   const columns: Column<Supplier>[] = [
     {
       key: 'name',
-      label: 'Supplier Name',
+      label: 'Nama Supplier',
       render: (value) => <span className="font-medium">{value}</span>
     },
     {
-      key: 'contactPerson',
-      label: 'Contact Person'
+      key: 'contact_person',
+      label: 'Whatsapps',
+      render: (value) => <span>{value || '-'}</span>
     },
     {
       key: 'email',
-      label: 'Email'
+      label: 'Email',
+      render: (value) => <span>{value || '-'}</span>
     },
     {
       key: 'phone',
-      label: 'Phone'
+      label: 'Telepon',
+      render: (value) => <span>{value || '-'}</span>
     },
     {
-      key: 'paymentTerms',
-      label: 'Payment Terms'
+      key: 'payment_terms',
+      label: 'Pembayaran',
+      render: (value) => <span>{value || '-'}</span>
     },
     {
-      key: 'outstandingBalance',
-      label: 'Outstanding Balance',
+      key: 'outstanding_balance',
+      label: 'Sisa Tagihan',
       render: (value) => (
-        <span className={value > 0 ? 'text-red-600 font-semibold' : 'text-green-600'}>
-          {formatCurrency(value)}
+        <span className={value && value > 0 ? 'text-red-600 font-semibold' : 'text-green-600'}>
+          {formatCurrency(value || 0)}
         </span>
       )
     },
     {
+      key: 'address',
+      label: 'Alamat',
+      render: (value) => <span className="text-sm text-gray-600">{value || '-'}</span>
+    },
+    {
       key: 'id',
-      label: 'Actions',
+      label: 'Aksi',
       render: (_, supplier) => (
         <div className="flex justify-center space-x-2">
           <Button
@@ -141,6 +120,7 @@ const Suppliers = () => {
               e.stopPropagation();
               handleEditSupplier(supplier);
             }}
+            disabled={isCreatingSupplier || isUpdatingSupplier || isDeletingSupplier}
           >
             <Edit className="h-4 w-4" />
           </Button>
@@ -152,6 +132,7 @@ const Suppliers = () => {
               handleDeleteSupplier(supplier.id);
             }}
             className="text-red-600 hover:text-red-700"
+            disabled={isCreatingSupplier || isUpdatingSupplier || isDeletingSupplier}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -163,14 +144,20 @@ const Suppliers = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-p4">
-          <h1 className="text-3xl font-bold text-gray-800">Managemen Supplier</h1>
-          <p className="text-gray-600">Manajemen stok & inventaris</p>
-          <Button onClick={handleAddSupplier} className="bg-[#0050C8] hover:bg-[#0040A0]">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Supplier
-          </Button>
-        </div>
+                 <div className="flex justify-between items-center mb-p4">
+           <div>
+             <h1 className="text-3xl font-bold text-gray-800">Managemen Supplier</h1>
+             <p className="text-gray-600 mb-6">Manajemen stok & inventaris</p>
+           </div>
+           <Button 
+             onClick={handleAddSupplier} 
+             className="bg-[#0050C8] hover:bg-[#0040A0]"
+             disabled={isCreatingSupplier || isUpdatingSupplier || isDeletingSupplier}
+           >
+             <Plus className="h-4 w-4 mr-2" />
+             Tambah Baru
+           </Button>
+         </div>
 
         <Card>
           <CardHeader>
@@ -178,7 +165,7 @@ const Suppliers = () => {
               <SearchInput
                 value={searchTerm}
                 onChange={setSearchTerm}
-                placeholder="Search suppliers by name, contact person, or email..."
+                placeholder="Cari supplier berdasarkan nama, contact person, atau email..."
                 className="flex-1"
               />
             </div>
@@ -187,6 +174,7 @@ const Suppliers = () => {
             <DataTable
               data={paginatedSuppliers}
               columns={columns}
+              loading={isLoading}
               pagination={{
                 currentPage,
                 totalPages,
@@ -194,7 +182,7 @@ const Suppliers = () => {
                 totalItems: filteredSuppliers.length,
                 onPageChange: setCurrentPage
               }}
-              emptyMessage={searchTerm ? 'No suppliers found matching your search.' : 'No suppliers found.'}
+              emptyMessage={searchTerm ? 'Tidak ada supplier yang ditemukan sesuai pencarian.' : 'Tidak ada supplier yang ditemukan.'}
             />
           </CardContent>
         </Card>

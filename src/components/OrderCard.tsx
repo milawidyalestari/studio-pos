@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Edit, Calendar, Trash2 } from 'lucide-react';
+import { Edit, Calendar, Trash2, Printer } from 'lucide-react';
 import { DraggableProvided, DraggableStateSnapshot } from 'react-beautiful-dnd';
 import { useProducts } from '@/hooks/useProducts';
 
@@ -33,6 +33,7 @@ interface OrderCardProps {
   onOrderClick?: (order: Order) => void;
   onEditOrder?: (order: Order) => void;
   onDeleteOrder?: (orderId: string) => void;
+  onPrintNota?: (order: Order) => void;
   isOptimisticallyMoved?: boolean;
   isDoneColumn?: boolean;
   onMarkPickedUp?: (orderId: string) => void;
@@ -55,7 +56,7 @@ function formatCreatedAt(dateStr: string) {
   });
 }
 
-const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDeleteOrder, isOptimisticallyMoved, isDoneColumn, onMarkPickedUp }: OrderCardProps) => {
+const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDeleteOrder, onPrintNota, isOptimisticallyMoved, isDoneColumn, onMarkPickedUp }: OrderCardProps) => {
   const { data: products } = useProducts();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const formatDeadline = (dateString: string) => {
@@ -121,6 +122,13 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
     e.stopPropagation();
     if (onMarkPickedUp) {
       onMarkPickedUp(order.id);
+    }
+  };
+
+  const handlePrintNota = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onPrintNota) {
+      onPrintNota(order);
     }
   };
 
@@ -229,6 +237,23 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Edit order</p>
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Print Nota Button */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="h-6 w-6 p-0 hover:bg-blue-100 hover:text-blue-600 transition-colors"
+                    onClick={handlePrintNota}
+                  >
+                    <Printer className="h-3 w-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Print Nota</p>
                 </TooltipContent>
               </Tooltip>
 

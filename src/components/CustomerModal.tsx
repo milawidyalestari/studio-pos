@@ -84,12 +84,12 @@ const CustomerModal = ({ open, onClose, onCustomerCreated }: CustomerModalProps)
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Add New Customer</DialogTitle>
+          <DialogTitle>Tambah Customer Baru</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div >
-            <Label htmlFor="kode" >Customer Code</Label>
+            <Label htmlFor="kode" >Kode Customer</Label>
             <Input
               id="kode"
               value={formData.kode}
@@ -100,7 +100,7 @@ const CustomerModal = ({ open, onClose, onCustomerCreated }: CustomerModalProps)
           </div>
           
           <div>
-            <Label htmlFor="nama">Name *</Label>
+            <Label htmlFor="nama">Nama *</Label>
             <Input
               id="nama"
               value={formData.nama}
@@ -132,7 +132,7 @@ const CustomerModal = ({ open, onClose, onCustomerCreated }: CustomerModalProps)
           </div>
           
           <div>
-            <Label htmlFor="address">Address</Label>
+            <Label htmlFor="address">Alamat</Label>
             <Input
               id="address"
               value={formData.address}
@@ -142,7 +142,7 @@ const CustomerModal = ({ open, onClose, onCustomerCreated }: CustomerModalProps)
           </div>
           
           <div>
-            <Label htmlFor="level">Customer Level</Label>
+            <Label htmlFor="level">Level Customer </Label>
             <Select value={formData.level} onValueChange={(value: CustomerLevel) => handleInputChange('level', value)}>
               <SelectTrigger>
                 <SelectValue />

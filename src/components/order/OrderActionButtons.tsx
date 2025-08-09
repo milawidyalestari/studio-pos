@@ -46,61 +46,87 @@ const OrderActionButtons = ({
     <div className="border-t px-6 py-4 bg-white flex-shrink-0">
       <div className="flex justify-between">
         <div className="flex space-x-2">
-          <Button type="button" variant="outline" onClick={onNew}>New</Button>
-          <Button 
-            type="button" 
-            onClick={onSave}
-            disabled={isSaving || disabledSaveOrder || isEditingItem || (isEditMode && !hasEditChanges) || (isConfirmed && !hasPostConfirmationChanges)}
-            className={
-              isSaving || disabledSaveOrder || isEditingItem || (isEditMode && !hasEditChanges) || (isConfirmed && !hasPostConfirmationChanges)
-                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                : hasUnsavedChanges || (isConfirmed && hasPostConfirmationChanges)
-                ? "bg-[#0050C8] hover:bg-[#003a9b] text-white"
-                : ""
-            }
-            variant={(hasUnsavedChanges || (isConfirmed && hasPostConfirmationChanges)) && !disabledSaveOrder && !isEditingItem && !(isEditMode && !hasEditChanges) && !(isConfirmed && !hasPostConfirmationChanges) ? "default" : "outline"}
-          >
-            {isSaving ? "Save Order" : "Save Order"}
-          </Button>
+          {/* Hide "Baru" button when creating new order (not in edit mode) */}
+          {isEditMode && (
+            <Button type="button" variant="outline" onClick={onNew}>Baru</Button>
+          )}
+          {/* Show "Save Order" button on the left only in edit mode */}
+          {isEditMode && (
+            <Button 
+              type="button" 
+              onClick={onSave}
+              disabled={isSaving || disabledSaveOrder || isEditingItem || (isEditMode && !hasEditChanges)}
+              className={
+                isSaving || disabledSaveOrder || isEditingItem || (isEditMode && !hasEditChanges)
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : hasUnsavedChanges || hasEditChanges
+                  ? "bg-[#0050C8] hover:bg-[#003a9b] text-white"
+                  : "bg-white text-gray-700 border border-gray-300"
+              }
+              variant={hasUnsavedChanges || hasEditChanges ? "default" : "outline"}
+            >
+              {isSaving ? "Save Order" : "Save Order"}
+            </Button>
+          )}
           {onConfirm && isEditMode && (
             <Button 
               type="button" 
               onClick={onConfirm}
-              disabled={isSaving || disabledSaveOrder || isEditingItem || (isEditMode && !hasEditChanges) || (isConfirmed && !hasPostConfirmationChanges)}
+              disabled={isSaving || disabledSaveOrder || isEditingItem || (isEditMode && !hasEditChanges)}
               className={
-                isSaving || disabledSaveOrder || isEditingItem || (isEditMode && !hasEditChanges) || (isConfirmed && !hasPostConfirmationChanges)
+                isSaving || disabledSaveOrder || isEditingItem || (isEditMode && !hasEditChanges)
                   ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  : hasUnsavedChanges || (isConfirmed && hasPostConfirmationChanges)
+                  : hasUnsavedChanges || hasEditChanges
                   ? "bg-[#0050C8] hover:bg-[#003a9b] text-white"
-                  : ""
+                  : "bg-white text-gray-700 border border-gray-300"
               }
-              variant={(hasUnsavedChanges || (isConfirmed && hasPostConfirmationChanges)) && !disabledSaveOrder && !isEditingItem && !(isEditMode && !hasEditChanges) && !(isConfirmed && !hasPostConfirmationChanges) ? "default" : "outline"}
+              variant={hasUnsavedChanges || hasEditChanges ? "default" : "outline"}
             >
               Konfirmasi
             </Button>
           )}
-          <Button
-            type="button"
-            className={
-              disabledPrintSPK
-                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                : "bg-[#0050C8] hover:bg-[#003a9b] text-white"
-            }
-            disabled={disabledPrintSPK}
-            onClick={onPrintSPK}
-          >
-            Print SPK
-          </Button>
+          {onPrintSPK && isEditMode && (
+            <Button
+              type="button"
+              className={
+                disabledPrintSPK
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-[#0050C8] hover:bg-[#003a9b] text-white"
+              }
+              disabled={disabledPrintSPK}
+              onClick={onPrintSPK}
+            >
+              Print SPK
+            </Button>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {children}
           <div className="flex space-x-2">
+            {/* Show "Save Order" button on the right when creating new order (not in edit mode) */}
+            {!isEditMode && (
+              <Button 
+                type="button" 
+                onClick={onSave}
+                disabled={isSaving || disabledSaveOrder || isEditingItem}
+                className={
+                  isSaving || disabledSaveOrder || isEditingItem
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : hasUnsavedChanges
+                    ? "bg-[#0050C8] hover:bg-[#003a9b] text-white"
+                    : ""
+                }
+                variant={hasUnsavedChanges && !disabledSaveOrder && !isEditingItem ? "default" : "outline"}
+              >
+                {isSaving ? "Save Order" : "Save Order"}
+              </Button>
+            )}
             {onPrintNota && (
               <Button 
                 type="button" 
                 variant="outline" 
                 onClick={onPrintNota}
-                className="text-sm"
+                className="bg-[#0050C8] hover:bg-[#003a9b] text-white"
               >
                 Print Nota
               </Button>
@@ -110,18 +136,11 @@ const OrderActionButtons = ({
                 type="button" 
                 variant="outline" 
                 onClick={onPrintPelunasan}
-                className="text-sm"
+                className="text-sm bg-[#0050C8] hover:bg-[#003a9b] text-white"
               >
                 Print Pelunasan
               </Button>
             )}
-            <Button 
-              type="submit" 
-              className="bg-[#0050C8] hover:bg-[#003a9b]" 
-              onClick={onPrintReceipt || onSubmit}
-            >
-              Print Receipt
-            </Button>
           </div>
         </div>
       </div>

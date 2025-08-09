@@ -19,6 +19,7 @@ interface CustomerInfoSectionProps {
     waktu: string;
     estimasi: string;
     estimasiWaktu: string;
+    createdAt?: string; // Tanggal pembuatan order
   };
   onFormDataChange: (field: string, value: string | boolean) => void;
   isEditMode?: boolean;
@@ -146,17 +147,29 @@ const CustomerInfoSection = ({ formData, onFormDataChange, isEditMode = false }:
 
         <div className="grid grid-cols-4 gap-4">
           <div>
-            <Label htmlFor="tanggal" className="text-sm font-medium">Date</Label>
-            <Input
-              id="tanggal"
-              type="date"
-              value={formData.tanggal}
-              onChange={(e) => onFormDataChange('tanggal', e.target.value)}
-              className="mt-1 h-8 pl-2"
-            />
+            <Label htmlFor="tanggal" className="text-sm font-medium">
+              {isEditMode ? 'Tanggal Dibuat' : 'Tanggal Order'}
+            </Label>
+            {isEditMode && formData.createdAt ? (
+              <div className="mt-1 h-8 px-2 py-1 bg-gray-100 border border-gray-300 rounded-md text-sm flex items-center">
+                {new Date(formData.createdAt).toLocaleDateString('id-ID', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: '2-digit'
+                })}
+              </div>
+            ) : (
+              <Input
+                id="tanggal"
+                type="date"
+                value={formData.tanggal}
+                onChange={(e) => onFormDataChange('tanggal', e.target.value)}
+                className="mt-1 h-8 pl-2"
+              />
+            )}
           </div>
           <div>
-            <Label htmlFor="waktu" className="text-sm font-medium">Time</Label>
+            <Label htmlFor="waktu" className="text-sm font-medium">Jam Order</Label>
             <Input
               id="waktu"
               type="time"
@@ -166,7 +179,7 @@ const CustomerInfoSection = ({ formData, onFormDataChange, isEditMode = false }:
             />
           </div>
           <div>
-            <Label htmlFor="estimasi" className="text-sm font-medium">Estimate Date</Label>
+            <Label htmlFor="estimasi" className="text-sm font-medium">Deadline</Label>
             <Input
               id="estimasi"
               type="date"
@@ -176,7 +189,7 @@ const CustomerInfoSection = ({ formData, onFormDataChange, isEditMode = false }:
             />
           </div>
           <div>
-            <Label htmlFor="estimasiWaktu" className="text-sm font-medium">Time</Label>
+            <Label htmlFor="estimasiWaktu" className="text-sm font-medium">Jam Deadline</Label>
             <Input
               id="estimasiWaktu"
               type="time"

@@ -258,11 +258,11 @@ export const ProductsTab = forwardRef<ProductsTabRef, ProductsTabProps>(({
                     disabled={!filterValue}
                     className="w-full"
                   >
-                    Add Filter
+                    Tambah Filter
                   </Button>
                   {filters.length > 0 && (
                     <div className="mt-2 space-y-1">
-                      <div className="text-xs text-gray-500">Active Filters:</div>
+                      <div className="text-xs text-gray-500">Filter Aktif:</div>
                       {filters.map((f, i) => (
                         <div key={i} className="flex items-center gap-2 text-xs bg-gray-100 rounded px-2 py-1">
                           <span>{filterFields.find(ff => ff.value === f.field)?.label}</span>
@@ -314,7 +314,7 @@ export const ProductsTab = forwardRef<ProductsTabRef, ProductsTabProps>(({
                   {filteredProducts.length === 0 && (
                     <tr>
                       <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
-                        {searchTerm ? 'No products found matching your search.' : 'No products available. Click "Add New" to create your first product.'}
+                        {searchTerm ? 'Tidak ada produk yang cocok dengan pencarian Anda.' : 'Belum ada produk. Klik "Tambah Baru" untuk membuat produk pertama Anda.'}
                       </td>
                     </tr>
                   )}

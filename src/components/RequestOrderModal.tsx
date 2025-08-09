@@ -53,6 +53,7 @@ const initialFormData = {
   downPayment: '',
   pelunasan: '',
   taxChecked: false,
+  createdAt: undefined as string | undefined,
 };
 
 type FormData = typeof initialFormData;
@@ -93,6 +94,8 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
   const { toast } = useToast();
   const { createOrder, isCreatingOrder, updateOrder, isUpdatingOrder } = useOrders();
   const { data: products } = useProducts();
+  const [showPrintOverlay, setShowPrintOverlay] = useState(false);
+  const [printOrderData, setPrintOrderData] = useState<any>(null);
   // Tambahkan query untuk materials
   const { data: materials = [], refetch: refetchMaterials } = useQuery({
     queryKey: ['materials'],
@@ -102,7 +105,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
       return data || [];
     },
   });
-  const { statuses, loading: statusesLoading } = useOrderStatus();
+  const { data: statuses, isLoading: statusesLoading } = useOrderStatus();
   const {
     isOpen: isPrintOverlayOpen,
     printType,
@@ -324,7 +327,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
   const addToOrderList = () => {
     if (!currentItem.item || !currentItem.quantity || !currentItem.bahan) {
       toast({
-        title: "Error",
+        title: "Gagal",
         description: "Mohon lengkapi semua field yang diperlukan",
         variant: "destructive",
       });
@@ -467,16 +470,22 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
       } as any; // Use type assertion to bypass strict typing for now
 
       // Saat mapping orderItems untuk insert/update ke supabase
-      const items = orderList.map((item) => ({
-        item_name: item.item,
-        bahan: item.bahan || null,
-        panjang: item.ukuran?.panjang && item.ukuran.panjang !== '' && item.ukuran.panjang !== 'null' ? parseFloat(item.ukuran.panjang) : null,
-        lebar: item.ukuran?.lebar && item.ukuran.lebar !== '' && item.ukuran.lebar !== 'null' ? parseFloat(item.ukuran.lebar) : null,
-        quantity: parseInt(item.quantity) || 0,
-        finishing: item.finishing || null,
-        sub_total: item.subTotal || 0,
-        description: item.notes || null
-      }));
+      const items = orderList.map((item) => {
+        // Convert product code to product name
+        const product = products?.find(p => p.kode === item.item);
+        const productName = product?.nama || item.item; // Fallback to code if name not found
+        
+        return {
+          item_name: productName, // Save product name instead of code
+          bahan: item.bahan || null,
+          panjang: item.ukuran?.panjang && item.ukuran.panjang !== '' && item.ukuran.panjang !== 'null' ? parseFloat(item.ukuran.panjang) : null,
+          lebar: item.ukuran?.lebar && item.ukuran.lebar !== '' && item.ukuran.lebar !== 'null' ? parseFloat(item.ukuran.lebar) : null,
+          quantity: parseInt(item.quantity) || 0,
+          finishing: item.finishing || null,
+          sub_total: item.subTotal || 0,
+          description: item.notes || null
+        };
+      });
 
       if (editingOrder) {
         updateOrder({ orderId: editingOrder.id, orderData, items });
@@ -679,9 +688,56 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
     onClose(); // This will trigger the parent to reopen the modal
   };
 
+  const handlePrintNota = () => {
+    // Create order data for print overlay
+    const totalCalculation = calculateOrderTotal(orderList, parseFloat(formData.jasaDesain || '0'), parseFloat(formData.biayaLain || '0'), formData.discount, formData.ppn, formData.taxChecked);
+    const orderData = {
+      orderNumber: formData.orderNumber,
+      customerName: formData.customer,
+      totalAmount: totalCalculation.total,
+      desain: parseFloat(formData.jasaDesain || '0'),
+      biayaLainnya: parseFloat(formData.biayaLain || '0'),
+      downPayment: parseFloat(formData.downPayment || '0'),
+      estimasi: formData.estimasi,
+      estimasiWaktu: formData.estimasiWaktu,
+      komputer: formData.komputer,
+      desainer: formData.desainer,
+    };
+
+    const orderListForPrint = orderList.map(item => ({
+      id: item.id,
+      item: item.item,
+      quantity: item.quantity,
+      subTotal: item.subTotal,
+      ukuran: item.ukuran,
+      description: item.notes || '',
+      finishing: item.finishing,
+    }));
+
+    setPrintOrderData({
+      orderData,
+      orderList: orderListForPrint,
+    });
+    setShowPrintOverlay(true);
+  };
+
+  const handlePrintOverlayClose = () => {
+    setShowPrintOverlay(false);
+    setPrintOrderData(null);
+  };
+
+  const handlePrintSuccess = () => {
+    toast({
+      title: 'Berhasil',
+      description: 'Nota berhasil dicetak',
+    });
+    setShowPrintOverlay(false);
+    setPrintOrderData(null);
+  };
+
   const resetForm = async () => {
     let defaultStatusId = null;
-    const designStatus = statuses.find(s => s.name.toLowerCase() === 'design');
+    const designStatus = statuses?.find(s => s.name.toLowerCase() === 'design');
     if (designStatus) defaultStatusId = designStatus.id;
     setOrderNumberLoading(true);
     const num = await fetchNextOrderNumber();
@@ -701,6 +757,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
     setHasItemFormChanges(false);
     setInitialFormDataSnapshot(null);
     setIsConfirmed(false); // Reset confirmed state
+    setIsModalPaused(false); // Reset modal pause state
     setOrderNumberLoading(false);
   };
 
@@ -711,6 +768,11 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
 
   // Pre-fill form with editing order data
   useEffect(() => {
+    // Reset modal pause state when modal opens
+    if (open) {
+      setIsModalPaused(false);
+    }
+    
     if (editingOrder && open && !loadingEmployees && !loadingAdmins) {
       console.log('editingOrder:', editingOrder);
       if ('order_items' in editingOrder && editingOrder.order_items) {
@@ -740,10 +802,11 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
         desainer: (editingOrder as any).desainer_id || '',
         komputer: (editingOrder as any).komputer || '',
         notes: (editingOrder as any).notes || '',
-        status_id: (editingOrder as any).status || editingOrder.status || null,
+        status_id: (editingOrder as any).status_id || (editingOrder as any).order_statuses?.id || null,
         downPayment: (editingOrder as any).down_payment || '',
         pelunasan: (editingOrder as any).pelunasan || '',
         taxChecked: (editingOrder as any).tax_checked || false,
+        createdAt: (editingOrder as any).created_at || (editingOrder as any).createdAt || undefined,
       };
       
       setFormData(newFormData);
@@ -783,12 +846,13 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
   // Set default status_id to 'Design' when statuses are loaded and not editing
   useEffect(() => {
     if (!editingOrder && statuses && statuses.length > 0 && open) {
-      const designStatus = statuses.find(s => s.name.toLowerCase() === 'design');
+      const designStatus = statuses?.find(s => s.name.toLowerCase() === 'design');
       if (designStatus && formData.status_id !== designStatus.id) {
+        console.log('Setting default status to Design:', designStatus.id);
         setFormData(prev => ({ ...prev, status_id: designStatus.id }));
       }
     }
-  }, [statuses, editingOrder, open]);
+  }, [statuses, editingOrder, open, formData.status_id]);
 
   // Fetch a new order number when opening the modal for a new order
   useEffect(() => {
@@ -855,8 +919,19 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
         resetForm();
         onClose();
       }
+    } else {
+      // Reset modal pause state when modal is opened
+      setIsModalPaused(false);
     }
   };
+
+  // Monitor isModalPaused changes to ensure modal visibility
+  useEffect(() => {
+    if (!isModalPaused && open) {
+      // Modal should be visible when not paused and open prop is true
+      console.log('Modal should be visible - isModalPaused:', isModalPaused, 'open:', open);
+    }
+  }, [isModalPaused, open]);
 
   return (
     <Dialog open={open && !isModalPaused} onOpenChange={handleModalClose}>
@@ -945,6 +1020,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
               onConfirm={handleConfirm}
               onSubmit={handlePrintReceipt}
               onPrintSPK={handlePrintSPK}
+              onPrintNota={handlePrintNota}
               isSaving={isCreatingOrder || isUpdatingOrder}
               hasUnsavedChanges={hasUnsavedChanges}
               disabledPrintSPK={!formData.admin || !formData.desainer}
@@ -967,7 +1043,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
                       <SelectValue placeholder="Pilih Status" />
                     </SelectTrigger>
                     <SelectContent>
-                      {statuses.map(status => (
+                      {statuses?.map(status => (
                         <SelectItem key={status.id} value={status.id.toString()}>
                           {status.name}
                         </SelectItem>
@@ -992,9 +1068,31 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
         printType={printType}
         onCloseAndReopenRequestOrder={printType === 'spk' ? () => {
           // Resume modal when PrintOverlay is closed
+          console.log('PrintOverlay closed, resuming RequestOrderModal');
           setIsModalPaused(false);
+          
+          // Ensure modal is visible by forcing a re-render
+          setTimeout(() => {
+            if (isModalPaused) {
+              console.log('Modal still paused, forcing resume');
+              setIsModalPaused(false);
+            }
+          }, 100);
         } : undefined}
       />
+
+      {/* Print Nota Overlay */}
+      {printOrderData && (
+        <PrintOverlay
+          isOpen={showPrintOverlay}
+          onClose={handlePrintOverlayClose}
+          onPrint={handlePrintSuccess}
+          title="Print Nota"
+          printType="nota"
+          orderData={printOrderData.orderData}
+          orderList={printOrderData.orderList}
+        />
+      )}
 
       {/* Add Stock Modal */}
       <AddStockModal

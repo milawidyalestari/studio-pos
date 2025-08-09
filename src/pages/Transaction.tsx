@@ -4,7 +4,9 @@ import { Input } from '@/components/ui/input';
 import { DataTable, Column } from '@/components/common/DataTable';
 import { useOrders } from '@/hooks/useOrders';
 import { usePaymentTypes } from '@/hooks/usePaymentTypes';
+import { useProducts } from '@/hooks/useProducts';
 import { supabase } from '@/integrations/supabase/client';
+import { PrintOverlay } from '@/components/PrintOverlay';
 import { 
   Download,
   FileDown,
@@ -15,7 +17,10 @@ import {
   LoaderCircle,
   Clock,
   Check,
-  Printer
+  Printer,
+  DollarSign,
+  FileText,
+  CheckSquare
 } from 'lucide-react';
 import { OrderWithItems } from '@/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -38,8 +43,9 @@ interface PaymentTransaction {
 }
 
 const TransactionPage = () => {
-  const { orders = [], isLoading, refetch } = useOrders();
+  const { orders = [], isLoading, refetch } = useOrders({ enableAutoRefresh: false });
   const { data: paymentTypes = [] } = usePaymentTypes();
+  const { data: products } = useProducts();
   const [searchTerm, setSearchTerm] = useState('');
   const [localReceipt, setLocalReceipt] = useState<Record<string, boolean>>({});
   const [filterOpen, setFilterOpen] = useState(false);
@@ -48,6 +54,8 @@ const TransactionPage = () => {
   const [range, setRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
   const [filterField, setFilterField] = useState('customer_name');
   const [filterValue, setFilterValue] = useState('');
+  const [showPrintOverlay, setShowPrintOverlay] = useState(false);
+  const [printOrderData, setPrintOrderData] = useState<OrderWithItems | null>(null);
 
   // Buat mapping id -> payment_method
   const paymentTypeMap = React.useMemo(() => {
@@ -150,13 +158,51 @@ const TransactionPage = () => {
 
   // Handler print nota
   const handlePrintNota = async (orderId: string) => {
-    // Update receipt_printed di database
-    await supabase
-      .from('orders')
-      .update({ receipt_printed: true })
-      .eq('id', orderId);
-    // Update state lokal agar badge langsung berubah
-    setLocalReceipt(prev => ({ ...prev, [orderId]: true }));
+    try {
+      // Find the order data
+      const order = orders.find(o => o.id === orderId);
+      if (!order) {
+        console.error('Order not found');
+        return;
+      }
+      
+      // Set order data for print overlay
+      setPrintOrderData(order);
+      setShowPrintOverlay(true);
+    } catch (error) {
+      console.error('Error in handlePrintNota:', error);
+    }
+  };
+
+  const handlePrintOverlayClose = () => {
+    setShowPrintOverlay(false);
+    setPrintOrderData(null);
+  };
+
+  const handlePrintSuccess = async () => {
+    if (printOrderData) {
+      try {
+        // Update receipt_printed di database
+        const { error } = await supabase
+          .from('orders')
+          .update({ receipt_printed: true } as any)
+          .eq('id', printOrderData.id);
+          
+        if (error) {
+          console.error('Error updating receipt_printed:', error);
+          return;
+        }
+        
+        // Update state lokal agar badge langsung berubah
+        setLocalReceipt(prev => ({ ...prev, [printOrderData.id]: true }));
+        
+        // Close overlay
+        setShowPrintOverlay(false);
+        setPrintOrderData(null);
+      } catch (error) {
+        console.error('Error in handlePrintSuccess:', error);
+      }
+    }
   };
 
   const columns: Column<typeof paymentTransactions[0]>[] = [
@@ -248,7 +294,7 @@ const TransactionPage = () => {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Riwayat Pembayaran</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Riwayat Transaksi</h1>
           <p className="text-gray-600">Lihat riwayat pembayaran dari semua orderan</p>
         </div>
         <div className="flex items-center gap-3">
@@ -286,15 +332,35 @@ const TransactionPage = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="single">Single Date</SelectItem>
-                      <SelectItem value="range">Date Range</SelectItem>
+                      <SelectItem value="single">Per Tanggal</SelectItem>
+                      <SelectItem value="range">Rentang Tanggal</SelectItem>
                     </SelectContent>
                   </Select>
-                  {dateMode === 'single' ? (
-                    <Calendar mode="single" selected={singleDate} onSelect={setSingleDate} className="w-full" />
-                  ) : (
-                    <Calendar mode="range" selected={range} onSelect={setRange} className="w-full" />
-                  )}
+                                     {dateMode === 'single' ? (
+                     <Calendar
+                       mode="single"
+                       selected={singleDate}
+                       onSelect={setSingleDate}
+                       className="w-full"
+                       classNames={{
+                         day_selected: "bg-[#0050C8] text-white hover:bg-[#003a8c]",
+                         day_today: "border border-[#0050C8]",
+                         day_range_end: "bg-[#0050C8] text-white",
+                       }}
+                     />
+                   ) : (
+                     <Calendar
+                       mode="range"
+                       selected={range}
+                       onSelect={(value) => setRange(value as any)}
+                       className="w-full"
+                       classNames={{
+                         day_selected: "bg-[#0050C8] text-white hover:bg-[#003a8c]",
+                         day_today: "border border-[#0050C8]",
+                         day_range_end: "bg-[#0050C8] text-white",
+                       }}
+                     />
+                   )}
                 </>
               ) : (
                 <div className="mb-2">
@@ -304,7 +370,13 @@ const TransactionPage = () => {
               )}
               <div className="flex justify-end gap-2 mt-2">
                 <Button size="sm" variant="outline" onClick={() => { setSingleDate(undefined); setRange({ from: undefined, to: undefined }); setFilterField('customer_name'); setFilterValue(''); setFilterOpen(false); }}>Reset</Button>
-                <Button size="sm" onClick={() => setFilterOpen(false)}>Terapkan</Button>
+                <Button
+                  size="sm"
+                  className="bg-[#0050C8] text-white hover:bg-[#003a8c]"
+                  onClick={() => setFilterOpen(false)}
+                >
+                  Terapkan
+                </Button>
               </div>
             </PopoverContent>
           </Popover>
@@ -329,10 +401,10 @@ const TransactionPage = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Total Pendapatan</p>
-              <p className="text-2xl font-bold text-green-600">{formatCurrency(totalRevenue)}</p>
+              <p className="text-2xl font-bold text-blue-700">{formatCurrency(totalRevenue)}</p>
             </div>
-            <div className="bg-green-100 p-3 rounded-full">
-              <span className="text-green-600 text-xl">💰</span>
+            <div>
+              <DollarSign className="text-blue-600 w-8 h-8" />
             </div>
           </div>
         </div>
@@ -340,10 +412,10 @@ const TransactionPage = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Total Order</p>
-              <p className="text-2xl font-bold text-blue-600">{totalOrders}</p>
+              <p className="text-2xl font-bold text-blue-700">{totalOrders}</p>
             </div>
-            <div className="bg-blue-100 p-3 rounded-full">
-              <span className="text-blue-600 text-xl">📋</span>
+            <div>
+              <FileText className="text-blue-600 w-8 h-8" />
             </div>
           </div>
         </div>
@@ -351,20 +423,13 @@ const TransactionPage = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Lunas</p>
-              <p className="text-2xl font-bold text-purple-600">{completedPayments}</p>
+              <p className="text-2xl font-bold text-blue-700">{completedPayments}</p>
             </div>
-            <div className="bg-purple-100 p-3 rounded-full">
-              <span className="text-purple-600 text-xl">✅</span>
+            <div>
+              <CheckSquare className="text-blue-600 w-8 h-8" />
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Status Message */}
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-        <p className="text-sm text-green-800">
-          ✅ {paymentTransactions.length} transaksi pembayaran berhasil dimuat dari database
-        </p>
       </div>
 
       {/* Filters */}
@@ -401,6 +466,47 @@ const TransactionPage = () => {
           emptyMessage="Tidak ada pembayaran yang ditemukan"
         />
       </div>
+
+      {/* Print Overlay */}
+      {printOrderData && (
+        <PrintOverlay
+          isOpen={showPrintOverlay}
+          onClose={handlePrintOverlayClose}
+          onPrint={handlePrintSuccess}
+          title="Print Nota"
+          printType="nota"
+          orderData={{
+            orderNumber: printOrderData.order_number,
+            customerName: printOrderData.customer_name,
+            totalAmount: printOrderData.total_amount,
+            desain: printOrderData.biaya_lain || 0,
+            biayaLainnya: printOrderData.biaya_lain || 0,
+            downPayment: printOrderData.down_payment || 0,
+            estimasi: printOrderData.estimasi,
+            estimasiWaktu: printOrderData.waktu,
+            komputer: printOrderData.admin?.nama,
+            desainer: printOrderData.desainer?.nama,
+          }}
+          orderList={(printOrderData.order_items || []).map((item: any) => {
+            // Convert product code to product name if needed (for backward compatibility)
+            const product = products?.find(p => p.kode === item.item_name);
+            const displayName = product?.nama || item.item_name; // Use product name if found, otherwise use existing value
+            
+            return {
+              id: item.id,
+              item: displayName,
+              quantity: item.quantity,
+              subTotal: item.sub_total,
+              ukuran: {
+                panjang: item.panjang,
+                lebar: item.lebar,
+              },
+              description: item.description,
+              finishing: item.finishing,
+            };
+          })}
+        />
+      )}
     </div>
   );
 };

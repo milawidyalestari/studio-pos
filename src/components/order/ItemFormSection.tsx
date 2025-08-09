@@ -314,7 +314,7 @@ const ItemFormSection = ({
               type="number"
               value={currentItem.ukuran.panjang}
               onChange={(e) => updateCurrentItem('ukuran', { ...currentItem.ukuran, panjang: e.target.value })}
-              placeholder="P"
+              placeholder="T"
               className="mt-1 h-8"
             />
           </div>

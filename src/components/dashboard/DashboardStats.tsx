@@ -14,7 +14,7 @@ interface TodayOrderStats {
 
 const DashboardStats = () => {
   const hasAccess = useHasAccess();
-  const { data, isLoading, error } = useTodayOrderStats();
+  const { data, isLoading, error } = useTodayOrderStats({ enableAutoRefresh: false });
 
   const stats = [
     {
@@ -27,13 +27,13 @@ const DashboardStats = () => {
       title: 'Total Orderan',
       value: data ? (data as TodayOrderStats).totalTransaksi : '-',
       icon: Receipt,
-      color: 'text-green-600'
+      color: 'text-blue-600'
     },
     {
       title: 'Belum Diproses',
       value: data ? (data as TodayOrderStats).belumDiproses : '-',
       icon: Package,
-      color: 'text-orange-600'
+      color: 'text-blue-600'
     }
   ];
 

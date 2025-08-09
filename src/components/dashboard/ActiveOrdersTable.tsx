@@ -26,14 +26,16 @@ const ActiveOrdersTable: React.FC<ActiveOrdersTableProps> = ({
   selectedDeadline,
   onDeadlineFilterChange
 }) => {
-  const { orders, isLoading } = useOrders();
+  const { orders, isLoading } = useOrders({ enableAutoRefresh: false });
 
   // Mapping dan filter order dari database
   const filteredOrders = (orders || [])
     .filter(order => {
       // Pastikan status tersedia
       const statusName = order.order_statuses?.name || '';
-      return statusName.toLowerCase() !== 'export' && statusName.toLowerCase() !== 'done';
+      return statusName.toLowerCase() !== 'export' && 
+             statusName.toLowerCase() !== 'done' && 
+             statusName.toLowerCase() !== 'selesai-diambil';
     })
     .filter(order => {
       // Filter berdasarkan tanggal dan deadline seperti sebelumnya

@@ -14,7 +14,7 @@ interface CalendarSectionProps {
 }
 
 const CalendarSection: React.FC<CalendarSectionProps> = ({ selectedDate, onDateSelect, collapsed, onToggleCollapse }) => {
-  const { orders } = useOrders();
+  const { orders } = useOrders({ enableAutoRefresh: false });
 
   // Ambil semua tanggal deadline dari order (field estimasi)
   const deadlineDates = (orders || [])

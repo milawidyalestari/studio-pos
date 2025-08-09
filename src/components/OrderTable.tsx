@@ -1,9 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Edit } from 'lucide-react';
+import { Edit, Trash2 } from 'lucide-react';
 import { OrderWithItems } from '@/types';
 import { formatCurrency } from '@/services/masterData';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 type OrderStatus = string;
 
@@ -12,9 +22,32 @@ interface OrderTableProps {
   onUpdateStatus: (orderId: string, newStatus: OrderStatus) => void;
   onOrderClick?: (order: OrderWithItems) => void;
   onEditOrder?: (order: OrderWithItems) => void;
+  onDeleteOrder?: (orderId: string) => void;
 }
 
-const OrderTable = ({ orders, onUpdateStatus, onOrderClick, onEditOrder }: OrderTableProps) => {
+const OrderTable = ({ orders, onUpdateStatus, onOrderClick, onEditOrder, onDeleteOrder }: OrderTableProps) => {
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<OrderWithItems | null>(null);
+
+  const handleDeleteClick = (e: React.MouseEvent, order: OrderWithItems) => {
+    e.stopPropagation();
+    setOrderToDelete(order);
+    setShowDeleteDialog(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (orderToDelete && onDeleteOrder) {
+      onDeleteOrder(orderToDelete.id);
+    }
+    setShowDeleteDialog(false);
+    setOrderToDelete(null);
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteDialog(false);
+    setOrderToDelete(null);
+  };
+
   const getStatusColor = (status: OrderStatus) => {
     switch (status) {
       case 'Design': return 'bg-purple-100 text-purple-800';
@@ -53,13 +86,13 @@ const OrderTable = ({ orders, onUpdateStatus, onOrderClick, onEditOrder }: Order
         <table className="w-full">
           <thead className="bg-gray-50 border-b">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order #</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nomor Orderan</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Order</th>
+              <th className="pl-14 py-3  text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -102,18 +135,14 @@ const OrderTable = ({ orders, onUpdateStatus, onOrderClick, onEditOrder }: Order
                       >
                         <Edit className="h-3 w-3" />
                       </Button>
-                      {nextStatus && (
-                        <Button 
-                          size="sm" 
-                          className="bg-[#0050C8] hover:bg-[#003a9b]"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onUpdateStatus(order.id, nextStatus);
-                          }}
-                        >
-                          Next
-                        </Button>
-                      )}
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={(e) => handleDeleteClick(e, order)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -122,6 +151,31 @@ const OrderTable = ({ orders, onUpdateStatus, onOrderClick, onEditOrder }: Order
           </tbody>
         </table>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              Apakah Anda yakin ingin menghapus order ini? 
+              <br />
+              <strong>Order #{orderToDelete?.order_number}</strong> - <strong>{orderToDelete?.customer_name}</strong>
+              <br />
+              <span className="text-red-600 font-medium">Tindakan ini tidak dapat dibatalkan!</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={(e) => { e.stopPropagation(); handleCancelDelete(); }}>Batal</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => { e.stopPropagation(); handleConfirmDelete(); }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Hapus Order
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

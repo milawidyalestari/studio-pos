@@ -30,11 +30,11 @@ export const TableHeader: React.FC<TableHeaderProps> = ({ title, icon: Icon, onA
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={onExportCSV} className="gap-2">
             <FileText className="h-4 w-4" />
-            Export as CSV
+            Export ke CSV
           </DropdownMenuItem>
           <DropdownMenuItem onClick={onExportXLSX} className="gap-2">
             <FileSpreadsheet className="h-4 w-4" />
-            Export as XLSX
+            Export ke XLSX
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -44,7 +44,7 @@ export const TableHeader: React.FC<TableHeaderProps> = ({ title, icon: Icon, onA
       </Button>
       <Button onClick={onAdd} className="gap-2 bg-[#0050C8] hover:bg-[#003a9b]">
         <Plus className="h-4 w-4" />
-        Add New
+        Tambah Baru
       </Button>
     </div>
   </div>

@@ -16,11 +16,11 @@ const reduceMaterialStock = async (orderItems: any[]) => {
     console.log('Starting material stock reduction for order items:', orderItems);
     
     for (const item of orderItems) {
-      // Cari produk berdasarkan item_name (kode produk)
+      // Cari produk berdasarkan item_name (nama produk)
       const { data: product, error: productError } = await supabase
         .from('products')
         .select('id, kode, nama')
-        .eq('kode', item.item_name)
+        .eq('nama', item.item_name)
         .single();
       
       if (productError || !product) {
@@ -111,11 +111,11 @@ const restoreMaterialStock = async (orderItems: any[]) => {
     console.log('Starting material stock restoration for order items:', orderItems);
     
     for (const item of orderItems) {
-      // Cari produk berdasarkan item_name (kode produk)
+      // Cari produk berdasarkan item_name (nama produk)
       const { data: product, error: productError } = await supabase
         .from('products')
         .select('id, kode, nama')
-        .eq('kode', item.item_name)
+        .eq('nama', item.item_name)
         .single();
       
       if (productError || !product) {

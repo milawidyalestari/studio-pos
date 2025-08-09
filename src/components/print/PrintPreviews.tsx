@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Separator } from '../ui/separator';
+import { getNotaSettings } from '../../utils/notaSettings';
 
 interface PrintPreviewProps {
   orderData?: {
@@ -19,6 +20,7 @@ interface PrintPreviewProps {
     subTotal: number;
     [key: string]: any;
   }>;
+  selectedItems?: string[];
 }
 
 export const SPKPreview: React.FC<PrintPreviewProps> = ({ orderData, orderList }) => {
@@ -240,82 +242,223 @@ export const ReceiptPreview: React.FC<PrintPreviewProps> = ({ orderData, orderLi
   );
 };
 
-export const NotaPreview: React.FC<PrintPreviewProps> = ({ orderData, orderList }) => {
+export const NotaPreview: React.FC<PrintPreviewProps> = ({ orderData, orderList, selectedItems = [] }) => {
+  // Helper function to check if size is valid
+  const isValidSize = (panjang: any, lebar: any) => {
+    return panjang && lebar && 
+           panjang !== '' && lebar !== '' && 
+           panjang !== 'null' && lebar !== 'null' &&
+           panjang !== null && lebar !== null &&
+           panjang !== undefined && lebar !== undefined;
+  };
+  
+  // Get custom nota settings
+  const notaSettings = getNotaSettings();
+  
   return (
     <div className="space-y-4">
       <Card className="border-2 border-gray-300">
         <CardContent className="p-4">
-          <div className="text-center space-y-2">
-            <h2 className="text-lg font-bold">NOTA</h2>
-            <p className="text-xs text-gray-600">Studio POS System</p>
-            <p className="text-xs">{new Date().toLocaleDateString('id-ID')}</p>
+          {/* Header Section */}
+          {notaSettings.header.enabled && (
+            <div className="text-center mb-4">
+              <div 
+                className="font-bold text-blue-600"
+                style={{
+                  fontSize: `${notaSettings.header.fontSize}px`,
+                  fontWeight: notaSettings.header.fontWeight as any
+                }}
+              >
+                {notaSettings.header.text}
+              </div>
+            </div>
+          )}
+          
+          {/* Logo Section */}
+          {notaSettings.logo.enabled && notaSettings.logo.url && (
+            <div className="text-center mb-4">
+              <img
+                src={notaSettings.logo.url}
+                alt={notaSettings.logo.altText}
+                style={{
+                  width: `${notaSettings.logo.width}px`,
+                  height: `${notaSettings.logo.height}px`
+                }}
+                className="mx-auto mb-2"
+              />
+            </div>
+          )}
+          
+          {/* Business Information */}
+          <div className="text-center mb-4 text-sm text-gray-600">
+            <div>{notaSettings.businessInfo.name}</div>
+            <div>{notaSettings.businessInfo.address}</div>
+            <div>{notaSettings.businessInfo.phone}</div>
+            <div>{notaSettings.businessInfo.website}</div>
           </div>
           
-          <Separator className="my-3" />
-          
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>No. Order:</span>
-              <span>{orderData?.orderNumber || 'N/A'}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span>Customer:</span>
-              <span>{orderData?.customerName || 'N/A'}</span>
+          {/* Order Details */}
+          <div className="space-y-2 mb-4">
+            <div className="grid grid-cols-1 gap-2 text-sm">
+              <div>
+                <span className="font-medium">Customer:</span>
+                <span className="ml-2">{orderData?.customerName || 'N/A'}</span>
+              </div>
+              <div>
+                <span className="font-medium">Order Number:</span>
+                <span className="ml-2">{orderData?.orderNumber || 'N/A'}</span>
+              </div>
+              <div>
+                <span className="font-medium">Tanggal:</span>
+                <span className="ml-2">{new Date().toLocaleDateString('id-ID')}</span>
+              </div>
+              <div>
+                <span className="font-medium">Deadline:</span>
+                <span className="ml-2">
+                  {orderData?.estimasi ? (
+                    <>
+                      {new Date(orderData.estimasi).toLocaleDateString('id-ID', {
+                        timeZone: 'Asia/Kuala_Lumpur',
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                      })}
+                      {orderData?.estimasiWaktu && (
+                        <span className="ml-1">| {orderData.estimasiWaktu.slice(0, 5)}</span>
+                      )}
+                    </>
+                  ) : (
+                    'Tidak ditentukan'
+                  )}
+                </span>
+              </div>
             </div>
           </div>
           
-          <Separator className="my-3" />
+          <Separator className="my-4" />
           
-          <div className="space-y-2">
-            <h3 className="font-semibold text-sm">Detail Items:</h3>
-            {orderList?.map((item, index) => {
+          {/* Items List */}
+          <div className="space-y-3">
+            {orderList?.filter((item, index) => {
+              // For nota, show all items if none selected, otherwise show only selected items
+              return selectedItems.length === 0 || selectedItems.includes(item.id || index.toString());
+            }).map((item, index) => {
               const size = (item as any).ukuran || {};
+              const unitPrice = item.quantity > 0 ? item.subTotal / item.quantity : 0;
               
               return (
-                <div key={item.id || index} className="border-l-2 border-gray-200 pl-2 border-b border-gray-100 pb-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium">{item.item}</span>
-                    <span>{new Intl.NumberFormat('id-ID', {
-                      style: 'currency',
-                      currency: 'IDR'
-                    }).format(item.subTotal)}</span>
-                  </div>
-                  {size.panjang && size.lebar && (
-                    <div className="text-xs text-gray-600">
-                      Ukuran: {size.panjang} x {size.lebar}
+                <div key={item.id || index} className="border border-gray-200 rounded p-3">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="font-medium text-sm flex-1">{item.item}</div>
+                    <div className="text-xs text-gray-700 ml-2">
+                      {isValidSize(size.panjang, size.lebar) ? `${size.panjang} x ${size.lebar}` : '-'}
                     </div>
-                  )}
-                  <div className="text-xs text-gray-500">
-                    Quantity: {item.quantity} x {new Intl.NumberFormat('id-ID', {
-                      style: 'currency',
-                      currency: 'IDR'
-                    }).format(item.quantity > 0 ? item.subTotal / item.quantity : 0)}
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <div className="text-xs text-gray-600">
+                      {item.quantity} x {new Intl.NumberFormat('id-ID', {
+                        style: 'currency',
+                        currency: 'IDR'
+                      }).format(unitPrice)}
+                    </div>
+                    <div className="text-xs font-medium">
+                      {new Intl.NumberFormat('id-ID', {
+                        style: 'currency',
+                        currency: 'IDR'
+                      }).format(item.subTotal)}
+                    </div>
                   </div>
                 </div>
               );
             })}
           </div>
           
-          <Separator className="my-3" />
+          <Separator className="my-4" />
           
-          <div className="space-y-1 text-right">
+          {/* Payment Summary */}
+          <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span>Subtotal:</span>
+              <span className="font-medium">Subtotal:</span>
+              <span>{(() => {
+                // Calculate subtotal based on selected items for nota
+                const selectedOrderItems = orderList?.filter((item, index) => 
+                  selectedItems.length === 0 || selectedItems.includes(item.id || index.toString())
+                ) || [];
+                const subtotal = selectedOrderItems.reduce((sum, item) => sum + (item.subTotal || 0), 0);
+                return new Intl.NumberFormat('id-ID', {
+                  style: 'currency',
+                  currency: 'IDR'
+                }).format(subtotal);
+              })()}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="font-medium">Desain:</span>
               <span>{new Intl.NumberFormat('id-ID', {
                 style: 'currency',
                 currency: 'IDR'
-              }).format(orderData?.totalAmount || 0)}</span>
+              }).format(orderData?.desain || 0)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span>Total:</span>
-              <span className="font-bold text-lg">
-                {new Intl.NumberFormat('id-ID', {
+              <span className="font-medium">Biaya Lainnya:</span>
+              <span>{new Intl.NumberFormat('id-ID', {
+                style: 'currency',
+                currency: 'IDR'
+              }).format(orderData?.biayaLainnya || 0)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="font-medium">Down Payment:</span>
+              <span>{new Intl.NumberFormat('id-ID', {
+                style: 'currency',
+                currency: 'IDR'
+              }).format(orderData?.downPayment || 0)}</span>
+            </div>
+            <div className="flex justify-between text-sm font-bold">
+              <span>Sisa:</span>
+              <span>{(() => {
+                // Calculate total based on selected items for nota
+                const selectedOrderItems = orderList?.filter((item, index) => 
+                  selectedItems.length === 0 || selectedItems.includes(item.id || index.toString())
+                ) || [];
+                const subtotal = selectedOrderItems.reduce((sum, item) => sum + (item.subTotal || 0), 0);
+                const total = subtotal + (orderData?.desain || 0) + (orderData?.biayaLainnya || 0) - (orderData?.downPayment || 0);
+                return new Intl.NumberFormat('id-ID', {
                   style: 'currency',
                   currency: 'IDR'
-                }).format(orderData?.totalAmount || 0)}
-              </span>
+                }).format(total);
+              })()}</span>
             </div>
           </div>
+          
+          <Separator className="my-4" />
+          
+          {/* Additional Information */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="font-medium">Payment:</span>
+              <span>Cash</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="font-medium">Cashier:</span>
+              <span>Cashier</span>
+            </div>
+          </div>
+          
+          {/* Footer Section */}
+          {notaSettings.footer.enabled && (
+            <div className="mt-4 text-center">
+              <div 
+                className="text-gray-600"
+                style={{
+                  fontSize: `${notaSettings.footer.fontSize}px`,
+                  fontWeight: notaSettings.footer.fontWeight as any
+                }}
+              >
+                {notaSettings.footer.text.split('\n').map((line, index) => (
+                  <p key={index}>{line}</p>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -328,6 +471,15 @@ export const PelunasanPreview: React.FC<PrintPreviewProps> = ({ orderData, order
   const totalAmount = orderData?.totalAmount || 0;
   const remaining = totalAmount - downPayment - pelunasan;
 
+  // Helper function to check if size is valid (same as SPK and Nota)
+  const isValidSize = (panjang: any, lebar: any) => {
+    return panjang && lebar && 
+           panjang !== '' && lebar !== '' && 
+           panjang !== 'null' && lebar !== 'null' &&
+           panjang !== null && lebar !== null &&
+           panjang !== undefined && lebar !== undefined;
+  };
+
   return (
     <div className="space-y-4">
       <Card className="border-2 border-gray-300">
@@ -337,23 +489,59 @@ export const PelunasanPreview: React.FC<PrintPreviewProps> = ({ orderData, order
             <Badge variant="secondary" className="bg-green-100 text-green-800">
               Payment Settlement
             </Badge>
-            <p className="text-xs text-gray-600">{new Date().toLocaleDateString('id-ID')}</p>
+            <p className="text-sm font-semibold">{orderData?.orderNumber || 'N/A'}</p>
           </div>
           
-          <Separator className="my-3" />
+          <Separator className="my-4" />
           
           <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Order Number:</span>
-              <span>{orderData?.orderNumber || 'N/A'}</span>
-            </div>
             <div className="flex justify-between text-sm">
               <span>Customer:</span>
               <span>{orderData?.customerName || 'N/A'}</span>
             </div>
+            <div className="flex justify-between text-sm">
+              <span>Date:</span>
+              <span>{new Date().toLocaleDateString('id-ID')}</span>
+            </div>
           </div>
           
-          <Separator className="my-3" />
+          <Separator className="my-4" />
+          
+          {/* Items List - Same format as SPK and Nota */}
+          <div className="space-y-3">
+            <h3 className="font-medium text-sm">Order Items:</h3>
+            {orderList?.map((item, index) => {
+              const size = (item as any).ukuran || {};
+              const unitPrice = item.quantity > 0 ? item.subTotal / item.quantity : 0;
+              
+              return (
+                <div key={item.id || index} className="border border-gray-200 rounded p-3">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="font-medium text-sm flex-1">{item.item}</div>
+                    <div className="text-xs text-gray-700 ml-2">
+                      {isValidSize(size.panjang, size.lebar) ? `${size.panjang} x ${size.lebar}` : '-'}
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <div className="text-xs text-gray-600">
+                      {item.quantity} x {new Intl.NumberFormat('id-ID', {
+                        style: 'currency',
+                        currency: 'IDR'
+                      }).format(unitPrice)}
+                    </div>
+                    <div className="text-xs font-medium">
+                      {new Intl.NumberFormat('id-ID', {
+                        style: 'currency',
+                        currency: 'IDR'
+                      }).format(item.subTotal)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          
+          <Separator className="my-4" />
           
           <div className="space-y-2">
             <h3 className="font-semibold text-sm">Payment Summary:</h3>

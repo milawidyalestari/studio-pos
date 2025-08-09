@@ -207,15 +207,15 @@ const MasterData = () => {
         console.log('No materialData to process or productId not found');
       }
       toast({
-        title: 'Success',
-        description: editingProduct ? 'Product updated successfully' : 'Product created successfully',
+        title: 'Berhasil',
+        description: editingProduct ? 'Produk berhasil diperbarui' : 'Produk berhasil dibuat',
       });
       setIsProductFormOpen(false);
       setEditingProduct(null);
     } catch (error) {
       console.error('Error saving product:', error);
       toast({
-        title: 'Error',
+        title: 'Gagal',
         description: 'Failed to save product',
         variant: 'destructive',
       });
@@ -228,15 +228,15 @@ const MasterData = () => {
         console.log('Confirming product deletion:', deleteProductId);
         await deleteProductMutation.mutateAsync(deleteProductId);
         toast({
-          title: "Success",
-          description: "Product deleted successfully",
+          title: "Berhasil",
+          description: "Produk berhasil dihapus",
         });
         setDeleteProductId(null);
       } catch (error) {
         console.error('Error deleting product:', error);
         toast({
-          title: "Error",
-          description: "Failed to delete product",
+          title: "Gagal",
+          description: "Gagal menghapus produk",
           variant: "destructive",
         });
       }
@@ -252,7 +252,7 @@ const MasterData = () => {
         config = {
           isOpen: true,
           type: 'categories',
-          title: 'Category Data Management',
+          title: 'Manajemen Data Kategori',
           columns: [
             { key: 'code', label: 'Code' },
             { key: 'group_name', label: 'Group' },
@@ -276,7 +276,7 @@ const MasterData = () => {
         config = {
           isOpen: true,
           type: 'groups',
-          title: 'Managemen Data Kelompok',
+          title: 'Manajemen Data Kelompok',
           columns: [
             { key: 'code', label: 'Code' },
             { key: 'name', label: 'Name' }
@@ -297,7 +297,7 @@ const MasterData = () => {
         config = {
           isOpen: true,
           type: 'units',
-          title: 'Unit Data Management',
+          title: 'Manajemen Data Unit',
           columns: [
             { key: 'code', label: 'Code' },
             { key: 'name', label: 'Unit' }
@@ -318,7 +318,7 @@ const MasterData = () => {
         config = {
           isOpen: true,
           type: 'payments',
-          title: 'Tipe Pembayaran',
+          title: 'Manajemen Tipe Pembayaran',
           columns: [
             { key: 'code', label: 'Kode' },
             { key: 'type', label: 'Tipe' },
@@ -346,7 +346,7 @@ const MasterData = () => {
         config = {
           isOpen: true,
           type: 'positions',
-          title: 'Data Posisi',
+          title: 'Manajemen Data Posisi',
           columns: [
             { key: 'name', label: 'Nama Posisi' }
           ],
@@ -360,7 +360,7 @@ const MasterData = () => {
         config = {
           isOpen: true,
           type: 'customers',
-          title: 'Customer Data Management',
+          title: 'Manajemen Data Customer',
           columns: [
             { key: 'kode', label: 'Kode' },
             { key: 'nama', label: 'Nama' },
@@ -394,7 +394,7 @@ const MasterData = () => {
         config = {
           isOpen: true,
           type: 'suppliers',
-          title: 'Supplier Data Management',
+          title: 'Manajemen Data Supplier',
           columns: [
             { key: 'name', label: 'Nama' },
             { key: 'contact_person', label: 'Kontak' },
@@ -445,8 +445,8 @@ const MasterData = () => {
           category_name: item.category_name as string
         });
         toast({
-          title: "Success",
-          description: "Category created successfully",
+          title: "Berhasil",
+          description: "Kategori berhasil dibuat",
         });
       } else if (overlayConfig.type === 'groups') {
         console.log('Creating group:', item);
@@ -455,8 +455,8 @@ const MasterData = () => {
           name: item.name as string
         });
         toast({
-          title: "Success",
-          description: "Group created successfully",
+          title: "Berhasil",
+          description: "Kelompok berhasil dibuat",
         });
       } else if (overlayConfig.type === 'Unit') {
         console.log('Creating unit:', item);
@@ -465,8 +465,8 @@ const MasterData = () => {
           name: item.name as string
         });
         toast({
-          title: "Success",
-          description: "Unit created successfully",
+          title: "Berhasil",
+          description: "Unit berhasil dibuat",
         });
       } else if (overlayConfig.type === 'payments') {
         console.log('Creating payment type:', item);
@@ -476,8 +476,8 @@ const MasterData = () => {
           payment_method: item.payment_method as string
         });
         toast({
-          title: "Success",
-          description: "Payment type created successfully",
+          title: "Berhasil",
+          description: "Tipe pembayaran berhasil dibuat",
         });
       } else if (overlayConfig.type === 'positions') {
         await supabase.from('positions').insert([{ name: item.name }]);
@@ -510,8 +510,8 @@ const MasterData = () => {
     } catch (error) {
       console.error('Error in handleAdd:', error);
       toast({
-        title: "Error",
-        description: "Failed to create item",
+        title: "Gagal",
+        description: "Gagal membuat item",
         variant: "destructive",
       });
     }
@@ -530,8 +530,8 @@ const MasterData = () => {
           category_name: item.category_name as string
         });
         toast({
-          title: "Success",
-          description: "Category updated successfully",
+          title: "Berhasil",
+          description: "Kategori berhasil diperbarui",
         });
       } else if (overlayConfig.type === 'Group') {
         console.log('Updating group:', item);
@@ -541,8 +541,8 @@ const MasterData = () => {
           name: item.name as string
         });
         toast({
-          title: "Success",
-          description: "Group updated successfully",
+          title: "Berhasil",
+          description: "Kelompok berhasil diperbarui",
         });
       } else if (overlayConfig.type === 'units') {
         console.log('Updating unit:', item);
@@ -552,8 +552,8 @@ const MasterData = () => {
           name: item.name as string
         });
         toast({
-          title: "Success",
-          description: "Unit updated successfully",
+          title: "Berhasil",
+          description: "Unit berhasil diperbarui",
         });
       } else if (overlayConfig.type === 'payments') {
         console.log('Updating payment type:', item);
@@ -564,8 +564,8 @@ const MasterData = () => {
           payment_method: item.payment_method as string
         });
         toast({
-          title: "Success",
-          description: "Payment type updated successfully",
+          title: "Berhasil",
+          description: "Tipe pembayaran berhasil diperbarui",
         });
       } else if (overlayConfig.type === 'positions') {
         await supabase.from('positions').update({ name: item.name }).eq('id', parseInt(item.id));
@@ -597,8 +597,8 @@ const MasterData = () => {
     } catch (error) {
       console.error('Error in handleEdit:', error);
       toast({
-        title: "Error",
-        description: "Failed to update item",
+        title: "Gagal",
+        description: "Gagal memperbarui item",
         variant: "destructive",
       });
     }
@@ -612,29 +612,29 @@ const MasterData = () => {
         console.log('Deleting database category:', id);
         await deleteDbCategoryMutation.mutateAsync(id);
         toast({
-          title: "Success",
-          description: "Category deleted successfully",
+          title: "Berhasil",
+          description: "Kategori berhasil dihapus",
         });
       } else if (overlayConfig.type === 'groups') {
         console.log('Deleting group:', id);
         await deleteGroupMutation.mutateAsync(id);
         toast({
-          title: "Success",
-          description: "Group deleted successfully",
+          title: "Berhasil",
+          description: "Kelompok berhasil dihapus",
         });
       } else if (overlayConfig.type === 'units') {
         console.log('Deleting unit:', id);
         await deleteUnitMutation.mutateAsync(id);
         toast({
-          title: "Success",
-          description: "Unit deleted successfully",
+          title: "Berhasil",
+          description: "Unit berhasil dihapus",
         });
       } else if (overlayConfig.type === 'payments') {
         console.log('Deleting payment type:', id);
         await deletePaymentTypeMutation.mutateAsync(id);
         toast({
-          title: "Success",
-          description: "Payment type deleted successfully",
+          title: "Berhasil",
+          description: "Tipe pembayaran berhasil dihapus",
         });
       } else if (overlayConfig.type === 'positions') {
         await supabase.from('positions').delete().eq('id', parseInt(id));
@@ -651,8 +651,8 @@ const MasterData = () => {
     } catch (error) {
       console.error('Error in handleDelete:', error);
       toast({
-        title: "Error",
-        description: "Failed to delete item",
+        title: "Gagal",
+        description: "Gagal menghapus item",
         variant: "destructive",
       });
     }
@@ -676,8 +676,8 @@ const MasterData = () => {
   const handleCustomerCreated = (customer: any) => {
     console.log('Customer created:', customer);
     toast({
-      title: "Success",
-      description: "Customer created successfully",
+      title: "Berhasil",
+      description: "Customer berhasil dibuat",
     });
   };
 

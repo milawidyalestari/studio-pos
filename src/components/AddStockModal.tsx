@@ -123,7 +123,7 @@ const AddStockModal: React.FC<AddStockModalProps> = ({ isOpen, onClose, onSucces
     setAddLoading(false);
     
     if (error) {
-      toast({ title: 'Error', description: 'Gagal menambah item', variant: 'destructive' });
+      toast({ title: 'Gagal', description: 'Gagal menambah item', variant: 'destructive' });
     } else {
       // Catat mutasi stok awal jika ada
       if (payload.stok_awal > 0 && inserted && inserted[0]) {

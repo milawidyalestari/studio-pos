@@ -15,6 +15,7 @@ import { Order, OrderWithItems, Employee } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useHasAccess } from '@/context/RoleAccessContext';
 import { useProducts } from '@/hooks/useProducts';
+import { PrintOverlay } from '@/components/PrintOverlay';
 
 const Orderan = () => {
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
@@ -22,7 +23,9 @@ const Orderan = () => {
   const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(null);
   const [editingOrder, setEditingOrder] = useState<OrderWithItems | null>(null);
   const [tempEditingOrder, setTempEditingOrder] = useState<OrderWithItems | null>(null);
-  const { orders: dbOrders, isLoading, isFetching, updateOrder, deleteOrder, refetch } = useOrders(); // tambahkan isFetching
+  const [showPrintOverlay, setShowPrintOverlay] = useState(false);
+  const [printOrderData, setPrintOrderData] = useState<OrderWithItems | null>(null);
+  const { orders: dbOrders, isLoading, isFetching, updateOrder, deleteOrder, refetch } = useOrders({ enableAutoRefresh: false }); // disable auto polling
   const orders = dbOrders || [];
   const { toast } = useToast();
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -91,8 +94,8 @@ const Orderan = () => {
       // });
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to update order status',
+        title: 'Gagal',
+        description: 'Gagal memperbarui status order',
         variant: 'destructive',
       });
     }
@@ -128,6 +131,33 @@ const Orderan = () => {
     setEditingOrder(null);
   };
 
+  const handlePrintNota = (order: OrderWithItems) => {
+    setPrintOrderData(order);
+    setShowPrintOverlay(true);
+  };
+
+  const handlePrintOverlayClose = () => {
+    setShowPrintOverlay(false);
+    setPrintOrderData(null);
+  };
+
+  const handlePrintSuccess = async () => {
+    if (printOrderData) {
+      try {
+        toast({
+          title: 'Berhasil',
+          description: 'Nota berhasil dicetak',
+        });
+      } catch (error) {
+        toast({
+          title: 'Gagal',
+          description: 'Gagal mencetak nota',
+          variant: 'destructive',
+        });
+      }
+    }
+  };
+
   const handleReload = async () => {
     setFadeReload(true);
     setTimeout(async () => {
@@ -158,11 +188,22 @@ const Orderan = () => {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Search orders..."
+              placeholder="Cari Orderan"
               className="pl-10 w-80"
             />
           </div>
           <div className="flex items-center space-x-2">
+            {/* Tombol Refresh */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReload}
+              className={`flex items-center${fadeReload ? ' opacity-50 pointer-events-none' : ''}`}
+              title="Refresh Orders"
+              disabled={isFetching}
+            >
+              <RefreshCw className={`h-4 w-4${isFetching ? ' animate-spin' : ''}`} />
+            </Button>
             <Button
               variant={viewMode === 'kanban' ? 'default' : 'outline'}
               size="sm"
@@ -171,16 +212,6 @@ const Orderan = () => {
             >
               <Grid className="h-4 w-4 mr-1" />
               Kanban
-            </Button>
-            {/* Tombol Refresh */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => refetch()}
-              className={`flex items-center${fadeReload ? ' opacity-50 pointer-events-none' : ''}`}
-              title="Refresh Orders"
-            >
-              <RefreshCw className="h-4 w-4" />
             </Button>
             <Button
               variant={viewMode === 'table' ? 'default' : 'outline'}
@@ -192,7 +223,7 @@ const Orderan = () => {
               Table
             </Button>
           </div>
-          {hasAccess('Orderan', 'create') && (
+          {hasAccess('Orderan', 'create_order') && (
             <Button 
               onClick={() => setShowRequestModal(true)}
               className="bg-[#0050C8] hover:bg-[#003a9b]"
@@ -222,11 +253,12 @@ const Orderan = () => {
               onEditOrder={handleEditOrder}
               onDeleteOrder={handleDeleteOrder}
               onUpdateOrderStatus={updateOrderStatus}
+              onPrintNota={handlePrintNota}
               employees={employees}
               fadeReload={fadeReload}
             />
           ) : (
-            <OrderTable orders={orders} onUpdateStatus={updateOrderStatus} onOrderClick={handleOrderClick} onEditOrder={handleEditOrder} />
+            <OrderTable orders={orders} onUpdateStatus={updateOrderStatus} onOrderClick={handleOrderClick} onEditOrder={handleEditOrder} onDeleteOrder={handleDeleteOrder} />
           )}
         </>
       )}
@@ -290,7 +322,7 @@ const Orderan = () => {
                 }) : 'Belum ditentukan'}</p>
               </div>
               <div>
-                <label className="font-semibold">Estimasi:</label>
+                <label className="font-semibold">Deadline:</label>
                 <p>{selectedOrder.estimasi || 'Belum ditentukan'}</p>
               </div>
               <div>
@@ -308,6 +340,52 @@ const Orderan = () => {
             </div>
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* Print Overlay */}
+      {printOrderData && (
+        <PrintOverlay
+          isOpen={showPrintOverlay}
+          onClose={handlePrintOverlayClose}
+          onPrint={handlePrintSuccess}
+          title="Print Nota"
+          printType="nota"
+          orderData={{
+            orderNumber: printOrderData.order_number,
+            customerName: printOrderData.customer_name,
+            totalAmount: printOrderData.total_amount,
+            desain: printOrderData.biaya_lain || 0,
+            biayaLainnya: printOrderData.biaya_lain || 0,
+            downPayment: printOrderData.down_payment || 0,
+            estimasi: printOrderData.estimasi,
+            estimasiWaktu: printOrderData.waktu,
+            komputer: printOrderData.admin?.nama,
+            desainer: printOrderData.desainer?.nama,
+          }}
+          orderList={(printOrderData.order_items || []).map((item: any) => {
+            // Convert product code to product name if needed (for backward compatibility)
+            const product = products?.find(p => p.kode === item.item_name);
+            const displayName = product?.nama || item.item_name; // Use product name if found, otherwise use existing value
+            
+            return {
+              id: item.id,
+              item: displayName,
+              quantity: item.quantity,
+              subTotal: item.sub_total,
+              ukuran: {
+                panjang: item.panjang,
+                lebar: item.lebar,
+              },
+              description: item.description,
+              finishing: item.finishing,
+            };
+          })}
+          onCloseAndReopenRequestOrder={() => {
+            setEditingOrder(printOrderData);
+            setShowRequestModal(true);
+            setShowPrintOverlay(false);
+          }}
+        />
       )}
     </div>
   );

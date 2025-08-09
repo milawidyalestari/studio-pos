@@ -4,33 +4,25 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import type { Database } from '@/integrations/supabase/types';
 
-interface Supplier {
-  id: string;
-  name: string;
-  contactPerson: string;
-  email: string;
-  phone: string;
-  paymentTerms: string;
-  outstandingBalance: number;
-  address: string;
-}
+type Supplier = Database['public']['Tables']['suppliers']['Row'];
 
 interface SupplierModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (supplier: Omit<Supplier, 'id'>) => void;
+  onSave: (supplier: any) => void;
   supplier: Supplier | null;
 }
 
 const SupplierModal = ({ isOpen, onClose, onSave, supplier }: SupplierModalProps) => {
   const [formData, setFormData] = useState({
     name: '',
-    contactPerson: '',
+    contact_person: '',
     email: '',
     phone: '',
-    paymentTerms: '',
-    outstandingBalance: 0,
+    payment_terms: '',
+    outstanding_balance: 0,
     address: ''
   });
 
@@ -38,21 +30,21 @@ const SupplierModal = ({ isOpen, onClose, onSave, supplier }: SupplierModalProps
     if (supplier) {
       setFormData({
         name: supplier.name,
-        contactPerson: supplier.contactPerson,
-        email: supplier.email,
-        phone: supplier.phone,
-        paymentTerms: supplier.paymentTerms,
-        outstandingBalance: supplier.outstandingBalance,
-        address: supplier.address
+        contact_person: supplier.contact_person || '',
+        email: supplier.email || '',
+        phone: supplier.phone || '',
+        payment_terms: supplier.payment_terms || '',
+        outstanding_balance: supplier.outstanding_balance || 0,
+        address: supplier.address || ''
       });
     } else {
       setFormData({
         name: '',
-        contactPerson: '',
+        contact_person: '',
         email: '',
         phone: '',
-        paymentTerms: '',
-        outstandingBalance: 0,
+        payment_terms: '',
+        outstanding_balance: 0,
         address: ''
       });
     }
@@ -74,12 +66,12 @@ const SupplierModal = ({ isOpen, onClose, onSave, supplier }: SupplierModalProps
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{supplier ? 'Edit Supplier' : 'Add New Supplier'}</DialogTitle>
+          <DialogTitle>{supplier ? 'Edit Supplier' : 'Tambah Supplier'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="name">Supplier Name</Label>
+              <Label htmlFor="name">Nama Supplier</Label>
               <Input
                 id="name"
                 value={formData.name}
@@ -88,11 +80,11 @@ const SupplierModal = ({ isOpen, onClose, onSave, supplier }: SupplierModalProps
               />
             </div>
             <div>
-              <Label htmlFor="contactPerson">Contact Person</Label>
+              <Label htmlFor="contact_person">Whatsapps</Label>
               <Input
-                id="contactPerson"
-                value={formData.contactPerson}
-                onChange={(e) => handleChange('contactPerson', e.target.value)}
+                id="contact_person"
+                value={formData.contact_person}
+                onChange={(e) => handleChange('contact_person', e.target.value)}
                 required
               />
             </div>
@@ -110,7 +102,7 @@ const SupplierModal = ({ isOpen, onClose, onSave, supplier }: SupplierModalProps
               />
             </div>
             <div>
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone">Telepon</Label>
               <Input
                 id="phone"
                 value={formData.phone}
@@ -122,34 +114,34 @@ const SupplierModal = ({ isOpen, onClose, onSave, supplier }: SupplierModalProps
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="paymentTerms">Payment Terms</Label>
+              <Label htmlFor="payment_terms">Pembayaran</Label>
               <Input
-                id="paymentTerms"
-                value={formData.paymentTerms}
-                onChange={(e) => handleChange('paymentTerms', e.target.value)}
-                placeholder="e.g., Net 30, COD, Net 15"
+                id="payment_terms"
+                value={formData.payment_terms}
+                onChange={(e) => handleChange('payment_terms', e.target.value)}
+                placeholder="cnth., Transfer, COD, Cicilan"
                 required
               />
             </div>
             <div>
-              <Label htmlFor="outstandingBalance">Outstanding Balance</Label>
+              <Label htmlFor="outstanding_balance">Sisa Tagihan</Label>
               <Input
-                id="outstandingBalance"
+                id="outstanding_balance"
                 type="number"
                 step="0.01"
-                value={formData.outstandingBalance}
-                onChange={(e) => handleChange('outstandingBalance', parseFloat(e.target.value) || 0)}
+                value={formData.outstanding_balance}
+                onChange={(e) => handleChange('outstanding_balance', parseFloat(e.target.value) || 0)}
               />
             </div>
           </div>
 
           <div>
-            <Label htmlFor="address">Address</Label>
+            <Label htmlFor="address">Alamat</Label>
             <Input
               id="address"
               value={formData.address}
               onChange={(e) => handleChange('address', e.target.value)}
-              placeholder="Full address"
+              placeholder="Alamat lengkap"
               required
             />
           </div>
@@ -159,7 +151,7 @@ const SupplierModal = ({ isOpen, onClose, onSave, supplier }: SupplierModalProps
               Cancel
             </Button>
             <Button type="submit" className="bg-[#0050C8] hover:bg-[#0040A0]">
-              {supplier ? 'Update' : 'Create'} Supplier
+              {supplier ? 'Update' : 'Tambah'} Supplier
             </Button>
           </div>
         </form>

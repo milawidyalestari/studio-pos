@@ -17,6 +17,7 @@ import {
 } from './ui/select';
 import { usePrintService } from '../hooks/usePrintService';
 import { printService } from '../services/printService';
+import { getNotaSettings } from '../utils/notaSettings';
 
 export interface PrintOverlayProps {
   isOpen: boolean;
@@ -104,6 +105,14 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
     });
   }, [orderData]);
 
+  // Initialize all items as selected by default
+  useEffect(() => {
+    if (orderList.length > 0) {
+      const allItemIds = orderList.map((item, index) => item.id || index.toString());
+      setSelectedItems(allItemIds);
+    }
+  }, [orderList]);
+
   // Convert orderList to PrintItem format for SPK
   const printItems = orderList.map((item, index) => {
     const printItem = {
@@ -115,6 +124,7 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
         : '-',
       quantity: `@${item.quantity}`,
       location: item.finishing || 'Lembaran',
+      subTotal: item.subTotal || 0,
     };
     return printItem;
   });
@@ -135,8 +145,8 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
       return;
     }
 
-    // Check if items are selected for SPK
-    if (printType === 'spk' && selectedItems.length === 0) {
+    // Check if items are selected for SPK and Pelunasan
+    if ((printType === 'spk' || printType === 'pelunasan') && selectedItems.length === 0) {
       alert('Silakan pilih item yang akan di-print terlebih dahulu!');
       return;
     }
@@ -188,7 +198,8 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
         console.log('Print successful');
         // Show success message
         alert('Print berhasil!');
-        // Close overlay after successful print
+        // Call onPrint to trigger database update and close overlay
+        onPrint();
         onClose();
       } else {
         console.error('Print failed');
@@ -300,6 +311,281 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
         style: 'currency',
         currency: 'IDR'
       }).format(orderData?.totalAmount || 0)}`;
+    } else if (printType === 'nota') {
+      // Get custom nota settings
+      const notaSettings = getNotaSettings();
+      
+      // Generate HTML content for nota instead of plain text
+      content = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              margin: 0;
+              padding: 20px;
+              font-size: 16px;
+              line-height: 1.5;
+              font-weight: bold;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 20px;
+            }
+            .title {
+              font-size: 24px;
+              font-weight: bold;
+              margin-bottom: 5px;
+            }
+            .order-number {
+              font-size: 18px;
+              font-weight: bold;
+            }
+            .section {
+              margin-bottom: 15px;
+            }
+            .section-title {
+              font-weight: bold;
+              font-size: 18px;
+              margin-bottom: 8px;
+              border-bottom: 1px solid #ccc;
+              padding-bottom: 3px;
+            }
+            .item {
+              border-top: 1px solid #ddd;
+              padding: 8px 0;
+              margin-bottom: 8px;
+            }
+            .item-header {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              margin-bottom: 5px;
+            }
+            .item-name {
+              font-weight: bold;
+              font-size: 16px;
+              flex: 1;
+            }
+            .item-dimensions {
+              font-size: 14px;
+              margin-left: 10px;
+              font-weight: bold;
+            }
+            .item-details {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            }
+            .item-price {
+              font-size: 14px;
+              font-weight: bold;
+            }
+            .item-subtotal {
+              font-weight: bold;
+              font-size: 14px;
+            }
+            .payment-row {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 3px;
+            }
+            .payment-label {
+              font-weight: bold;
+              font-size: 14px;
+            }
+            .payment-value {
+              font-weight: bold;
+              font-size: 14px;
+            }
+            .total-row {
+              font-weight: bold;
+              font-size: 16px;
+              border-top: 1px solid #ccc;
+              padding-top: 5px;
+              margin-top: 5px;
+            }
+            .info-row {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 3px;
+            }
+            .info-label {
+              font-weight: bold;
+              font-size: 14px;
+            }
+            .info-value {
+              font-weight: bold;
+              font-size: 14px;
+            }
+            .business-info {
+              text-align: center;
+              font-size: 14px;
+              color: #666;
+              margin-bottom: 15px;
+              font-weight: bold;
+            }
+            .footer-text {
+              text-align: center;
+              margin-top: 20px;
+              font-size: 14px;
+              color: #666;
+            }
+            @media print {
+              body { margin: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          ${notaSettings.header.enabled ? `
+            <!-- Header Section -->
+            <div class="header" style="text-align: center; margin-bottom: 20px;">
+              <div style="font-size: ${notaSettings.header.fontSize}px; font-weight: ${notaSettings.header.fontWeight}; color: #0050C8;">
+                ${notaSettings.header.text}
+              </div>
+            </div>
+          ` : ''}
+          
+          ${notaSettings.logo.enabled && notaSettings.logo.url ? `
+            <!-- Logo Section -->
+            <div class="logo-section" style="text-align: center; margin-bottom: 20px;">
+              <img src="${notaSettings.logo.url}" alt="${notaSettings.logo.altText}" style="width: ${notaSettings.logo.width}px; height: ${notaSettings.logo.height}px; margin: 0 auto; display: block;">
+            </div>
+          ` : ''}
+          
+          <!-- Business Information -->
+          <div class="business-info">
+            <div>${notaSettings.businessInfo.name}</div>
+            <div>${notaSettings.businessInfo.address}</div>
+            <div>${notaSettings.businessInfo.phone}</div>
+            <div>${notaSettings.businessInfo.website}</div>
+          </div>
+          
+          <div class="section">
+            <div class="section-title">DETAIL ORDER:</div>
+             <div class="info-row">
+               <span class="info-label">Customer:</span>
+               <span class="info-value">${orderData?.customerName || 'N/A'}</span>
+             </div>
+             <div class="info-row">
+               <span class="info-label">Order Number:</span>
+               <span class="info-value">${orderData?.orderNumber || 'N/A'}</span>
+             </div>
+             <div class="info-row">
+               <span class="info-label">Tanggal:</span>
+               <span class="info-value">${new Date().toLocaleDateString('id-ID')}</span>
+             </div>
+           </div>
+          
+                     <div class="section">
+             <div class="section-title">ITEMS:</div>
+             ${orderList.filter((item, index) => {
+               // For nota, show all items if none selected, otherwise show only selected items
+               if (printType === 'nota') {
+                 return selectedItems.length === 0 || selectedItems.includes(item.id || index.toString());
+               }
+               return true; // For other print types, show all items
+             }).map(item => {
+               const size = item.ukuran || {};
+        const unitPrice = Number(item.quantity) > 0 ? item.subTotal / Number(item.quantity) : 0;
+               const dimensions = (size.panjang && size.lebar && size.panjang !== '' && size.lebar !== '' && 
+                                 size.panjang !== 'null' && size.lebar !== 'null') ? 
+                                 `${size.panjang} x ${size.lebar}` : '-';
+               
+               return `
+                 <div class="item">
+                   <div class="item-header">
+                     <div class="item-name">${item.item}</div>
+                     <div class="item-dimensions">${dimensions}</div>
+                   </div>
+                   <div class="item-details">
+                     <div class="item-price">${item.quantity} x ${new Intl.NumberFormat('id-ID', {
+          style: 'currency',
+          currency: 'IDR'
+                     }).format(unitPrice)}</div>
+                     <div class="item-subtotal">${new Intl.NumberFormat('id-ID', {
+          style: 'currency',
+          currency: 'IDR'
+                     }).format(item.subTotal)}</div>
+                   </div>
+                 </div>
+               `;
+             }).join('')}
+           </div>
+          
+                     <div class="payment-row">
+            <span class="payment-label">Subtotal:</span>
+            <span class="payment-value">${(() => {
+              // Calculate subtotal based on selected items for nota
+              if (printType === 'nota') {
+                const selectedOrderItems = orderList.filter((item, index) => 
+                  selectedItems.length === 0 || selectedItems.includes(item.id || index.toString())
+                );
+                const subtotal = selectedOrderItems.reduce((sum, item) => sum + (item.subTotal || 0), 0);
+                return new Intl.NumberFormat('id-ID', {
+                  style: 'currency',
+                  currency: 'IDR'
+                }).format(subtotal);
+              }
+              return new Intl.NumberFormat('id-ID', {
+                style: 'currency',
+                currency: 'IDR'
+              }).format(orderData?.totalAmount || 0);
+            })()}</span>
+          </div>
+          <div class="payment-row">
+            <span class="payment-label">Desain:</span>
+            <span class="payment-value">${new Intl.NumberFormat('id-ID', {
+              style: 'currency',
+              currency: 'IDR'
+            }).format(orderData?.desain || 0)}</span>
+          </div>
+          <div class="payment-row">
+            <span class="payment-label">Biaya Lainnya:</span>
+            <span class="payment-value">${new Intl.NumberFormat('id-ID', {
+              style: 'currency',
+              currency: 'IDR'
+            }).format(orderData?.biayaLainnya || 0)}</span>
+          </div>
+          <div class="payment-row">
+            <span class="payment-label">Down Payment:</span>
+            <span class="payment-value">${new Intl.NumberFormat('id-ID', {
+              style: 'currency',
+              currency: 'IDR'
+            }).format(orderData?.downPayment || 0)}</span>
+          </div>
+          <div class="payment-row total-row">
+            <span class="payment-label">Sisa Pembayaran:</span>
+            <span class="payment-value">${(() => {
+              // Calculate total based on selected items for nota
+              if (printType === 'nota') {
+                const selectedOrderItems = orderList.filter((item, index) => 
+                  selectedItems.length === 0 || selectedItems.includes(item.id || index.toString())
+                );
+                const subtotal = selectedOrderItems.reduce((sum, item) => sum + (item.subTotal || 0), 0);
+                const total = subtotal + (orderData?.desain || 0) + (orderData?.biayaLainnya || 0) - (orderData?.downPayment || 0);
+                return new Intl.NumberFormat('id-ID', {
+                  style: 'currency',
+                  currency: 'IDR'
+                }).format(total);
+              }
+              return new Intl.NumberFormat('id-ID', {
+                style: 'currency',
+                currency: 'IDR'
+              }).format((orderData?.totalAmount || 0) + (orderData?.desain || 0) + (orderData?.biayaLainnya || 0) - (orderData?.downPayment || 0));
+            })()}</span>
+          </div>
+          
+          ${notaSettings.footer.enabled ? `
+            <div class="footer-text" style="text-align: center; margin-top: 20px; font-size: ${notaSettings.footer.fontSize}px; font-weight: ${notaSettings.footer.fontWeight}; color: #666;">
+              ${notaSettings.footer.text.split('\n').map(line => `<p>${line}</p>`).join('')}
+            </div>
+          ` : ''}
+        </body>
+        </html>
+      `;
     }
     
     return content;
@@ -317,35 +603,7 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
     }
   }, [orderData]);
 
-  const getPrintTypeLabel = () => {
-    switch (printType) {
-      case 'spk':
-        return 'Print SPK';
-      case 'receipt':
-        return 'Print Receipt';
-      case 'nota':
-        return 'Print Nota';
-      case 'pelunasan':
-        return 'Print Nota Pelunasan';
-      default:
-        return 'Print';
-    }
-  };
 
-  const getPrintTypeIcon = () => {
-    switch (printType) {
-      case 'spk':
-        return <FileText className="h-5 w-5" />;
-      case 'receipt':
-        return <Printer className="h-5 w-5" />;
-      case 'nota':
-        return <FileText className="h-5 w-5" />;
-      case 'pelunasan':
-        return <FileText className="h-5 w-5" />;
-      default:
-        return <Printer className="h-5 w-5" />;
-    }
-  };
 
   const getPreviewContent = () => {
     if (previewContent) {
@@ -358,7 +616,7 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
       case 'receipt':
         return <ReceiptPreview orderData={orderData} orderList={orderList} />;
       case 'nota':
-        return <NotaPreview orderData={orderData} orderList={orderList} />;
+        return <NotaPreview orderData={orderData} orderList={orderList} selectedItems={selectedItems} />;
       case 'pelunasan':
         return <PelunasanPreview orderData={orderData} orderList={orderList} />;
       default:
@@ -366,8 +624,8 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
     }
   };
 
-  // Render advanced SPK interface
-  if (printType === 'spk' && isOpen) {
+  // Render advanced interface for all print types
+  if ((printType === 'spk' || printType === 'nota' || printType === 'pelunasan') && isOpen) {
     return (
       <div 
         className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4 animate-in fade-in duration-300"
@@ -382,7 +640,11 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
           <div className="flex items-center justify-between p-4 border-b border-border">
             <div className="flex items-center gap-2">
               <Printer className="h-5 w-5" />
-              <h2 className="text-lg font-semibold">Print RO</h2>
+              <h2 className="text-lg font-semibold">
+                {printType === 'spk' ? 'Print RO' : 
+                 printType === 'nota' ? 'Print Nota' : 
+                 printType === 'pelunasan' ? 'Print Pelunasan' : 'Print'}
+              </h2>
             </div>
             <Button 
               variant="ghost" 
@@ -425,10 +687,10 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
                 <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
                     <Info className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm font-medium text-blue-800">Pilih Item untuk Print</span>
+                    <span className="text-sm font-medium text-blue-800">Item untuk Print</span>
                   </div>
                   <p className="text-xs text-blue-700">
-                    Klik item yang ingin dicetak
+                    Semua item terpilih secara default. Klik item untuk membatalkan pilihan.
                   </p>
                   {selectedItems.length > 0 && (
                     <p className="text-xs text-green-700 mt-1">
@@ -457,153 +719,23 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
                       <div className="text-right text-sm space-y-0.5 ml-4">
                         <div className="font-semibold text-gray-900">{item.dimensions}</div>
                         <div className="text-gray-600">{item.quantity}</div>
+                        {printType !== 'nota' ? (
                         <div className="text-gray-600">{item.location}</div>
+                        ) : (
+                          <div className="text-gray-600 font-medium">
+                            {new Intl.NumberFormat('id-ID', {
+                              style: 'currency',
+                              currency: 'IDR'
+                            }).format(item.subTotal)}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
 
-              {/* Print Settings Section */}
-              <div className="border-t border-border px-4 pb-8 pt-4 bg-gray-50">
-                <h4 className="text-sm font-semibold mb-3 text-gray-700">Print Settings</h4>
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Row 1 - Destination & Paper Size */}
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs font-medium min-w-16">Destination</Label>
-                    <Select 
-                      value={printSettings.destination} 
-                      onValueChange={(value) => setPrintSettings(prev => ({...prev, destination: value}))}
-                    >
-                      <SelectTrigger className="flex-1 bg-white text-xs h-8">
-                        <div className="flex items-center gap-1">
-                          <Printer className="h-3 w-3" />
-                          <SelectValue />
-                        </div>
-                      </SelectTrigger>
-                      <SelectContent className="bg-white border border-border shadow-lg z-[110]">
-                        {Object.entries(printerConfigs).map(([key, config]: [string, any]) => (
-                          <SelectItem key={key} value={key}>
-                            {config.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
 
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs font-medium min-w-16">Paper Size</Label>
-                    <Select 
-                      value={printSettings.paperSize} 
-                      onValueChange={(value) => setPrintSettings(prev => ({...prev, paperSize: value}))}
-                    >
-                      <SelectTrigger className="flex-1 bg-white text-xs h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white border border-border shadow-lg z-[110]">
-                        {Object.entries(paperSizes).map(([key, size]: [string, any]) => (
-                          <SelectItem key={key} value={key}>
-                            {size.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Row 2 - Cut Type & Font Type */}
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs font-medium min-w-16">Cut Type</Label>
-                    <Select 
-                      value={printSettings.cutType} 
-                      onValueChange={(value) => setPrintSettings(prev => ({...prev, cutType: value}))}
-                    >
-                      <SelectTrigger className="flex-1 bg-white text-xs h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white border border-border shadow-lg z-[110]">
-                        <SelectItem value="full">Full Cut</SelectItem>
-                        <SelectItem value="partial">Partial Cut</SelectItem>
-                        <SelectItem value="none">No Cut</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs font-medium min-w-16">Font Type</Label>
-                    <Select 
-                      value={printSettings.fontType} 
-                      onValueChange={(value) => setPrintSettings(prev => ({...prev, fontType: value}))}
-                    >
-                      <SelectTrigger className="flex-1 bg-white text-xs h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white border border-border shadow-lg z-[110]">
-                        {Object.entries(fontTypes).map(([key, font]: [string, any]) => (
-                          <SelectItem key={key} value={key}>
-                            {font.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Row 3 - Density & Copies */}
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs font-medium min-w-16">Density</Label>
-                    <Select 
-                      value={printSettings.printDensity} 
-                      onValueChange={(value) => setPrintSettings(prev => ({...prev, printDensity: value}))}
-                    >
-                      <SelectTrigger className="flex-1 bg-white text-xs h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white border border-border shadow-lg z-[110]">
-                        {Object.entries(densitySettings).map(([key, density]: [string, any]) => (
-                          <SelectItem key={key} value={key}>
-                            {density.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs font-medium min-w-16">Copies</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      max="10"
-                      value={printSettings.copies}
-                      onChange={(e) => setPrintSettings(prev => ({...prev, copies: e.target.value}))}
-                      className="flex-1 bg-white text-xs h-8"
-                    />
-                  </div>
-
-                  {/* Test Printer Connection */}
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={async () => {
-                        try {
-                          const hasPrinter = await printService.connectToExistingUSBDevice();
-                          if (hasPrinter) {
-                            alert('Printer ditemukan!');
-                          } else {
-                            alert('Tidak ada printer yang terhubung. Silakan hubungkan printer USB.');
-                          }
-                        } catch (error) {
-                          alert('Error saat mengecek printer: ' + error);
-                        }
-                      }}
-                      className="w-full text-xs"
-                    >
-                      Test Printer Connection
-                    </Button>
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* Right Section - Request Order (1/3 width) */}
@@ -611,77 +743,135 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
               {/* Scrollable Content Area */}
               <div className="flex-1 overflow-y-auto p-4 rounded-lg m-2 border border-border">
                 {/* Header */}
+                {printType === 'spk' ? (
                 <div className="text-center mb-4">
-                  <h3 className="text-lg font-bold text-gray-900">REQUEST ORDER</h3>
+                  <h3 className="text-lg font-bold text-gray-900">
+                      REQUEST ORDER
+                  </h3>
                   <p className="text-sm text-gray-600">{orderData?.orderNumber || 'N/A'}</p>
                 </div>
+                ) : (
+                  // Nota header with custom settings
+                  (() => {
+                    const notaSettings = getNotaSettings();
+                    return (
+                      <div className="text-center mb-4">
+                        {/* Custom Header */}
+                        {notaSettings.header.enabled && (
+                          <div 
+                            className="text-gray-900 mb-2"
+                            style={{
+                              fontSize: `${notaSettings.header.fontSize}px`,
+                              fontWeight: notaSettings.header.fontWeight as any
+                            }}
+                          >
+                            {notaSettings.header.text}
+                          </div>
+                        )}
+                        
+                        {/* Custom Logo */}
+                        {notaSettings.logo.enabled && notaSettings.logo.url && (
+                          <div className="flex justify-center mb-2">
+                            <img
+                              src={notaSettings.logo.url}
+                              alt={notaSettings.logo.altText}
+                              style={{
+                                width: `${notaSettings.logo.width}px`,
+                                height: `${notaSettings.logo.height}px`
+                              }}
+                              className="object-contain"
+                            />
+                          </div>
+                        )}
+                        
+                        {/* Business Information */}
+                        <div className="text-sm text-gray-600 space-y-1 mb-2">
+                          <div>{notaSettings.businessInfo.name}</div>
+                          <div>{notaSettings.businessInfo.address}</div>
+                          <div>{notaSettings.businessInfo.phone}</div>
+                          <div>{notaSettings.businessInfo.website}</div>
+                        </div>
+                      </div>
+                    );
+                  })()
+                )}
 
-                {/* Checkboxes */}
-                <div className="space-y-2 mb-4">
-                  <div className="flex gap-4 text-xs">
-                    <label className="flex items-center gap-1">
-                      <Checkbox 
-                        checked={printOptions.outdoor}
-                        disabled={true}
-                        className="data-[state=checked]:bg-black"
-                      />
-                      <span className={printOptions.outdoor ? "text-gray-500" : "text-gray-500"}>
-                        Outdoor/Indoor
-                      </span>
-                    </label>
-                    <label className="flex items-center gap-1">
-                      <Checkbox 
-                        checked={printOptions.laserPrinting}
-                        disabled={true}
-                        className="data-[state=checked]:bg-black"
-                      />
-                      <span className={printOptions.laserPrinting ? "text-gray-500" : "text-gray-500"}>
-                        Laser
-                      </span>
-                    </label>
-                    <label className="flex items-center gap-1">
-                      <Checkbox 
-                        checked={printOptions.mugNotaStempel}
-                        disabled={true}
-                        className="data-[state=checked]:bg-black"
-                      />
-                      <span className={printOptions.mugNotaStempel ? "text-gray-500" : "text-gray-500"}>
-                        Mug/Nota/Stamp
-                      </span>
-                    </label>
+                {/* Checkboxes - Only for SPK */}
+                {printType === 'spk' && (
+                  <div className="space-y-2 mb-4">
+                    <div className="flex gap-4 text-xs">
+                      <label className="flex items-center gap-1">
+                        <Checkbox 
+                          checked={printOptions.outdoor}
+                          disabled={true}
+                          className="data-[state=checked]:bg-black"
+                        />
+                        <span className={printOptions.outdoor ? "text-gray-500" : "text-gray-500"}>
+                          Outdoor/Indoor
+                        </span>
+                      </label>
+                      <label className="flex items-center gap-1">
+                        <Checkbox 
+                          checked={printOptions.laserPrinting}
+                          disabled={true}
+                          className="data-[state=checked]:bg-black"
+                        />
+                        <span className={printOptions.laserPrinting ? "text-gray-500" : "text-gray-500"}>
+                          Laser
+                        </span>
+                      </label>
+                      <label className="flex items-center gap-1">
+                        <Checkbox 
+                          checked={printOptions.mugNotaStempel}
+                          disabled={true}
+                          className="data-[state=checked]:bg-black"
+                        />
+                        <span className={printOptions.mugNotaStempel ? "text-gray-500" : "text-gray-500"}>
+                          Mug/Nota/Stamp
+                        </span>
+                      </label>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Order Details */}
                 <div className="space-y-3 text-sm mb-4">
                   <div className="flex justify-between">
-                    <span>Nama :</span>
+                    <span>{printType === 'spk' ? 'Nama :' : 'Customer :'}</span>
                     <span className="font-medium">{orderData?.customerName || 'N/A'}</span>
                   </div>
+                  {(printType === 'nota' || printType === 'pelunasan') && (
+                    <div className="flex justify-between">
+                      <span>Order Number:</span>
+                      <span className="font-medium">{orderData?.orderNumber || 'N/A'}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span>Tanggal :</span>
                     <span>{new Date().toLocaleDateString('id-ID')}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Deadline:</span>
-                    <span>
-                      {orderData?.estimasi ? (
-                        <>
-                          {new Date(orderData.estimasi).toLocaleDateString('id-ID', {
-                            timeZone: 'Asia/Kuala_Lumpur',
-                            year: 'numeric',
-                            month: '2-digit',
-                            day: '2-digit'
-                          })}
-                          {orderData?.estimasiWaktu && (
-                            <span className="ml-1">| {orderData.estimasiWaktu.slice(0, 5)}</span>
-                          )}
-                        </>
-                      ) : (
-                        'Tidak ditentukan'
-                      )}
-                    </span>
-                  </div>
+                  {printType === 'spk' && (
+                    <div className="flex justify-between">
+                      <span>Deadline:</span>
+                      <span>
+                        {orderData?.estimasi ? (
+                          <>
+                            {new Date(orderData.estimasi).toLocaleDateString('id-ID', {
+                              timeZone: 'Asia/Kuala_Lumpur',
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit'
+                            })}
+                            {orderData?.estimasiWaktu && (
+                              <span className="ml-1">| {orderData.estimasiWaktu.slice(0, 5)}</span>
+                            )}
+                          </>
+                        ) : (
+                          'Tidak ditentukan'
+                        )}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="text-sm font-medium mb-3 border-t">Items:</div>
@@ -697,34 +887,144 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
                             <span className="flex-1">{item.name}</span>
                             <span className="ml-2">{item.dimensions}</span>
                           </div>
+                          {printType !== 'nota' && (
                           <div className="flex justify-between text-gray-600 mb-1">
                             <span className="flex-1">{item.description}</span>
                             <span className="ml-2">{item.quantity}</span>
                           </div>
+                          )}
+                          {printType !== 'nota' ? (
                           <div className="text-right text-gray-600">
                             {item.location}
                           </div>
+                          ) : (
+                            <div className="flex justify-between text-gray-600">
+                              <div>
+                                {item.quantity} x {new Intl.NumberFormat('id-ID', {
+                                  style: 'currency',
+                                  currency: 'IDR'
+                                }).format(item.subTotal / Number(item.quantity.replace('@', '')))}
+                              </div>
+                              <div className="font-medium">
+                                {new Intl.NumberFormat('id-ID', {
+                                  style: 'currency',
+                                  currency: 'IDR'
+                                }).format(item.subTotal)}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })
                   ) : (
                     <div className="text-gray-500 text-center py-4">
-                      Pilih item di panel kiri
+                      Tidak ada item dalam order
                     </div>
                   )}
                 </div>
                 
+                {/* Payment Summary for Nota */}
+                {printType === 'nota' && (
+                  <div className="mt-4 space-y-2 text-sm border-t pt-3">
+                    <div className="flex justify-between">
+                      <span className="font-medium">Subtotal:</span>
+                      <span>{(() => {
+                        // Calculate subtotal based on selected items for nota
+                        const selectedOrderItems = orderList.filter((item, index) => 
+                          selectedItems.length === 0 || selectedItems.includes(item.id || index.toString())
+                        );
+                        const subtotal = selectedOrderItems.reduce((sum, item) => sum + (item.subTotal || 0), 0);
+                        return new Intl.NumberFormat('id-ID', {
+                          style: 'currency',
+                          currency: 'IDR'
+                        }).format(subtotal);
+                      })()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium">Desain:</span>
+                      <span>{new Intl.NumberFormat('id-ID', {
+                        style: 'currency',
+                        currency: 'IDR'
+                      }).format(orderData?.desain || 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium">Biaya Lainnya:</span>
+                      <span>{new Intl.NumberFormat('id-ID', {
+                        style: 'currency',
+                        currency: 'IDR'
+                      }).format(orderData?.biayaLainnya || 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium">Down Payment:</span>
+                      <span>{new Intl.NumberFormat('id-ID', {
+                        style: 'currency',
+                        currency: 'IDR'
+                      }).format(orderData?.downPayment || 0)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold">
+                      <span>Sisa:</span>
+                      <span>{(() => {
+                        // Calculate total based on selected items for nota
+                        const selectedOrderItems = orderList.filter((item, index) => 
+                          selectedItems.length === 0 || selectedItems.includes(item.id || index.toString())
+                        );
+                        const subtotal = selectedOrderItems.reduce((sum, item) => sum + (item.subTotal || 0), 0);
+                        const total = subtotal + (orderData?.desain || 0) + (orderData?.biayaLainnya || 0) - (orderData?.downPayment || 0);
+                        return new Intl.NumberFormat('id-ID', {
+                        style: 'currency',
+                        currency: 'IDR'
+                        }).format(total);
+                      })()}</span>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Additional Information */}
                 <div className="mt-4 space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span>Kom :</span>
-                    <span>{orderData?.komputer || '???'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Designer:</span>
-                    <span>{orderData?.desainer || 'Belum ditugaskan'}</span>
-                  </div>
+                  {printType === 'spk' ? (
+                    <>
+                      <div className="flex justify-between">
+                        <span>Kom :</span>
+                        <span>{orderData?.komputer || '???'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Designer:</span>
+                        <span>{orderData?.desainer || 'Belum ditugaskan'}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex justify-between">
+                        <span>Payment:</span>
+                        <span>Cash</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Cashier:</span>
+                        <span>Cashier</span>
+                      </div>
+                    </>
+                  )}
                 </div>
+                
+                {/* Custom Footer for Nota */}
+                {printType === 'nota' && (() => {
+                  const notaSettings = getNotaSettings();
+                  return notaSettings.footer.enabled ? (
+                    <div className="mt-4 text-center">
+                      <div 
+                        className="text-gray-600"
+                        style={{
+                          fontSize: `${notaSettings.footer.fontSize}px`,
+                          fontWeight: notaSettings.footer.fontWeight as any
+                        }}
+                      >
+                        {notaSettings.footer.text.split('\n').map((line, index) => (
+                          <p key={index}>{line}</p>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
               </div>
 
               {/* Fixed Footer */}
@@ -776,73 +1076,6 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
     );
   }
 
-  // Render standard interface for other print types
-  if (!isOpen) return null;
-  
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl p-0 animate-in fade-in-0 zoom-in-95 duration-300">
-        <DialogHeader className="px-6 py-4 border-b">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-xl font-semibold flex items-center gap-2">
-              {getPrintTypeIcon()}
-              {getPrintTypeLabel()}
-            </DialogTitle>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </DialogHeader>
-
-        <div className="flex flex-col lg:flex-row max-h-[calc(100vh-200px)]">
-          {/* Left Panel - Print Settings */}
-          <div className="w-full lg:w-1/3 p-6 border-r border-border">
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-semibold mb-2">Print Settings</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium">Printer</label>
-                    <select className="text-sm border border-border rounded px-2 py-1">
-                      <option>Default Printer</option>
-                      <option>Epson TM-T20</option>
-                      <option>Star TSP143</option>
-                    </select>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium">Paper Size</label>
-                    <select className="text-sm border border-border rounded px-2 py-1">
-                      <option>80mm</option>
-                      <option>58mm</option>
-                      <option>A4</option>
-                    </select>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium">Copies</label>
-                    <input type="number" min="1" defaultValue="1" className="text-sm border border-border rounded px-2 py-1 w-16" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Panel - Preview */}
-          <div className="w-full lg:w-2/3 p-6">
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="font-semibold">Preview</h3>
-                <Button onClick={onPrint} className="flex items-center gap-2">
-                  <Printer className="h-4 w-4" />
-                  Print
-                </Button>
-              </div>
-              <ScrollArea className="h-[500px] border border-border rounded-lg p-4">
-                {getPreviewContent()}
-              </ScrollArea>
-            </div>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
+  // Fallback: if dialog is not open, return null
+  return null;
 }; 

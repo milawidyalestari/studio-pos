@@ -87,7 +87,7 @@ export const MasterDataForm: React.FC<MasterDataFormProps> = ({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">
-          {isEditing ? 'Edit Record' : 'Add New Record'}
+          {isEditing ? 'Edit Record' : 'Tambah Record Baru'}
         </h3>
       </div>
 

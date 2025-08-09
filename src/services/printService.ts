@@ -897,9 +897,8 @@ export class PrintService {
   </style>
 </head>
 <body>
-  <div class="header">${job.type.toUpperCase()}</div>
   <div class="content">${job.content}</div>
-  <div class="footer">Printed on ${new Date().toLocaleString()}</div>
+  <div class="footer"> ${new Date().toLocaleString()}</div>
 </body>
 </html>`;
   }

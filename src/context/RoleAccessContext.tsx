@@ -21,13 +21,35 @@ export function RoleAccessProvider({ children }: { children: React.ReactNode }) 
 
   // Fetch permissions saat login atau role berubah
   const refresh = async (role: string) => {
+    console.log('🔄 RoleAccessContext: Refreshing permissions for role:', role);
     setUserRole(role);
-    const { data } = await supabase
-      .from('role_permissions')
-      .select('menu, action, allowed')
-      .eq('role', role)
-      .eq('allowed', true);
-    setPermissions(data || []);
+    
+    try {
+      const { data, error } = await supabase
+        .from('role_permissions')
+        .select('menu, action, allowed')
+        .eq('role', role)
+        .eq('allowed', true);
+      
+      if (error) {
+        console.error('❌ Error fetching permissions:', error);
+        console.error('Error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        setPermissions([]);
+        return;
+      }
+      
+      console.log('✅ Fetched permissions from database:', data);
+      setPermissions(data || []);
+      
+    } catch (error) {
+      console.error('❌ Fatal error in refresh:', error);
+      setPermissions([]);
+    }
   };
 
   // Tambahkan efek untuk inisialisasi dari localStorage saat mount
@@ -53,9 +75,21 @@ export function RoleAccessProvider({ children }: { children: React.ReactNode }) 
 export function useHasAccess() {
   const { permissions, userRole } = useContext(RoleAccessContext);
   return (menu: string, action: string) => {
-    if (userRole === 'Administrator') return true;
-    return permissions.some(
+    console.log(`🔍 Checking access: ${menu}.${action} for role: ${userRole}`);
+    console.log('Available permissions:', permissions);
+    
+    // Administrator always has access
+    if (userRole === 'Administrator') {
+      console.log('✅ Administrator has full access');
+      return true;
+    }
+    
+    // Check specific permission
+    const hasPermission = permissions.some(
       (perm) => perm.menu === menu && perm.action === action && perm.allowed
     );
+    
+    console.log(`${hasPermission ? '✅' : '❌'} Access ${hasPermission ? 'granted' : 'denied'} for ${menu}.${action}`);
+    return hasPermission;
   };
 } 

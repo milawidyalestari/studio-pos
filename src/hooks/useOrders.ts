@@ -12,12 +12,13 @@ type OrderItem = Database['public']['Tables']['order_items']['Row'];
 type OrderItemInsert = Database['public']['Tables']['order_items']['Insert'];
 
 interface OrderWithItemsExtended extends OrderWithItems {
-  order_statuses?: { id: number; name: string };
-  admin?: { id: string; nama: string };
-  desainer?: { id: string; nama: string };
+  order_statuses?: { id: number; name: string } | null;
+  admin?: { id: string; nama: string } | null;
+  desainer?: { id: string; nama: string } | null;
 }
 
-export const useOrders = () => {
+export const useOrders = (options?: { enableAutoRefresh?: boolean }) => {
+  const { enableAutoRefresh = false } = options || {};
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -29,7 +30,7 @@ export const useOrders = () => {
         .select(`
           *,
           order_items (*),
-          order_statuses:order_statuses (id, name),
+          order_statuses (id, name),
           admin:admin_id (id, nama),
           desainer:desainer_id (id, nama)
         `)
@@ -38,8 +39,8 @@ export const useOrders = () => {
       if (error) throw error;
       return data as OrderWithItemsExtended[];
     },
-    refetchInterval: 3000, // polling setiap 3 detik
-    refetchOnWindowFocus: true, // opsional, refetch saat window aktif
+    refetchInterval: enableAutoRefresh ? 3000 : false, // conditional polling
+    refetchOnWindowFocus: enableAutoRefresh, // conditional refetch on focus
   });
 
   const createOrderMutation = useMutation({
@@ -73,8 +74,8 @@ export const useOrders = () => {
     onError: (error) => {
       console.error('Error creating order:', error);
       toast({
-        title: "Error creating order",
-        description: "There was an error saving the order. Please try again.",
+        title: "Gagal Membuat Order",
+        description: "Terjadi kesalahan saat menyimpan order. Silakan coba lagi.",
         variant: "destructive",
       });
     },
@@ -132,8 +133,8 @@ export const useOrders = () => {
     onError: (error) => {
       console.error('Error updating order:', error);
       toast({
-        title: "Error updating order",
-        description: `There was an error updating the order: ${error.message}`,
+        title: "Gagal Memperbarui Order",
+        description: `Terjadi kesalahan saat memperbarui order: ${error.message}`,
         variant: "destructive",
       });
     },
@@ -147,15 +148,11 @@ export const useOrders = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
-      toast({
-        title: "Order deleted successfully",
-        description: "The order has been removed from the database.",
-        variant: "default",
-      });
+      // Removed toast notification for delete as requested
     },
     onError: (error) => {
       toast({
-        title: "Error deleting order",
+        title: "Gagal Menghapus Order",
         description: error.message,
         variant: "destructive",
       });
@@ -177,16 +174,22 @@ export const useOrders = () => {
 
 // Custom hook: Statistik order hari ini
 
-export const useTodayOrderStats = () => {
+export const useTodayOrderStats = (options?: { enableAutoRefresh?: boolean }) => {
+  const { enableAutoRefresh = false } = options || {};
+  
   return useQuery({
     queryKey: ['today-order-stats'],
     queryFn: async () => {
-      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-      // Ambil semua order hari ini
+      const today = new Date();
+      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+      const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
+      
+      // Ambil semua order hari ini berdasarkan created_at
       const { data, error } = await supabase
         .from('orders')
         .select('total_amount, desainer_id')
-        .eq('tanggal', today);
+        .gte('created_at', todayStart)
+        .lt('created_at', todayEnd);
       if (error) throw error;
       const orders = data || [];
       // Hitung statistik
@@ -195,7 +198,7 @@ export const useTodayOrderStats = () => {
       const belumDiproses = orders.filter(o => !o.desainer_id).length;
       return { totalPendapatan, totalTransaksi, belumDiproses };
     },
-    refetchInterval: 3000,
-    refetchOnWindowFocus: true,
+    refetchInterval: enableAutoRefresh ? 3000 : false,
+    refetchOnWindowFocus: enableAutoRefresh,
   });
 };

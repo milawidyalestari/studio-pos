@@ -27,6 +27,7 @@ interface KanbanColumnProps {
   onOrderClick?: (order: Order) => void;
   onEditOrder?: (order: Order) => void;
   onDeleteOrder?: (orderId: string) => void;
+  onPrintNota?: (order: Order) => void;
   isOptimisticallyMoved?: (orderId: string) => boolean;
   onMarkAsTaken?: (orderId: string) => void;
 }
@@ -37,6 +38,7 @@ const KanbanColumn = ({
   onOrderClick, 
   onEditOrder, 
   onDeleteOrder,
+  onPrintNota,
   isOptimisticallyMoved,
   onMarkAsTaken
 }: KanbanColumnProps) => {
@@ -71,6 +73,7 @@ const KanbanColumn = ({
                        onOrderClick={onOrderClick}
                        onEditOrder={onEditOrder}
                        onDeleteOrder={onDeleteOrder}
+                       onPrintNota={onPrintNota}
                        isOptimisticallyMoved={isOptimisticallyMoved?.(order.id)}
                        isDoneColumn={column.status === 'Done'}
                        onMarkPickedUp={onMarkAsTaken && order.status === 'Done' && String(order.status) !== 'Selesai-Diambil' ? onMarkAsTaken : undefined}

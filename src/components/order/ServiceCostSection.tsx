@@ -110,7 +110,7 @@ const ServiceCostSection = ({ formData, totalPrice, onFormDataChange, designers,
             id="komputer"
             value={formData.komputer}
             onChange={(e) => onFormDataChange('komputer', e.target.value)}
-            placeholder="Computer info"
+            placeholder="Lokasi File"
             className={`mt-1 h-8 ${isEditingItem ? 'bg-gray-100 cursor-not-allowed' : ''}`}
             disabled={isEditingItem}
           />

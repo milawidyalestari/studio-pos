@@ -10,20 +10,25 @@ import { Employee, OrderWithItems, Order } from '@/types';
 interface KanbanBoardWithEmployeesProps extends KanbanBoardProps {
   employees?: Employee[];
   fadeReload?: boolean;
+  onPrintNota?: (order: OrderWithItems) => void;
 }
 
 function getOrderStatus(order: OrderWithItems): string {
   if (typeof order === 'object' && order !== null) {
+    // Prioritas 1: Ambil dari order_statuses yang sudah di-join
     if ('order_statuses' in order && order.order_statuses && typeof order.order_statuses === 'object' && 'name' in order.order_statuses && typeof order.order_statuses.name === 'string') {
       return order.order_statuses.name;
-    } else if ('status' in order && typeof (order as { status?: string }).status === 'string') {
-      return (order as { status?: string }).status || 'Design';
+    }
+    // Prioritas 2: Ambil dari status_id yang sudah di-mapping ke nama status
+    else if ('status_id' in order && order.status_id && typeof order.status_id === 'number') {
+      // Status akan di-mapping di mapOrderWithItemsToOrder
+      return 'Design'; // Default fallback
     }
   }
   return 'Design';
 }
 
-function mapOrderWithItemsToOrder(order: OrderWithItems, employeeMap: Map<string, Employee>): Order {
+function mapOrderWithItemsToOrder(order: OrderWithItems, employeeMap: Map<string, Employee>, statuses: any[]): Order {
   // Get designer info from the joined data if available, otherwise fallback to employeeMap
   let designer = undefined;
   if (order.desainer && order.desainer.nama) {
@@ -32,7 +37,17 @@ function mapOrderWithItemsToOrder(order: OrderWithItems, employeeMap: Map<string
     designer = { name: employeeMap.get(order.desainer_id)!.nama };
   }
   
-  const status = getOrderStatus(order);
+  // Get status dengan prioritas yang benar
+  let status = 'Design'; // default
+  if (order.order_statuses && order.order_statuses.name) {
+    status = order.order_statuses.name;
+  } else if (order.status_id && statuses && statuses.length > 0) {
+    const statusObj = statuses?.find(s => s.id === order.status_id);
+    if (statusObj) {
+      status = statusObj.name;
+    }
+  }
+  
   return {
     id: order.id,
     orderNumber: order.order_number || '-',
@@ -57,6 +72,7 @@ const KanbanBoard = ({
   onEditOrder, 
   onDeleteOrder,
   onUpdateOrderStatus,
+  onPrintNota,
   employees = [],
   fadeReload = false
 }: KanbanBoardWithEmployeesProps) => {
@@ -65,7 +81,7 @@ const KanbanBoard = ({
   const [newColumnTitle, setNewColumnTitle] = useState('');
   const [columnOrderSequence, setColumnOrderSequence] = useState<{[columnId: string]: string[]}>({});
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
-  const { statuses } = useOrderStatus();
+  const { data: statuses } = useOrderStatus();
   const hasInitialized = useRef(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -114,8 +130,8 @@ const KanbanBoard = ({
       if (aIndex !== -1) return -1;
       if (bIndex !== -1) return 1;
       return new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime();
-    }).map(order => mapOrderWithItemsToOrder(order, employeeMap));
-  }, [localOrders, columnOrderSequence, employeeMap]);
+    }).map(order => mapOrderWithItemsToOrder(order, employeeMap, statuses));
+  }, [localOrders, columnOrderSequence, employeeMap, statuses]);
 
   // Saat drag & drop, update localOrders secara optimistik
   const handleDragEnd = useCallback(async (result: DropResult) => {
@@ -148,12 +164,23 @@ const KanbanBoard = ({
     }
 
     setColumnOrderSequence(newSequences);
-    // Update localOrders secara optimistik
+    
+    // Update localOrders secara optimistik dengan status yang benar
     setLocalOrders(prev => {
       const updated = [...prev];
       const movedIdx = updated.findIndex(o => o.id === draggableId);
       if (movedIdx === -1) return updated;
-      const movedOrder = { ...updated[movedIdx], status: newStatus, order_statuses: { ...updated[movedIdx].order_statuses, name: newStatus } };
+      
+      // Cari status_id yang sesuai dengan newStatus
+      const statusObj = statuses?.find(s => s.name === newStatus);
+      const newStatusId = statusObj ? statusObj.id : null;
+      
+      const movedOrder = { 
+        ...updated[movedIdx], 
+        status_id: newStatusId,
+        order_statuses: statusObj ? { id: statusObj.id, name: statusObj.name } : updated[movedIdx].order_statuses
+      };
+      
       updated.splice(movedIdx, 1);
       // Cari index tujuan di localOrders
       const destIdx = updated.findIndex(o => o.id === (newSequences[newStatus][destination.index]));
@@ -168,7 +195,7 @@ const KanbanBoard = ({
 
     try {
       if (sourceStatus !== newStatus && onUpdateOrderStatus) {
-        const statusObj = statuses.find(s => s.name === newStatus);
+        const statusObj = statuses?.find(s => s.name === newStatus);
         if (statusObj) {
           await onUpdateOrderStatus(draggableId, String(statusObj.id));
         }
@@ -180,7 +207,7 @@ const KanbanBoard = ({
       setIsUpdating(null);
       // Toast error dihapus untuk menghindari notifikasi yang mengganggu
     }
-      }, [columnOrderSequence, statuses, onUpdateOrderStatus, onDragEnd]);
+  }, [columnOrderSequence, statuses, onUpdateOrderStatus, onDragEnd]);
 
   const handleAddColumn = useCallback(() => {
     if (!newColumnTitle.trim()) return;
@@ -208,7 +235,7 @@ const KanbanBoard = ({
   };
 
   const handleMarkAsTaken = async (orderId: string) => {
-    const diambilStatus = statuses.find(s => s.name === 'Selesai-Diambil');
+    const diambilStatus = statuses?.find(s => s.name === 'Selesai-Diambil');
     if (!diambilStatus) {
       // Toast error dihapus untuk menghindari notifikasi yang mengganggu
       return;
@@ -229,7 +256,7 @@ const KanbanBoard = ({
   // --- SMOOTH AUTO SCROLL LOGIC DENGAN AKSELERASI ---
   const scrollDirectionRef = useRef<'left' | 'right' | null>(null);
   const animationFrameRef = useRef<number | null>(null);
-  const SCROLL_THRESHOLD = 10; // px dari kiri/kanan layar
+  const SCROLL_THRESHOLD = 100; // px dari kiri/kanan layar
   const SCROLL_SPEED_INITIAL = 30; // px per frame (awal)
   const SCROLL_SPEED_ACCEL = 10; // px per frame (tambah per frame)
   const SCROLL_SPEED_MAX = 150; // px per frame (maksimal)
@@ -389,10 +416,10 @@ const KanbanBoard = ({
             const columnOrders = getColumnOrders(column.status).map(order => {
               return {
                 ...order,
-                customer: order.customer_name || order.customer || 'Unknown',
+                customer: order.customer_name || order.customer || 'Tidak diketahui',
                 estimatedDate: order.estimasi || order.estimatedDate || '',
                 items: order.items || (order.order_items
-                  ? order.order_items.map(item => item.item_name || item.name || item.title || 'Unknown Item')
+                  ? order.order_items.map(item => item.item_name || item.name || item.title || 'Item tidak diketahui')
                   : []),
                 created_at: order.created_at,
                 designer: order.designer
@@ -413,6 +440,10 @@ const KanbanBoard = ({
                   if (original) onEditOrder(original);
                 } : undefined}
                 onDeleteOrder={handleDeleteOrder}
+                onPrintNota={onPrintNota ? (order) => {
+                  const original = orders.find(o => o.id === order.id);
+                  if (original) onPrintNota(original);
+                } : undefined}
                 onMarkAsTaken={column.status === 'Done' ? handleMarkAsTaken : undefined}
               />
             );

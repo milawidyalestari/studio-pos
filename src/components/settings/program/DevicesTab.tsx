@@ -37,7 +37,7 @@ export const DevicesTab = () => {
   const handleAddDevice = () => {
     if (!newDevice.name || !newDevice.type || !newDevice.ip) {
       toast({
-        title: "Validation Error",
+        title: "Gagal Validasi",
         description: "Please fill in all required fields.",
         variant: "destructive"
       });
