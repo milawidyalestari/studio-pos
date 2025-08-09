@@ -39,72 +39,17 @@ interface SidebarProps {
 }
 
 const menuItems = [
-  { 
-    path: ROUTES.DASHBOARD, 
-    label: 'Dashboard', 
-    icon: LayoutDashboard,
-    permission: { menu: 'Dashboard', action: 'view_stats' }
-  },
-  { 
-    path: ROUTES.ORDERAN, 
-    label: 'Orderan', 
-    icon: FileText,
-    permission: { menu: 'Orderan', action: 'view_orders' }
-  },
-  { 
-    path: ROUTES.TRANSACTION, 
-    label: 'Transaction', 
-    icon: Receipt,
-    permission: { menu: 'Transaction', action: 'view_transactions' }
-  },
-  { 
-    path: ROUTES.CASHIER, 
-    label: 'Cashier', 
-    icon: Calculator,
-    permission: { menu: 'Transaction', action: 'view_transactions' }
-  },
-  { 
-    path: '/finance', 
-    label: 'Keuangan', 
-    icon: DollarSign,
-    permission: { menu: 'Finance', action: 'view_finance' }
-  },
-  { 
-    path: ROUTES.INVENTORY, 
-    label: 'Inventory', 
-    icon: Package,
-    permission: { menu: 'Inventory', action: 'view_inventory' }
-  },
-  { 
-    path: ROUTES.SUPPLIERS, 
-    label: 'Suppliers', 
-    icon: Truck,
-    permission: { menu: 'Master Data', action: 'view_suppliers' }
-  },
-  { 
-    path: ROUTES.REPORT, 
-    label: 'Report', 
-    icon: BarChart3,
-    permission: { menu: 'Report', action: 'view_reports' }
-  },
-  { 
-    path: ROUTES.MASTER_DATA, 
-    label: 'Master Data', 
-    icon: Database,
-    permission: { menu: 'Master Data', action: 'view_products' }
-  },
-  { 
-    path: ROUTES.SETTINGS, 
-    label: 'Settings', 
-    icon: Settings,
-    permission: { menu: 'Settings', action: 'view_settings' }
-  },
-  { 
-    path: '/print-demo', 
-    label: 'Print Demo', 
-    icon: Printer,
-    permission: { menu: 'Settings', action: 'system_tools' }
-  },
+  { path: ROUTES.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
+  { path: ROUTES.ORDERAN, label: 'Orderan', icon: FileText },
+  { path: ROUTES.TRANSACTION, label: 'Transaction', icon: Receipt },
+  { path: ROUTES.CASHIER, label: 'Cashier', icon: Calculator },
+  { path: '/finance', label: 'Keuangan', icon: DollarSign },
+  { path: ROUTES.INVENTORY, label: 'Inventory', icon: Package },
+  { path: ROUTES.SUPPLIERS, label: 'Suppliers', icon: Truck },
+  { path: ROUTES.REPORT, label: 'Report', icon: BarChart3 },
+  { path: ROUTES.MASTER_DATA, label: 'Master Data', icon: Database },
+  { path: ROUTES.SETTINGS, label: 'Settings', icon: Settings },
+  { path: '/print-demo', label: 'Print Demo', icon: Printer },
 ];
 
 const Sidebar = memo<SidebarProps>(({ collapsed, onToggle }) => {
@@ -145,7 +90,7 @@ const Sidebar = memo<SidebarProps>(({ collapsed, onToggle }) => {
       {/* Navigation */}
       <nav className="flex-1 py-4 overflow-y-auto" role="navigation">
         <ul className="space-y-1 px-2">
-          {menuItems.filter(item => hasAccess(item.permission.menu, item.permission.action)).map((item) => {
+          {menuItems.filter(item => hasAccess(item.label, 'read')).map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             

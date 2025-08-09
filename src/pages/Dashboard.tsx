@@ -6,7 +6,6 @@ import DashboardStats from '@/components/dashboard/DashboardStats';
 import ActiveOrdersTable from '@/components/dashboard/ActiveOrdersTable';
 import CalendarSection from '@/components/dashboard/CalendarSection';
 import InboxSection from '@/components/dashboard/InboxSection';
-import { useHasAccess } from '@/context/RoleAccessContext';
 
 const Dashboard = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
@@ -14,7 +13,6 @@ const Dashboard = () => {
   const [showInbox, setShowInbox] = useState(false);
   const [calendarCollapsed, setCalendarCollapsed] = useState(false);
   const [inboxCollapsed, setInboxCollapsed] = useState(false);
-  const hasAccess = useHasAccess();
 
   // Flex logic for stacking and dynamic height
   let calendarFlex = 'min-h-0';
@@ -45,54 +43,44 @@ const Dashboard = () => {
         {/* Left Section: Stats and Active Orders */}
         <div className="lg:col-span-3 flex flex-col space-y-4 min-h-0">
           {/* Stats Grid */}
-          {hasAccess('Dashboard', 'view_stats') && (
-            <div className="flex-shrink-0">
-              <DashboardStats />
-            </div>
-          )}
+          <div className="flex-shrink-0">
+            <DashboardStats />
+          </div>
           
           {/* Active Orders Table */}
-          {hasAccess('Dashboard', 'view_orders') && (
-            <div className="flex-1 min-h-0">
-              <ActiveOrdersTable
-                selectedDate={selectedDate}
-                selectedDeadline={selectedDeadline}
-                onDeadlineFilterChange={setSelectedDeadline}
-              />
-            </div>
-          )}
+          <div className="flex-1 min-h-0">
+            <ActiveOrdersTable
+              selectedDate={selectedDate}
+              selectedDeadline={selectedDeadline}
+              onDeadlineFilterChange={setSelectedDeadline}
+            />
+          </div>
         </div>
 
         {/* Right Section: Calendar and Inbox */}
-        {(hasAccess('Dashboard', 'view_calendar') || hasAccess('Dashboard', 'view_inbox')) && (
-          <Card className="lg:col-span-1 flex flex-col min-h-0">
-            <div className={`flex flex-col flex-1 min-h-0`}>
-              {/* Calendar Section */}
-              {hasAccess('Dashboard', 'view_calendar') && (
-                <div className={`${calendarFlex} overflow-hidden`}>
-                  <CalendarSection
-                    selectedDate={selectedDate}
-                    onDateSelect={setSelectedDate}
-                    collapsed={calendarCollapsed}
-                    onToggleCollapse={() => setCalendarCollapsed((c) => !c)}
-                  />
-                  {/* Visual separation */}
-                  <div className="border-b border-gray-200 mb-1" />
-                </div>
-              )}
-
-              {/* Inbox Section */}
-              {hasAccess('Dashboard', 'view_inbox') && (
-                <div className={`${inboxFlex} overflow-y-auto`}>
-                  <InboxSection
-                    collapsed={inboxCollapsed}
-                    onToggleCollapse={() => setInboxCollapsed((c) => !c)}
-                  />
-                </div>
-              )}
+        <Card className="lg:col-span-1 flex flex-col min-h-0">
+          <div className={`flex flex-col flex-1 min-h-0`}>
+            {/* Calendar Section */}
+            <div className={`${calendarFlex} overflow-hidden`}>
+              <CalendarSection
+                selectedDate={selectedDate}
+                onDateSelect={setSelectedDate}
+                collapsed={calendarCollapsed}
+                onToggleCollapse={() => setCalendarCollapsed((c) => !c)}
+              />
+              {/* Visual separation */}
+              <div className="border-b border-gray-200 mb-1" />
             </div>
-          </Card>
-        )}
+
+            {/* Inbox Section */}
+            <div className={`${inboxFlex} overflow-y-auto`}>
+              <InboxSection
+                collapsed={inboxCollapsed}
+                onToggleCollapse={() => setInboxCollapsed((c) => !c)}
+              />
+            </div>
+          </div>
+        </Card>
       </div>
     </div>
   );
