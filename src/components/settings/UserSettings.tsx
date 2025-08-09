@@ -375,19 +375,19 @@ async function saveRoleAccessToDb(role, accessState) {
     console.log('✅ Old permissions deleted');
     
     // 2. Prepare new permissions
-    const newPermissions = [];
-    Object.entries(accessState).forEach(([menu, actions]) => {
-      Object.entries(actions).forEach(([action, allowed]) => {
-        if (allowed) {
-          newPermissions.push({ role, menu, action, allowed: true });
-        }
-      });
+  const newPermissions = [];
+  Object.entries(accessState).forEach(([menu, actions]) => {
+    Object.entries(actions).forEach(([action, allowed]) => {
+      if (allowed) {
+        newPermissions.push({ role, menu, action, allowed: true });
+      }
     });
+  });
     
     console.log('📋 New permissions to insert:', newPermissions);
     
     // 3. Insert new permissions
-    if (newPermissions.length > 0) {
+  if (newPermissions.length > 0) {
       console.log('💾 Inserting new permissions...');
       const { error: insertError } = await supabase
         .from('role_permissions')
@@ -595,7 +595,7 @@ export const UserSettings = () => {
         title: 'Akses disimpan', 
         description: `Akses untuk role ${roleToSave} berhasil disimpan.` 
       });
-      setAccessOverlayOpen(false);
+    setAccessOverlayOpen(false);
     } catch (error) {
       console.error('Error saving access:', error);
       toast({ 

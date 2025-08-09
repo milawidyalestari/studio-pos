@@ -48,11 +48,13 @@ import { useDatabase } from '@/hooks/useDatabase';
 import { Transaction, Category, FinancialSummary } from '@/lib/database';
 import ExportDialog from '@/components/ExportDialog';
 import QuickExport from '@/components/QuickExport';
+import { useHasAccess } from '@/context/RoleAccessContext';
 import ExportAnalytics from '@/components/ExportAnalytics';
 
 
 const Finance: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const hasAccess = useHasAccess();
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth());
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
   const [searchTerm, setSearchTerm] = useState('');
@@ -232,6 +234,21 @@ const Finance: React.FC = () => {
     return null;
   };
 
+  // Check access first
+  if (!hasAccess('Finance', 'view_finance')) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <XCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Akses Ditolak</h2>
+            <p className="text-gray-600">Anda tidak memiliki izin untuk mengakses halaman keuangan.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Loading state
   if (loading) {
     return (
@@ -274,18 +291,22 @@ const Finance: React.FC = () => {
           <p className="text-gray-600">Kelola keuangan dan laporan keuangan Anda</p>
         </div>
         <div className="flex gap-3">
-          <Button 
-            variant="outline" 
-            className="gap-2"
-            onClick={() => setShowExportDialog(true)}
-          >
-            <Download className="h-4 w-4" />
-            Export
-          </Button>
-          <Button className="gap-2 bg-blue-700">
-            <Plus className="h-4 w-4" />
-            Tambah Transaksi
-          </Button>
+          {hasAccess('Finance', 'financial_reports') && (
+            <Button 
+              variant="outline" 
+              className="gap-2"
+              onClick={() => setShowExportDialog(true)}
+            >
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+          )}
+          {hasAccess('Finance', 'manage_expenses') && (
+            <Button className="gap-2 bg-blue-700">
+              <Plus className="h-4 w-4" />
+              Tambah Transaksi
+            </Button>
+          )}
         </div>
       </div>
 
