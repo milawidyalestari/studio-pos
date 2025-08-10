@@ -42,7 +42,7 @@ export class DatabaseInitService {
           category: 'Penjualan',
           description: 'Spanduk Florist 2 Pass',
           amount: 150000,
-          paymentMethod: 'Cash',
+          payment_method: 'Cash',
           status: 'completed' as const
         },
         {
@@ -51,7 +51,7 @@ export class DatabaseInitService {
           category: 'Penjualan',
           description: 'Spanduk Glossy 280 Gsm',
           amount: 400000,
-          paymentMethod: 'Transfer',
+          payment_method: 'Transfer',
           status: 'completed' as const
         },
         {
@@ -60,7 +60,7 @@ export class DatabaseInitService {
           category: 'Bahan Baku',
           description: 'Kertas A3 80gsm',
           amount: 250000,
-          paymentMethod: 'Cash',
+          payment_method: 'Cash',
           status: 'completed' as const
         },
         {
@@ -69,7 +69,7 @@ export class DatabaseInitService {
           category: 'Operasional',
           description: 'Biaya Listrik',
           amount: 150000,
-          paymentMethod: 'Transfer',
+          payment_method: 'Transfer',
           status: 'completed' as const
         },
         {
@@ -78,7 +78,7 @@ export class DatabaseInitService {
           category: 'Penjualan',
           description: 'Cincin / Mata Ayam',
           amount: 250000,
-          paymentMethod: 'Cash',
+          payment_method: 'Cash',
           status: 'pending' as const
         },
         {
@@ -87,7 +87,7 @@ export class DatabaseInitService {
           category: 'Jasa',
           description: 'Desain Logo',
           amount: 500000,
-          paymentMethod: 'Transfer',
+          payment_method: 'Transfer',
           status: 'completed' as const
         },
         {
@@ -96,7 +96,7 @@ export class DatabaseInitService {
           category: 'Bahan Baku',
           description: 'Tinta Printer',
           amount: 300000,
-          paymentMethod: 'Cash',
+          payment_method: 'Cash',
           status: 'completed' as const
         },
         {
@@ -105,7 +105,7 @@ export class DatabaseInitService {
           category: 'Penjualan',
           description: 'Banner Event',
           amount: 750000,
-          paymentMethod: 'Transfer',
+          payment_method: 'Transfer',
           status: 'completed' as const
         },
         {
@@ -114,7 +114,7 @@ export class DatabaseInitService {
           category: 'Operasional',
           description: 'Biaya Internet',
           amount: 200000,
-          paymentMethod: 'Transfer',
+          payment_method: 'Transfer',
           status: 'completed' as const
         },
         {
@@ -123,7 +123,7 @@ export class DatabaseInitService {
           category: 'Jasa',
           description: 'Editing Video',
           amount: 350000,
-          paymentMethod: 'Cash',
+          payment_method: 'Cash',
           status: 'completed' as const
         }
       ];

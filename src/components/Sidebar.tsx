@@ -54,21 +54,15 @@ const menuItems = [
   },
   { 
     path: ROUTES.TRANSACTION, 
-    label: 'Transaction', 
+    label: 'Transaksi', 
     icon: Receipt,
     permission: { menu: 'Transaction', action: 'view_transactions' }
   },
   { 
-    path: ROUTES.PIUTANG, 
-    label: 'Piutang', 
-    icon: CreditCard,
-    permission: { menu: 'Transaction', action: 'view_transactions' }
-  },
-  { 
     path: ROUTES.CASHIER, 
-    label: 'Cashier', 
+    label: 'Kasir', 
     icon: Calculator,
-    permission: { menu: 'Transaction', action: 'view_transactions' }
+    permission: { menu: 'Cashier', action: 'view_cashier' }
   },
   { 
     path: '/finance', 

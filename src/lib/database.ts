@@ -21,8 +21,9 @@ export interface Transaction {
   category: string;
   description: string;
   amount: number;
-  paymentMethod: string;
+  payment_method: string; // Changed from paymentMethod to match database
   status: 'completed' | 'pending' | 'cancelled';
+  notes?: string; // Added notes field
   created_at?: string;
   updated_at?: string;
 }
@@ -34,6 +35,23 @@ export interface FinancialSummary {
   pendingAmount: number;
   thisMonthIncome: number;
   thisMonthExpense: number;
+  // New fields for orders data
+  totalSales: number;
+  totalOrders: number;
+  thisMonthSales: number;
+  thisMonthOrders: number;
+  averageOrderValue: number;
+  // Enhanced financial metrics
+  profitMargin: number;
+  expenseRatio: number;
+  cashFlow: number;
+  financialHealthScore: number;
+  monthlyGrowthRate: number;
+  outstandingReceivables: number;
+  outstandingPayables: number;
+  workingCapital: number;
+  debtToIncomeRatio: number;
+  returnOnInvestment: number;
 }
 
 export interface Category {
@@ -238,13 +256,86 @@ export class LocalDatabaseService implements DatabaseService {
       })
       .reduce((sum, t) => sum + t.amount, 0);
 
+    // Calculate enhanced financial metrics
+    const netProfit = totalIncome - totalExpense;
+    const profitMargin = totalIncome > 0 ? (netProfit / totalIncome) * 100 : 0;
+    const expenseRatio = totalIncome > 0 ? (totalExpense / totalIncome) * 100 : 0;
+    const cashFlow = totalIncome - totalExpense;
+    
+    // Calculate outstanding receivables and payables
+    const outstandingReceivables = transactions
+      .filter(t => t.type === 'income' && t.status === 'pending')
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    const outstandingPayables = transactions
+      .filter(t => t.type === 'expense' && t.status === 'pending')
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    // Calculate working capital
+    const workingCapital = totalIncome - totalExpense - outstandingPayables + outstandingReceivables;
+    
+    // Calculate debt to income ratio (simplified)
+    const debtToIncomeRatio = totalIncome > 0 ? (totalExpense / totalIncome) : 0;
+    
+    // Calculate monthly growth rate (simplified)
+    const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+    
+    const previousMonthIncome = transactions
+      .filter(t => {
+        const transactionDate = new Date(t.date);
+        return t.type === 'income' && 
+               t.status === 'completed' &&
+               transactionDate.getMonth() === previousMonth &&
+               transactionDate.getFullYear() === previousYear;
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    const monthlyGrowthRate = previousMonthIncome > 0 
+      ? ((thisMonthIncome - previousMonthIncome) / previousMonthIncome) * 100 
+      : 0;
+    
+    // Calculate return on investment (simplified)
+    const returnOnInvestment = totalExpense > 0 ? (netProfit / totalExpense) * 100 : 0;
+    
+    // Calculate financial health score (0-100)
+    let financialHealthScore = 100;
+    
+    // Deduct points for various risk factors
+    if (profitMargin < 10) financialHealthScore -= 20;
+    if (expenseRatio > 80) financialHealthScore -= 15;
+    if (debtToIncomeRatio > 0.5) financialHealthScore -= 15;
+    if (workingCapital < 0) financialHealthScore -= 20;
+    if (monthlyGrowthRate < 0) financialHealthScore -= 10;
+    if (outstandingReceivables > totalIncome * 0.3) financialHealthScore -= 10;
+    
+    // Ensure score doesn't go below 0
+    financialHealthScore = Math.max(0, financialHealthScore);
+
     return {
       totalIncome,
       totalExpense,
-      netProfit: totalIncome - totalExpense,
+      netProfit,
       pendingAmount,
       thisMonthIncome,
-      thisMonthExpense
+      thisMonthExpense,
+      // Default values for orders data (will be populated by Supabase)
+      totalSales: 0,
+      totalOrders: 0,
+      thisMonthSales: 0,
+      thisMonthOrders: 0,
+      averageOrderValue: 0,
+      // Enhanced financial metrics
+      profitMargin,
+      expenseRatio,
+      cashFlow,
+      financialHealthScore,
+      monthlyGrowthRate,
+      outstandingReceivables,
+      outstandingPayables,
+      workingCapital,
+      debtToIncomeRatio,
+      returnOnInvestment
     };
   }
 
@@ -445,13 +536,116 @@ export class SupabaseDatabaseService implements DatabaseService {
       })
       .reduce((sum, t) => sum + t.amount, 0) || 0;
 
+    // Get orders data for sales analysis
+    const { data: orders, error: ordersError } = await this.supabase
+      .from('orders')
+      .select('total_amount, created_at');
+
+    if (ordersError) {
+      console.error('Error fetching orders for summary:', ordersError);
+      // Continue with default values if orders fetch fails
+    }
+
+    const ordersData = orders || [];
+    const totalSales = ordersData.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+    const totalOrders = ordersData.length;
+    
+    const thisMonthSales = ordersData
+      .filter(o => {
+        const orderDate = new Date(o.created_at);
+        return orderDate.getMonth() === currentMonth && 
+               orderDate.getFullYear() === currentYear;
+      })
+      .reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+    
+    const thisMonthOrders = ordersData
+      .filter(o => {
+        const orderDate = new Date(o.created_at);
+        return orderDate.getMonth() === currentMonth && 
+               orderDate.getFullYear() === currentYear;
+      }).length;
+
+    const averageOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
+
+    // Calculate enhanced financial metrics
+    const netProfit = totalIncome - totalExpense;
+    const profitMargin = totalIncome > 0 ? (netProfit / totalIncome) * 100 : 0;
+    const expenseRatio = totalIncome > 0 ? (totalExpense / totalIncome) * 100 : 0;
+    const cashFlow = totalIncome - totalExpense;
+    
+    // Calculate outstanding receivables and payables
+    const outstandingReceivables = transactions
+      ?.filter(t => t.type === 'income' && t.status === 'pending')
+      .reduce((sum, t) => sum + t.amount, 0) || 0;
+    
+    const outstandingPayables = transactions
+      ?.filter(t => t.type === 'expense' && t.status === 'pending')
+      .reduce((sum, t) => sum + t.amount, 0) || 0;
+    
+    // Calculate working capital
+    const workingCapital = totalIncome - totalExpense - outstandingPayables + outstandingReceivables;
+    
+    // Calculate debt to income ratio (simplified)
+    const debtToIncomeRatio = totalIncome > 0 ? (totalExpense / totalIncome) : 0;
+    
+    // Calculate monthly growth rate (simplified)
+    const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+    
+    const previousMonthIncome = transactions
+      ?.filter(t => {
+        const transactionDate = new Date(t.date);
+        return t.type === 'income' && 
+               t.status === 'completed' &&
+               transactionDate.getMonth() === previousMonth &&
+               transactionDate.getFullYear() === previousYear;
+      })
+      .reduce((sum, t) => sum + t.amount, 0) || 0;
+    
+    const monthlyGrowthRate = previousMonthIncome > 0 
+      ? ((thisMonthIncome - previousMonthIncome) / previousMonthIncome) * 100 
+      : 0;
+    
+    // Calculate return on investment (simplified)
+    const returnOnInvestment = totalExpense > 0 ? (netProfit / totalExpense) * 100 : 0;
+    
+    // Calculate financial health score (0-100)
+    let financialHealthScore = 100;
+    
+    // Deduct points for various risk factors
+    if (profitMargin < 10) financialHealthScore -= 20;
+    if (expenseRatio > 80) financialHealthScore -= 15;
+    if (debtToIncomeRatio > 0.5) financialHealthScore -= 15;
+    if (workingCapital < 0) financialHealthScore -= 20;
+    if (monthlyGrowthRate < 0) financialHealthScore -= 10;
+    if (outstandingReceivables > totalIncome * 0.3) financialHealthScore -= 10;
+    
+    // Ensure score doesn't go below 0
+    financialHealthScore = Math.max(0, financialHealthScore);
+
     return {
       totalIncome,
       totalExpense,
-      netProfit: totalIncome - totalExpense,
+      netProfit,
       pendingAmount,
       thisMonthIncome,
-      thisMonthExpense
+      thisMonthExpense,
+      totalSales,
+      totalOrders,
+      thisMonthSales,
+      thisMonthOrders,
+      averageOrderValue,
+      // Enhanced financial metrics
+      profitMargin,
+      expenseRatio,
+      cashFlow,
+      financialHealthScore,
+      monthlyGrowthRate,
+      outstandingReceivables,
+      outstandingPayables,
+      workingCapital,
+      debtToIncomeRatio,
+      returnOnInvestment
     };
   }
 

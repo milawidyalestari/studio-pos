@@ -1,481 +1,570 @@
-import { createClient } from '@supabase/supabase-js';
+import { DatabaseService } from '@/lib/database';
+import { Transaction, Category } from '@/types/finance';
+import { CashRegisterConfig } from '@/types/cashRegister';
 
-// Types for migration
-export interface MigrationData {
-  customers: any[];
-  products: any[];
-  orders: any[];
-  suppliers: any[];
-  employees: any[];
-  transactions: any[];
-  categories: any[];
+export interface MigrationStatus {
+  tableName: string;
+  totalRecords: number;
+  migratedRecords: number;
+  migrationStatus: 'pending' | 'running' | 'completed' | 'failed';
+  errorMessage?: string;
 }
 
 export interface MigrationProgress {
-  step: string;
-  current: number;
-  total: number;
+  currentTable: string;
+  currentRecord: number;
+  totalRecords: number;
   percentage: number;
-  status: 'idle' | 'running' | 'completed' | 'error';
-  error?: string;
+  status: string;
 }
 
-export interface MigrationResult {
-  success: boolean;
-  message: string;
-  data?: MigrationData;
-  error?: string;
-  summary?: {
-    customers: number;
-    products: number;
-    orders: number;
-    suppliers: number;
-    employees: number;
-    transactions: number;
-    categories: number;
-  };
-}
+export class MigrationService {
+  private database: DatabaseService;
+  private onProgress?: (progress: MigrationProgress) => void;
 
-class MigrationService {
-  private supabase: any;
-  private progressCallback?: (progress: MigrationProgress) => void;
-
-  constructor() {
-    // Initialize Supabase client
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    
-    // Validate environment variables
-    if (!supabaseUrl || !supabaseKey) {
-      console.warn('Supabase environment variables not found. Migration from Supabase will not be available.');
-      return;
-    }
-    
-    // Validate URL format
-    try {
-      new URL(supabaseUrl);
-    } catch (error) {
-      console.error('Invalid Supabase URL format:', supabaseUrl);
-      return;
-    }
-    
-    try {
-      this.supabase = createClient(supabaseUrl, supabaseKey);
-      console.log('Supabase client initialized successfully');
-    } catch (error) {
-      console.error('Failed to initialize Supabase client:', error);
-    }
+  constructor(database: DatabaseService) {
+    this.database = database;
   }
 
   setProgressCallback(callback: (progress: MigrationProgress) => void) {
-    this.progressCallback = callback;
+    this.onProgress = callback;
   }
 
-  private updateProgress(progress: Partial<MigrationProgress>) {
-    if (this.progressCallback) {
-      this.progressCallback(progress as MigrationProgress);
+  private updateProgress(
+    currentTable: string,
+    currentRecord: number,
+    totalRecords: number,
+    status: string
+  ) {
+    if (this.onProgress) {
+      const percentage = Math.round((currentRecord / totalRecords) * 100);
+      this.onProgress({
+        currentTable,
+        currentRecord,
+        totalRecords,
+        percentage,
+        status
+      });
     }
   }
 
-  // Export data from Supabase
-  async exportFromSupabase(): Promise<MigrationResult> {
+  async migrateAllData(): Promise<MigrationStatus[]> {
+    const results: MigrationStatus[] = [];
+
     try {
-      this.updateProgress({
-        step: 'Connecting to Supabase...',
-        current: 0,
-        total: 7,
-        percentage: 0,
-        status: 'running'
-      });
+      // Migrate categories
+      results.push(await this.migrateCategories());
 
-      if (!this.supabase) {
-        throw new Error('Supabase client not initialized. Please check your environment variables (VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY)');
-      }
+      // Migrate transactions
+      results.push(await this.migrateTransactions());
 
-      const migrationData: MigrationData = {
-        customers: [],
-        products: [],
-        orders: [],
-        suppliers: [],
-        employees: [],
-        transactions: [],
-        categories: []
-      };
+      // Migrate cash register configs
+      results.push(await this.migrateCashRegisterConfigs());
 
-      // Export customers
-      this.updateProgress({
-        step: 'Exporting customers...',
-        current: 1,
-        total: 7,
-        percentage: 14,
-        status: 'running'
-      });
-      const { data: customers, error: customersError } = await this.supabase
-        .from('customers')
-        .select('*');
-      if (customersError) throw customersError;
-      migrationData.customers = customers || [];
+      // Migrate products
+      results.push(await this.migrateProducts());
 
-      // Export products
-      this.updateProgress({
-        step: 'Exporting products...',
-        current: 2,
-        total: 7,
-        percentage: 28,
-        status: 'running'
-      });
-      const { data: products, error: productsError } = await this.supabase
-        .from('products')
-        .select('*');
-      if (productsError) throw productsError;
-      migrationData.products = products || [];
+      // Migrate app settings
+      results.push(await this.migrateAppSettings());
 
-      // Export orders
-      this.updateProgress({
-        step: 'Exporting orders...',
-        current: 3,
-        total: 7,
-        percentage: 42,
-        status: 'running'
-      });
-      const { data: orders, error: ordersError } = await this.supabase
-        .from('orders')
-        .select('*');
-      if (ordersError) throw ordersError;
-      migrationData.orders = orders || [];
-
-      // Export suppliers
-      this.updateProgress({
-        step: 'Exporting suppliers...',
-        current: 4,
-        total: 7,
-        percentage: 56,
-        status: 'running'
-      });
-      const { data: suppliers, error: suppliersError } = await this.supabase
-        .from('suppliers')
-        .select('*');
-      if (suppliersError) throw suppliersError;
-      migrationData.suppliers = suppliers || [];
-
-      // Export employees
-      this.updateProgress({
-        step: 'Exporting employees...',
-        current: 5,
-        total: 7,
-        percentage: 70,
-        status: 'running'
-      });
-      const { data: employees, error: employeesError } = await this.supabase
-        .from('employees')
-        .select('*');
-      if (employeesError) throw employeesError;
-      migrationData.employees = employees || [];
-
-      // Export transactions
-      this.updateProgress({
-        step: 'Exporting transactions...',
-        current: 6,
-        total: 7,
-        percentage: 84,
-        status: 'running'
-      });
-      const { data: transactions, error: transactionsError } = await this.supabase
-        .from('transactions')
-        .select('*');
-      if (transactionsError) throw transactionsError;
-      migrationData.transactions = transactions || [];
-
-      // Export categories
-      this.updateProgress({
-        step: 'Exporting categories...',
-        current: 7,
-        total: 7,
-        percentage: 100,
-        status: 'running'
-      });
-      const { data: categories, error: categoriesError } = await this.supabase
-        .from('categories')
-        .select('*');
-      if (categoriesError) throw categoriesError;
-      migrationData.categories = categories || [];
-
-      // Calculate summary
-      const summary = {
-        customers: migrationData.customers.length,
-        products: migrationData.products.length,
-        orders: migrationData.orders.length,
-        suppliers: migrationData.suppliers.length,
-        employees: migrationData.employees.length,
-        transactions: migrationData.transactions.length,
-        categories: migrationData.categories.length
-      };
-
-      this.updateProgress({
-        step: 'Export completed successfully!',
-        current: 7,
-        total: 7,
-        percentage: 100,
-        status: 'completed'
-      });
-
-      return {
-        success: true,
-        message: 'Data exported successfully from Supabase',
-        data: migrationData,
-        summary
-      };
-
+      return results;
     } catch (error) {
-      this.updateProgress({
-        step: 'Export failed',
-        current: 0,
-        total: 7,
-        percentage: 0,
-        status: 'error',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-
-      return {
-        success: false,
-        message: 'Failed to export data from Supabase',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
+      console.error('Migration failed:', error);
+      throw error;
     }
   }
 
-  // Import data to local database
-  async importToLocal(data: MigrationData): Promise<MigrationResult> {
+  async migrateCategories(): Promise<MigrationStatus> {
     try {
-      this.updateProgress({
-        step: 'Starting import to local database...',
-        current: 0,
-        total: 7,
-        percentage: 0,
-        status: 'running'
-      });
+      this.updateProgress('categories', 0, 1, 'Starting category migration...');
 
-      if (!(window as any).electronAPI?.database) {
-        throw new Error('Electron database API not available');
-      }
-
-      const summary = {
-        customers: 0,
-        products: 0,
-        orders: 0,
-        suppliers: 0,
-        employees: 0,
-        transactions: 0,
-        categories: 0
-      };
-
-      // Import customers
-      this.updateProgress({
-        step: 'Importing customers...',
-        current: 1,
-        total: 7,
-        percentage: 14,
-        status: 'running'
-      });
-      for (const customer of data.customers) {
-        await (window as any).electronAPI.database.create('customers', customer);
-        summary.customers++;
-      }
-
-      // Import products
-      this.updateProgress({
-        step: 'Importing products...',
-        current: 2,
-        total: 7,
-        percentage: 28,
-        status: 'running'
-      });
-      for (const product of data.products) {
-        await (window as any).electronAPI.database.create('products', product);
-        summary.products++;
-      }
-
-      // Import orders
-      this.updateProgress({
-        step: 'Importing orders...',
-        current: 3,
-        total: 7,
-        percentage: 42,
-        status: 'running'
-      });
-      for (const order of data.orders) {
-        await (window as any).electronAPI.database.create('orders', order);
-        summary.orders++;
-      }
-
-      // Import suppliers
-      this.updateProgress({
-        step: 'Importing suppliers...',
-        current: 4,
-        total: 7,
-        percentage: 56,
-        status: 'running'
-      });
-      for (const supplier of data.suppliers) {
-        await (window as any).electronAPI.database.create('suppliers', supplier);
-        summary.suppliers++;
-      }
-
-      // Import employees
-      this.updateProgress({
-        step: 'Importing employees...',
-        current: 5,
-        total: 7,
-        percentage: 70,
-        status: 'running'
-      });
-      for (const employee of data.employees) {
-        await (window as any).electronAPI.database.create('employees', employee);
-        summary.employees++;
-      }
-
-      // Import transactions
-      this.updateProgress({
-        step: 'Importing transactions...',
-        current: 6,
-        total: 7,
-        percentage: 84,
-        status: 'running'
-      });
-      for (const transaction of data.transactions) {
-        await (window as any).electronAPI.database.create('transactions', transaction);
-        summary.transactions++;
-      }
-
-      // Import categories
-      this.updateProgress({
-        step: 'Importing categories...',
-        current: 7,
-        total: 7,
-        percentage: 100,
-        status: 'running'
-      });
-      for (const category of data.categories) {
-        await (window as any).electronAPI.database.create('categories', category);
-        summary.categories++;
-      }
-
-      this.updateProgress({
-        step: 'Import completed successfully!',
-        current: 7,
-        total: 7,
-        percentage: 100,
-        status: 'completed'
-      });
-
-      return {
-        success: true,
-        message: 'Data imported successfully to local database',
-        summary
-      };
-
-    } catch (error) {
-      this.updateProgress({
-        step: 'Import failed',
-        current: 0,
-        total: 7,
-        percentage: 0,
-        status: 'error',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-
-      return {
-        success: false,
-        message: 'Failed to import data to local database',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
-  }
-
-  // Validate data before migration
-  async validateData(data: MigrationData): Promise<MigrationResult> {
-    try {
-      const validationErrors: string[] = [];
-
-      // Validate customers
-      for (const customer of data.customers) {
-        if (!customer.id || !customer.kode || !customer.nama) {
-          validationErrors.push(`Invalid customer data: ${customer.id}`);
-        }
-      }
-
-      // Validate products
-      for (const product of data.products) {
-        if (!product.id || !product.kode || !product.nama) {
-          validationErrors.push(`Invalid product data: ${product.id}`);
-        }
-      }
-
-      // Validate orders
-      for (const order of data.orders) {
-        if (!order.id || !order.order_number || !order.customer_name) {
-          validationErrors.push(`Invalid order data: ${order.id}`);
-        }
-      }
-
-      if (validationErrors.length > 0) {
+      // Get categories from local storage
+      const localCategories = this.getLocalStorageData('categories') || [];
+      
+      if (localCategories.length === 0) {
+        this.updateProgress('categories', 1, 1, 'No categories to migrate');
         return {
-          success: false,
-          message: 'Data validation failed',
-          error: validationErrors.join(', ')
+          tableName: 'categories',
+          totalRecords: 0,
+          migratedRecords: 0,
+          migrationStatus: 'completed'
         };
       }
 
+      let migratedCount = 0;
+      
+      for (let i = 0; i < localCategories.length; i++) {
+        const category = localCategories[i];
+        
+        try {
+          // Check if category already exists
+          const existingCategory = await this.database.getCategoryByName(category.name);
+          
+          if (!existingCategory) {
+            // Create new category in database
+            await this.database.createCategory({
+              name: category.name,
+              type: category.type,
+              color: category.color || '#3B82F6',
+              icon: category.icon,
+              description: category.description
+            });
+            migratedCount++;
+          }
+          
+          this.updateProgress(
+            'categories',
+            i + 1,
+            localCategories.length,
+            `Migrated ${migratedCount} categories`
+          );
+        } catch (error) {
+          console.error(`Failed to migrate category ${category.name}:`, error);
+        }
+      }
+
+      this.updateProgress('categories', localCategories.length, localCategories.length, 'Category migration completed');
+      
       return {
-        success: true,
-        message: 'Data validation passed',
-        summary: {
-          customers: data.customers.length,
-          products: data.products.length,
-          orders: data.orders.length,
-          suppliers: data.suppliers.length,
-          employees: data.employees.length,
-          transactions: data.transactions.length,
-          categories: data.categories.length
+        tableName: 'categories',
+        totalRecords: localCategories.length,
+        migratedRecords: migratedCount,
+        migrationStatus: 'completed'
+      };
+    } catch (error) {
+      return {
+        tableName: 'categories',
+        totalRecords: 0,
+        migratedRecords: 0,
+        migrationStatus: 'failed',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  async migrateTransactions(): Promise<MigrationStatus> {
+    try {
+      this.updateProgress('transactions', 0, 1, 'Starting transaction migration...');
+
+      // Get transactions from local storage
+      const localTransactions = this.getLocalStorageData('transactions') || [];
+      
+      if (localTransactions.length === 0) {
+        this.updateProgress('transactions', 1, 1, 'No transactions to migrate');
+        return {
+          tableName: 'transactions',
+          totalRecords: 0,
+          migratedRecords: 0,
+          migrationStatus: 'completed'
+        };
+      }
+
+      let migratedCount = 0;
+      
+      for (let i = 0; i < localTransactions.length; i++) {
+        const transaction = localTransactions[i];
+        
+        try {
+          // Check if transaction already exists
+          const existingTransaction = await this.database.getTransactionByReference(transaction.reference_number);
+          
+          if (!existingTransaction) {
+            // Get category ID if category exists
+            let categoryId: string | null = null;
+            if (transaction.category) {
+              const category = await this.database.getCategoryByName(transaction.category);
+              categoryId = category?.id || null;
+            }
+
+            // Create new transaction in database
+            await this.database.createTransaction({
+              title: transaction.title,
+              amount: transaction.amount,
+              type: transaction.type,
+              categoryId,
+              date: new Date(transaction.date),
+              description: transaction.description,
+              paymentMethod: transaction.paymentMethod,
+              referenceNumber: transaction.referenceNumber
+            });
+            migratedCount++;
+          }
+          
+          this.updateProgress(
+            'transactions',
+            i + 1,
+            localTransactions.length,
+            `Migrated ${migratedCount} transactions`
+          );
+        } catch (error) {
+          console.error(`Failed to migrate transaction ${transaction.title}:`, error);
+        }
+      }
+
+      this.updateProgress('transactions', localTransactions.length, localTransactions.length, 'Transaction migration completed');
+      
+      return {
+        tableName: 'transactions',
+        totalRecords: localTransactions.length,
+        migratedRecords: migratedCount,
+        migrationStatus: 'completed'
+      };
+    } catch (error) {
+      return {
+        tableName: 'transactions',
+        totalRecords: 0,
+        migratedRecords: 0,
+        migrationStatus: 'failed',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  async migrateCashRegisterConfigs(): Promise<MigrationStatus> {
+    try {
+      this.updateProgress('cash_register_configs', 0, 1, 'Starting cash register config migration...');
+
+      // Get cash register configs from local storage
+      const localConfigs = this.getLocalStorageData('cashRegisterConfigs') || [];
+      
+      if (localConfigs.length === 0) {
+        this.updateProgress('cash_register_configs', 1, 1, 'No cash register configs to migrate');
+        return {
+          tableName: 'cash_register_configs',
+          totalRecords: 0,
+          migratedRecords: 0,
+          migrationStatus: 'completed'
+        };
+      }
+
+      let migratedCount = 0;
+      
+      for (let i = 0; i < localConfigs.length; i++) {
+        const config = localConfigs[i];
+        
+        try {
+          // Check if config already exists
+          const existingConfig = await this.database.getCashRegisterConfigByName(config.name);
+          
+          if (!existingConfig) {
+            // Create new config in database
+            await this.database.createCashRegisterConfig({
+              name: config.name,
+              manufacturer: config.manufacturer,
+              model: config.model,
+              type: config.type,
+              connectionType: config.connectionType,
+              protocol: config.protocol,
+              ipAddress: config.ipAddress,
+              port: config.port,
+              baudRate: config.baudRate,
+              features: config.features,
+              commands: config.commands,
+              settings: config.settings,
+              status: config.status || 'disconnected'
+            });
+            migratedCount++;
+          }
+          
+          this.updateProgress(
+            'cash_register_configs',
+            i + 1,
+            localConfigs.length,
+            `Migrated ${migratedCount} cash register configs`
+          );
+        } catch (error) {
+          console.error(`Failed to migrate cash register config ${config.name}:`, error);
+        }
+      }
+
+      this.updateProgress('cash_register_configs', localConfigs.length, localConfigs.length, 'Cash register config migration completed');
+      
+      return {
+        tableName: 'cash_register_configs',
+        totalRecords: localConfigs.length,
+        migratedRecords: migratedCount,
+        migrationStatus: 'completed'
+      };
+    } catch (error) {
+      return {
+        tableName: 'cash_register_configs',
+        totalRecords: 0,
+        migratedRecords: 0,
+        migrationStatus: 'failed',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  async migrateProducts(): Promise<MigrationStatus> {
+    try {
+      this.updateProgress('products', 0, 1, 'Starting product migration...');
+
+      // Get products from local storage
+      const localProducts = this.getLocalStorageData('products') || [];
+      
+      if (localProducts.length === 0) {
+        this.updateProgress('products', 1, 1, 'No products to migrate');
+        return {
+          tableName: 'products',
+          totalRecords: 0,
+          migratedRecords: 0,
+          migrationStatus: 'completed'
+        };
+      }
+
+      let migratedCount = 0;
+      
+      for (let i = 0; i < localProducts.length; i++) {
+        const product = localProducts[i];
+        
+        try {
+          // Check if product already exists
+          const existingProduct = await this.database.getProductBySku(product.sku);
+          
+          if (!existingProduct) {
+            // Create new product in database
+            await this.database.createProduct({
+              name: product.name,
+              description: product.description,
+              price: product.price,
+              cost: product.cost,
+              category: product.category,
+              sku: product.sku,
+              barcode: product.barcode,
+              stockQuantity: product.stockQuantity || 0,
+              minStockLevel: product.minStockLevel || 0
+            });
+            migratedCount++;
+          }
+          
+          this.updateProgress(
+            'products',
+            i + 1,
+            localProducts.length,
+            `Migrated ${migratedCount} products`
+          );
+        } catch (error) {
+          console.error(`Failed to migrate product ${product.name}:`, error);
+        }
+      }
+
+      this.updateProgress('products', localProducts.length, localProducts.length, 'Product migration completed');
+      
+      return {
+        tableName: 'products',
+        totalRecords: localProducts.length,
+        migratedRecords: migratedCount,
+        migrationStatus: 'completed'
+      };
+    } catch (error) {
+      return {
+        tableName: 'products',
+        totalRecords: 0,
+        migratedRecords: 0,
+        migrationStatus: 'failed',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  async migrateAppSettings(): Promise<MigrationStatus> {
+    try {
+      this.updateProgress('app_settings', 0, 1, 'Starting app settings migration...');
+
+      // Get app settings from local storage
+      const localSettings = this.getLocalStorageData('appSettings') || {};
+      
+      if (Object.keys(localSettings).length === 0) {
+        this.updateProgress('app_settings', 1, 1, 'No app settings to migrate');
+        return {
+          tableName: 'app_settings',
+          totalRecords: 0,
+          migratedRecords: 0,
+          migrationStatus: 'completed'
+        };
+      }
+
+      let migratedCount = 0;
+      const settingKeys = Object.keys(localSettings);
+      
+      for (let i = 0; i < settingKeys.length; i++) {
+        const key = settingKeys[i];
+        const value = localSettings[key];
+        
+        try {
+          // Create or update setting in database
+          await this.database.createOrUpdateAppSetting({
+            key,
+            value: String(value),
+            type: typeof value === 'boolean' ? 'boolean' : 'string',
+            description: `Migrated from local storage`
+          });
+          migratedCount++;
+          
+          this.updateProgress(
+            'app_settings',
+            i + 1,
+            settingKeys.length,
+            `Migrated ${migratedCount} app settings`
+          );
+        } catch (error) {
+          console.error(`Failed to migrate app setting ${key}:`, error);
+        }
+      }
+
+      this.updateProgress('app_settings', settingKeys.length, settingKeys.length, 'App settings migration completed');
+      
+      return {
+        tableName: 'app_settings',
+        totalRecords: settingKeys.length,
+        migratedRecords: migratedCount,
+        migrationStatus: 'completed'
+      };
+    } catch (error) {
+      return {
+        tableName: 'app_settings',
+        totalRecords: 0,
+        migratedRecords: 0,
+        migrationStatus: 'failed',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  private getLocalStorageData(key: string): any {
+    try {
+      const data = localStorage.getItem(key);
+      return data ? JSON.parse(data) : null;
+    } catch (error) {
+      console.error(`Failed to get local storage data for key ${key}:`, error);
+      return null;
+    }
+  }
+
+  async getMigrationStatus(): Promise<MigrationStatus[]> {
+    try {
+      // This would call the database function get_migration_status()
+      // For now, return a basic status
+      return [
+        {
+          tableName: 'categories',
+          totalRecords: 0,
+          migratedRecords: 0,
+          migrationStatus: 'pending'
+        },
+        {
+          tableName: 'transactions',
+          totalRecords: 0,
+          migratedRecords: 0,
+          migrationStatus: 'pending'
+        },
+        {
+          tableName: 'cash_register_configs',
+          totalRecords: 0,
+          migratedRecords: 0,
+          migrationStatus: 'pending'
+        },
+        {
+          tableName: 'products',
+          totalRecords: 0,
+          migratedRecords: 0,
+          migrationStatus: 'pending'
+        },
+        {
+          tableName: 'app_settings',
+          totalRecords: 0,
+          migratedRecords: 0,
+          migrationStatus: 'pending'
+        }
+      ];
+    } catch (error) {
+      console.error('Failed to get migration status:', error);
+      throw error;
+    }
+  }
+
+  async backupLocalStorage(): Promise<string> {
+    try {
+      const backupData: Record<string, any> = {};
+      
+      // Backup all relevant local storage data
+      const keys = [
+        'categories',
+        'transactions',
+        'cashRegisterConfigs',
+        'products',
+        'appSettings',
+        'cashRegisterConnections',
+        'testResults'
+      ];
+
+      keys.forEach(key => {
+        const data = this.getLocalStorageData(key);
+        if (data) {
+          backupData[key] = data;
+        }
+      });
+
+      const backupString = JSON.stringify(backupData, null, 2);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `studio-pos-backup-${timestamp}.json`;
+
+      // Create download link
+      const blob = new Blob([backupString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+
+      return filename;
+    } catch (error) {
+      console.error('Failed to backup local storage:', error);
+      throw error;
+    }
+  }
+
+  async restoreFromBackup(backupFile: File): Promise<void> {
+    try {
+      const backupData = await this.readBackupFile(backupFile);
+      
+      // Restore data to local storage
+      Object.entries(backupData).forEach(([key, value]) => {
+        try {
+          localStorage.setItem(key, JSON.stringify(value));
+        } catch (error) {
+          console.error(`Failed to restore key ${key}:`, error);
+        }
+      });
+
+      console.log('Backup restored successfully');
+    } catch (error) {
+      console.error('Failed to restore from backup:', error);
+      throw error;
+    }
+  }
+
+  private async readBackupFile(file: File): Promise<Record<string, any>> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      reader.onload = (event) => {
+        try {
+          const content = event.target?.result as string;
+          const data = JSON.parse(content);
+          resolve(data);
+        } catch (error) {
+          reject(new Error('Invalid backup file format'));
         }
       };
 
-    } catch (error) {
-      return {
-        success: false,
-        message: 'Data validation failed',
-        error: error instanceof Error ? error.message : 'Unknown error'
+      reader.onerror = () => {
+        reject(new Error('Failed to read backup file'));
       };
-    }
-  }
 
-  // Complete migration process
-  async performMigration(): Promise<MigrationResult> {
-    try {
-      // Step 1: Export from Supabase
-      const exportResult = await this.exportFromSupabase();
-      if (!exportResult.success) {
-        return exportResult;
-      }
-
-      // Step 2: Validate data
-      const validationResult = await this.validateData(exportResult.data!);
-      if (!validationResult.success) {
-        return validationResult;
-      }
-
-      // Step 3: Import to local database
-      const importResult = await this.importToLocal(exportResult.data!);
-      return importResult;
-
-    } catch (error) {
-      return {
-        success: false,
-        message: 'Migration failed',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
+      reader.readAsText(file);
+    });
   }
 }
-
-export const migrationService = new MigrationService();

@@ -9,7 +9,6 @@ export const ROUTES = {
   DASHBOARD: '/dashboard',
   ORDERAN: '/orderan',
   TRANSACTION: '/transaction',
-  PIUTANG: '/piutang',
   CASHIER: '/cashier',
   INVENTORY: '/inventory',
   SUPPLIERS: '/suppliers',

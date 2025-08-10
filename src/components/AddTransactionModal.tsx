@@ -33,11 +33,13 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [formData, setFormData] = useState({
     type: 'expense' as 'income' | 'expense',
     amount: '',
-    formattedAmount: '',
+    formattedAmount: '', // For display
     description: '',
     category: '',
     date: new Date(),
-    notes: ''
+    notes: '',
+    paymentMethod: 'Cash',
+    status: 'completed' as 'completed' | 'pending' | 'cancelled'
   });
 
   const [datePickerOpen, setDatePickerOpen] = useState(false);
@@ -55,7 +57,9 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           description: editingTransaction.description || '',
           category: editingTransaction.category || '',
           date: editingTransaction.date ? new Date(editingTransaction.date) : new Date(),
-          notes: editingTransaction.notes || ''
+          notes: editingTransaction.notes || '',
+          paymentMethod: editingTransaction.payment_method || 'Cash',
+          status: editingTransaction.status || 'completed'
         });
       } else {
         setFormData({
@@ -65,7 +69,9 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           description: '',
           category: '',
           date: new Date(),
-          notes: ''
+          notes: '',
+          paymentMethod: 'Cash',
+          status: 'completed'
         });
       }
     }
@@ -95,22 +101,19 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
     e.preventDefault();
     
     if (!formData.amount || !formData.description || !formData.category) {
-      alert('Mohon lengkapi semua field yang diperlukan');
+      alert('Harap isi semua field yang wajib diisi.');
       return;
     }
 
     setIsLoading(true);
     try {
-      const transactionData: Partial<Transaction> = {
-        type: formData.type,
+      await onSave({
+        ...formData,
         amount: parseFloat(formData.amount),
-        description: formData.description,
-        category: formData.category,
-        date: formData.date.toISOString(),
+        date: formData.date.toISOString().split('T')[0],
+        payment_method: formData.paymentMethod, // Map to database field
         notes: formData.notes
-      };
-
-      await onSave(transactionData);
+      });
       onClose();
     } catch (error) {
       console.error('Error saving transaction:', error);
@@ -209,9 +212,46 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             </Select>
           </div>
 
+          {/* Payment Method */}
+          <div className="space-y-2">
+            <Label htmlFor="paymentMethod">Metode Pembayaran *</Label>
+            <Select 
+              value={formData.paymentMethod} 
+              onValueChange={(value) => handleInputChange('paymentMethod', value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih metode pembayaran" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Cash">Cash</SelectItem>
+                <SelectItem value="Transfer">Transfer</SelectItem>
+                <SelectItem value="Card">Card</SelectItem>
+                <SelectItem value="QRIS">QRIS</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Status */}
+          <div className="space-y-2">
+            <Label htmlFor="status">Status *</Label>
+            <Select 
+              value={formData.status} 
+              onValueChange={(value) => handleInputChange('status', value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="completed">Selesai</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="cancelled">Dibatalkan</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Date */}
           <div className="space-y-2">
-            <Label>Tanggal</Label>
+            <Label htmlFor="date">Tanggal *</Label>
             <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
               <PopoverTrigger asChild>
                 <Button

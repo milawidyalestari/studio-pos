@@ -1,17 +1,44 @@
 import { useState, useEffect, useCallback } from 'react';
 import { database, Transaction, Category, FinancialSummary } from '@/lib/database';
 import { initializeDatabase } from '@/services/databaseInitService';
+import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
+
+type Order = Database['public']['Tables']['orders']['Row'];
+type OrderItem = Database['public']['Tables']['order_items']['Row'];
+
+interface OrderWithItems {
+  order: Order;
+  items: OrderItem[];
+}
 
 export const useDatabase = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [orders, setOrders] = useState<OrderWithItems[]>([]);
   const [summary, setSummary] = useState<FinancialSummary>({
     totalIncome: 0,
     totalExpense: 0,
     netProfit: 0,
     pendingAmount: 0,
     thisMonthIncome: 0,
-    thisMonthExpense: 0
+    thisMonthExpense: 0,
+    // Initialize all required fields with safe defaults
+    totalSales: 0,
+    totalOrders: 0,
+    thisMonthSales: 0,
+    thisMonthOrders: 0,
+    averageOrderValue: 0,
+    profitMargin: 0,
+    expenseRatio: 0,
+    cashFlow: 0,
+    financialHealthScore: 100,
+    monthlyGrowthRate: 0,
+    outstandingReceivables: 0,
+    outstandingPayables: 0,
+    workingCapital: 0,
+    debtToIncomeRatio: 0,
+    returnOnInvestment: 0
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,20 +60,60 @@ export const useDatabase = () => {
       setLoading(true);
       setError(null);
       
-      const [transactionsData, categoriesData, summaryData] = await Promise.all([
+      const [transactionsData, categoriesData, summaryData, ordersData] = await Promise.all([
         database.getTransactions(),
         database.getCategories(),
-        database.getFinancialSummary()
+        database.getFinancialSummary(),
+        loadOrdersData()
       ]);
 
       setTransactions(transactionsData);
       setCategories(categoriesData);
       setSummary(summaryData);
+      setOrders(ordersData);
     } catch (err) {
       console.error('Error loading data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  // Load orders data from Supabase
+  const loadOrdersData = useCallback(async (): Promise<OrderWithItems[]> => {
+    try {
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items (*)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (ordersError) {
+        console.error('Error fetching orders:', ordersError);
+        return [];
+      }
+
+      // Validate and transform the data structure
+      if (!ordersData || !Array.isArray(ordersData)) {
+        console.warn('Orders data is not an array:', ordersData);
+        return [];
+      }
+
+      // Ensure each order has the expected structure
+      const validatedOrders = ordersData
+        .filter(order => order && typeof order === 'object' && order.id)
+        .map(order => ({
+          order: order,
+          items: Array.isArray(order.order_items) ? order.order_items : []
+        }));
+
+      console.log('Loaded orders:', validatedOrders.length);
+      return validatedOrders;
+    } catch (err) {
+      console.error('Error loading orders data:', err);
+      return [];
     }
   }, []);
 
@@ -159,7 +226,23 @@ export const useDatabase = () => {
         netProfit: 0,
         pendingAmount: 0,
         thisMonthIncome: 0,
-        thisMonthExpense: 0
+        thisMonthExpense: 0,
+        // Initialize all required fields with safe defaults
+        totalSales: 0,
+        totalOrders: 0,
+        thisMonthSales: 0,
+        thisMonthOrders: 0,
+        averageOrderValue: 0,
+        profitMargin: 0,
+        expenseRatio: 0,
+        cashFlow: 0,
+        financialHealthScore: 100,
+        monthlyGrowthRate: 0,
+        outstandingReceivables: 0,
+        outstandingPayables: 0,
+        workingCapital: 0,
+        debtToIncomeRatio: 0,
+        returnOnInvestment: 0
       });
     } catch (err) {
       console.error('Error clearing data:', err);
@@ -196,10 +279,16 @@ export const useDatabase = () => {
     loadData();
   }, [loadData]);
 
+  // Refresh orders data specifically
+  const refreshOrders = useCallback(() => {
+    loadOrdersData().then(setOrders);
+  }, [loadOrdersData]);
+
   return {
     // Data
     transactions,
     categories,
+    orders,
     summary,
     loading,
     error,
@@ -218,6 +307,7 @@ export const useDatabase = () => {
     clearAllData,
     exportData,
     importData,
-    refreshData
+    refreshData,
+    refreshOrders
   };
 }; 

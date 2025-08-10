@@ -23,7 +23,12 @@ import {
   CheckSquare,
   AlertCircle,
   CreditCard,
-  Users
+  Users,
+  AlertTriangle,
+  Eye,
+  CreditCard as CreditCardIcon,
+  X,
+  XCircle
 } from 'lucide-react';
 import { OrderWithItems } from '@/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -31,8 +36,13 @@ import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useHasAccess } from '@/context/RoleAccessContext';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
-// Interface untuk data transaksi dari orders
+// Interface untuk data transaksi dari orders yang sudah lunas dan receipt tercetak
 interface PaymentTransaction {
   id: string;
   order_number: string;
@@ -45,6 +55,26 @@ interface PaymentTransaction {
   status: string;
   created_at: string;
   item_name: string; // Added for product/item name
+}
+
+// Interface untuk data piutang
+interface PiutangData {
+  id: string;
+  order_number: string;
+  customer_name: string;
+  customer_whatsapp?: string;
+  tanggal: string;
+  down_payment: number;
+  pelunasan: number;
+  remaining_payment: number;
+  total_amount: number;
+  payment_type: string;
+  status_pembayaran: string;
+  order_status: string;
+  estimasi: string;
+  admin_name?: string;
+  desainer_name?: string;
+  days_overdue: number;
 }
 
 const TransactionPage = () => {
@@ -63,6 +93,12 @@ const TransactionPage = () => {
   const [filterValue, setFilterValue] = useState('');
   const [showPrintOverlay, setShowPrintOverlay] = useState(false);
   const [printOrderData, setPrintOrderData] = useState<OrderWithItems | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [showPelunasanModal, setShowPelunasanModal] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<string>('');
+  const [pelunasanAmount, setPelunasanAmount] = useState<number>(0);
+  const [pelunasanNote, setPelunasanNote] = useState<string>('');
+  const [customerOrders, setCustomerOrders] = useState<PiutangData[]>([]);
 
   // Buat mapping id -> payment_method
   const paymentTypeMap = React.useMemo(() => {
@@ -102,23 +138,131 @@ const TransactionPage = () => {
       };
     });
 
-  // Filter untuk transaksi yang sudah ada pembayaran
+  // Filter untuk transaksi yang memenuhi kriteria: ada pembayaran, status Done/Selesai-Diambil, dan receipt tercetak
+  // Kriteria ini memastikan hanya menampilkan orderan yang:
+  // 1. Sudah melakukan pembayaran (DP atau Pelunasan)
+  // 2. Status order adalah "Done" atau "Selesai-Diambil"
+  // 3. Receipt sudah tercetak (receipt_printed = true)
   const paymentTransactions = allTransactionData.filter(t =>
-    t.down_payment > 0 ||
-    t.pelunasan > 0 ||
-    t.receipt_printed === true ||
-    t.order_status_name === 'Done' ||
-    t.order_status_name === 'Selesai-Diambil'
+    // Harus ada pembayaran (DP atau Pelunasan)
+    (t.down_payment > 0 || t.pelunasan > 0) &&
+    // Status harus Done atau Selesai-Diambil
+    (t.order_status_name === 'Done' || t.order_status_name === 'Selesai-Diambil') &&
+    // Receipt harus sudah tercetak
+    t.receipt_printed === true
   );
 
-  // Filter untuk piutang (order yang belum lunas)
-  const piutangData = allTransactionData.filter(t => {
-    const totalPaid = t.down_payment + t.pelunasan;
-    return totalPaid < t.total_amount && totalPaid >= 0;
-  });
+  // Filter untuk piutang (order yang belum lunas) - dikelompokkan per customer
+  const piutangDataRaw = (orders as OrderWithMaybePelunasan[])
+    .map(order => {
+      // Pastikan semua nilai numerik valid dan tidak null/undefined
+      const uangMuka = Number(order.down_payment) || 0;
+      const pelunasan = Number(order.pelunasan) || 0;
+      const totalOrder = Number(order.total_amount) || 0;
+      
+      // Validasi bahwa totalOrder > 0 untuk menghindari NaN
+      if (totalOrder <= 0) {
+        console.warn(`Order ${order.order_number} memiliki total_amount invalid:`, order.total_amount);
+        return null;
+      }
+      
+      const sisaPembayaran = Math.max(0, totalOrder - (uangMuka + pelunasan));
+      
+      // Hitung hari keterlambatan dengan validasi tanggal
+      let daysDiff = 0;
+      try {
+        const orderDate = new Date(order.tanggal);
+        if (!isNaN(orderDate.getTime())) {
+          const today = new Date();
+          daysDiff = Math.floor((today.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24));
+        }
+      } catch (error) {
+        console.warn(`Order ${order.order_number} memiliki tanggal invalid:`, order.tanggal);
+      }
+      
+      let statusPembayaran = 'Belum Dibayar';
+      if (uangMuka === 0 && pelunasan === 0) statusPembayaran = 'Belum Dibayar';
+      else if (uangMuka + pelunasan < totalOrder) statusPembayaran = 'Belum Lunas';
+      else if (uangMuka + pelunasan >= totalOrder) statusPembayaran = 'Lunas';
+
+      return {
+        id: order.id,
+        order_number: order.order_number,
+        customer_name: order.customer_name || '-',
+        customer_whatsapp: (order as any).customer_whatsapp,
+        tanggal: order.tanggal,
+        down_payment: uangMuka,
+        pelunasan: pelunasan,
+        remaining_payment: sisaPembayaran,
+        total_amount: totalOrder,
+        payment_type: paymentTypeMap[order.payment_type as string] || '-',
+        status_pembayaran: statusPembayaran,
+        order_status: order.order_statuses?.name || '',
+        estimasi: order.estimasi || '-',
+        admin_name: order.admin?.nama || '-',
+        desainer_name: order.desainer?.nama || '-',
+        days_overdue: daysDiff
+      };
+    })
+    .filter(order => {
+      // Filter out order yang null atau invalid
+      if (!order) return false;
+      
+      const totalPaid = order.down_payment + order.pelunasan;
+      return totalPaid < order.total_amount && totalPaid >= 0 && order.total_amount > 0;
+    });
+
+  // Kelompokkan piutang berdasarkan customer
+  const piutangDataGrouped = piutangDataRaw.reduce((acc, order) => {
+    const customerName = order.customer_name;
+    
+    if (!acc[customerName]) {
+      acc[customerName] = {
+        customer_name: customerName,
+        customer_whatsapp: order.customer_whatsapp,
+        total_piutang: 0,
+        total_orders: 0,
+        orders: [],
+        max_days_overdue: 0,
+        total_down_payment: 0,
+        total_pelunasan: 0
+      };
+    }
+    
+    // Pastikan semua nilai numerik valid sebelum melakukan operasi matematika
+    const remainingPayment = Number(order.remaining_payment) || 0;
+    const downPayment = Number(order.down_payment) || 0;
+    const pelunasan = Number(order.pelunasan) || 0;
+    const daysOverdue = Number(order.days_overdue) || 0;
+    
+    acc[customerName].total_piutang += remainingPayment;
+    acc[customerName].total_orders += 1;
+    acc[customerName].orders.push(order);
+    acc[customerName].max_days_overdue = Math.max(acc[customerName].max_days_overdue, daysOverdue);
+    acc[customerName].total_down_payment += downPayment;
+    acc[customerName].total_pelunasan += pelunasan;
+    
+    return acc;
+  }, {} as Record<string, any>);
+
+  // Convert ke array untuk DataTable
+  const piutangData: any[] = Object.values(piutangDataGrouped);
 
   // Filter berdasarkan search term untuk transaksi
   const filteredTransactions = paymentTransactions.filter(transaction => {
+    // Filter berdasarkan search term
+    if (searchTerm.trim() !== '') {
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = 
+        transaction.customer_name.toLowerCase().includes(searchLower) ||
+        transaction.order_number.toLowerCase().includes(searchLower) ||
+        transaction.payment_type.toLowerCase().includes(searchLower) ||
+        transaction.status_pembayaran.toLowerCase().includes(searchLower);
+      
+      if (!matchesSearch) return false;
+    }
+
+    // Filter berdasarkan field filter
     if (filterField === 'tanggal') {
       const tgl = new Date(transaction.tanggal);
       if (dateMode === 'single' && singleDate) {
@@ -134,19 +278,32 @@ const TransactionPage = () => {
   });
 
   // Filter berdasarkan search term untuk piutang
-  const filteredPiutang = piutangData.filter(transaction => {
-    if (filterField === 'tanggal') {
-      const tgl = new Date(transaction.tanggal);
-      if (dateMode === 'single' && singleDate) {
-        return tgl.toDateString() === singleDate.toDateString();
-      } else if (dateMode === 'range' && range.from && range.to) {
-        return tgl >= range.from && tgl <= range.to;
-      }
-      return true;
-    } else {
-      const fieldValue = (transaction[filterField] || '').toString().toLowerCase();
+  const filteredPiutang = piutangData.filter(customer => {
+    // Filter berdasarkan search term
+    if (searchTerm.trim() !== '') {
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = 
+        customer.customer_name.toLowerCase().includes(searchLower) ||
+        (customer.customer_whatsapp && customer.customer_whatsapp.toLowerCase().includes(searchLower));
+      
+      if (!matchesSearch) return false;
+    }
+
+    // Filter berdasarkan status
+    if (selectedStatus !== 'all') {
+      if (selectedStatus === 'overdue' && customer.max_days_overdue <= 7) return false;
+      if (selectedStatus === 'overdue' && customer.max_days_overdue > 7) return true;
+      if (selectedStatus === 'recent' && customer.max_days_overdue <= 7) return true;
+      return false;
+    }
+
+    // Filter berdasarkan field lain (tidak termasuk tanggal karena sudah dikelompokkan)
+    if (filterField !== 'tanggal') {
+      const fieldValue = (customer[filterField] || '').toString().toLowerCase();
       return !filterValue || fieldValue.includes(filterValue.toLowerCase());
     }
+    
+    return true;
   });
 
   const formatCurrency = (amount: number) => {
@@ -237,7 +394,72 @@ const TransactionPage = () => {
     }
   };
 
-  const columns: Column<typeof paymentTransactions[0]>[] = [
+  // Handler untuk membuka modal pelunasan
+  const handleOpenPelunasanModal = (customerName: string) => {
+    setSelectedCustomer(customerName);
+    
+    // Filter orderan berdasarkan customer
+    const customerOrderList = piutangData.filter(order => 
+      order.customer_name === customerName
+    );
+    setCustomerOrders(customerOrderList);
+    
+    // Hitung total sisa pembayaran dengan validasi
+    const totalRemaining = customerOrderList.reduce((sum, order) => {
+      const remaining = Number(order.remaining_payment) || 0;
+      return sum + remaining;
+    }, 0);
+    
+    // Pastikan nilai valid sebelum set state
+    if (!isNaN(totalRemaining) && totalRemaining >= 0) {
+      setPelunasanAmount(totalRemaining);
+    } else {
+      console.warn('Total remaining payment invalid:', totalRemaining);
+      setPelunasanAmount(0);
+    }
+    
+    setShowPelunasanModal(true);
+  };
+
+  // Handler untuk submit pelunasan
+  const handleSubmitPelunasan = async () => {
+    try {
+      // Update pelunasan untuk semua orderan customer
+      for (const order of customerOrders) {
+        const { error } = await supabase
+          .from('orders')
+          .update({ 
+            pelunasan: (order.pelunasan || 0) + order.remaining_payment,
+            updated_at: new Date().toISOString()
+          } as any)
+          .eq('id', order.id);
+          
+        if (error) {
+          console.error(`Error updating order ${order.order_number}:`, error);
+          return;
+        }
+      }
+      
+      // Reset form dan close modal
+      setShowPelunasanModal(false);
+      setSelectedCustomer('');
+      setPelunasanAmount(0);
+      setPelunasanNote('');
+      setCustomerOrders([]);
+      
+      // Refresh data
+      refetch();
+      
+      // Tampilkan notifikasi sukses
+      alert('Pelunasan berhasil disimpan!');
+    } catch (error) {
+      console.error('Error in handleSubmitPelunasan:', error);
+      alert('Terjadi kesalahan saat menyimpan pelunasan');
+    }
+  };
+
+  // Columns untuk transaksi
+  const transactionColumns: Column<typeof paymentTransactions[0]>[] = [
     {
       key: 'order_number',
       label: 'Nomor Orderan',
@@ -302,24 +524,136 @@ const TransactionPage = () => {
     }
   ];
 
+  // Columns untuk piutang (dikelompokkan per customer)
+  const piutangColumns: Column<any>[] = [
+    {
+      key: 'customer_name',
+      label: 'Nama Customer',
+      render: (value, row) => (
+        <div>
+          <div className="font-medium text-gray-900">{value}</div>
+          {row.customer_whatsapp && (
+            <div className="text-xs text-gray-500">{row.customer_whatsapp}</div>
+          )}
+        </div>
+      )
+    },
+    {
+      key: 'total_piutang',
+      label: 'Total Piutang',
+      render: (value, row) => {
+        const isOverdue = row.max_days_overdue > 7;
+        return (
+          <div className="flex flex-col">
+            <span className={`font-bold text-lg ${isOverdue ? 'text-red-600' : 'text-orange-600'}`}>
+              {formatCurrency(Number(value))}
+            </span>
+            {isOverdue && (
+              <Badge variant="destructive" className="text-xs mt-1">
+                {row.max_days_overdue} hari
+              </Badge>
+            )}
+          </div>
+        );
+      }
+    },
+    {
+      key: 'total_orders',
+      label: 'Jumlah Orderan',
+      render: (value) => (
+        <div className="text-center">
+          <span className="font-bold text-blue-600 text-lg">{value}</span>
+          <div className="text-xs text-gray-500">Orderan</div>
+        </div>
+      )
+    },
+    {
+      key: 'total_down_payment',
+      label: 'Total Uang Muka',
+      render: value => (
+        <span className="font-semibold text-green-700">{formatCurrency(Number(value))}</span>
+      )
+    },
+    {
+      key: 'max_days_overdue',
+      label: 'Umur Piutang',
+      render: (value) => {
+        const days = Number(value);
+        let color = 'text-gray-600';
+        if (days > 30) color = 'text-red-600';
+        else if (days > 14) color = 'text-orange-600';
+        else if (days > 7) color = 'text-yellow-600';
+        
+        return (
+          <span className={`text-sm font-medium ${color}`}>
+            {days} hari
+          </span>
+        );
+      }
+    },
+    {
+      key: 'actions',
+      label: 'Aksi',
+      render: (_, row) => (
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleOpenPelunasanModal(row.customer_name)}
+            className="h-9 px-4 text-xs font-medium"
+          >
+            <Eye className="w-4 h-4 mr-2" />
+            Detail
+          </Button>
+          <Button
+            size="sm"
+            variant="default"
+            onClick={() => handleOpenPelunasanModal(row.customer_name)}
+            className="h-9 px-4 text-xs font-medium bg-green-600 hover:bg-green-700 text-white"
+          >
+            <CreditCardIcon className="w-4 h-4 mr-2" />
+            Pelunasan
+          </Button>
+        </div>
+      )
+    }
+  ];
+
   const handleRefresh = () => {
     console.log('Refreshing transactions...');
     refetch();
   };
 
-  // Hitung total statistik
-  const totalRevenue = paymentTransactions.reduce((sum, t) => sum + t.down_payment + t.remaining_payment, 0);
+  // Hitung total statistik untuk transaksi lunas & selesai
+  const totalRevenue = paymentTransactions.reduce((sum, t) => sum + t.down_payment + t.pelunasan, 0);
   const totalOrders = paymentTransactions.length;
+  
+  // Hitung orderan berdasarkan status pembayaran (semua sudah lunas karena filter)
   const completedPayments = paymentTransactions.filter(t => 
-    (t.down_payment + t.remaining_payment) >= t.total_amount
+    t.status_pembayaran === 'Lunas'
   ).length;
+  
+  const incompletePayments = paymentTransactions.filter(t => 
+    t.status_pembayaran === 'Belum Lunas'
+  ).length;
+  
+  const unpaidOrders = paymentTransactions.filter(t => 
+    t.status_pembayaran === 'Belum Dibayar'
+  ).length;
+
+  // Hitung total statistik untuk piutang (dikelompokkan per customer)
+  const totalPiutang = piutangData.reduce((sum, customer) => sum + customer.total_piutang, 0);
+  const totalPiutangOrders = piutangData.reduce((sum, customer) => sum + customer.total_orders, 0);
+  const overdueOrders = piutangData.filter(customer => customer.max_days_overdue > 7).length;
+  const recentOrders = piutangData.filter(customer => customer.max_days_overdue <= 7).length;
 
   const isFilterActive =
     (filterField === 'tanggal' && (
       (dateMode === 'single' && singleDate) ||
       (dateMode === 'range' && range.from && range.to)
     )) ||
-    (filterField !== 'tanggal' && filterValue.trim() !== '');
+    (filterField !== 'tanggal' && filterValue.trim() !== '') ||
+    (activeTab === 'piutang' && selectedStatus !== 'all');
 
   // Check access to Transaction page
   if (!hasAccess('Transaction', 'view_transactions')) {
@@ -341,8 +675,8 @@ const TransactionPage = () => {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Riwayat Transaksi</h1>
-          <p className="text-gray-600">Lihat riwayat pembayaran dari semua orderan</p>
+          <h1 className="text-2xl font-bold text-gray-900">Transaksi & Piutang</h1>
+          <p className="text-gray-600">Kelola riwayat transaksi lunas & selesai dan piutang orderan</p>
         </div>
         <div className="flex items-center gap-3">
           <Popover open={filterOpen} onOpenChange={setFilterOpen}>
@@ -355,9 +689,30 @@ const TransactionPage = () => {
                 Filter
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[250px]">
-              <div className="mb-2 font-semibold text-sm">Filter Transaksi</div>
-              <div className="mb-2">
+            <PopoverContent className="w-[300px]">
+              <div className="mb-3 font-semibold text-sm">
+                Filter {activeTab === 'transactions' ? 'Transaksi Lunas & Selesai' : 'Piutang'}
+              </div>
+              
+              {/* Status Filter untuk Piutang */}
+              {activeTab === 'piutang' && (
+                <div className="mb-3">
+                  <label className="block text-xs font-semibold mb-1">Status Piutang</label>
+                  <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua Status</SelectItem>
+                      <SelectItem value="recent">Piutang Baru (≤7 hari)</SelectItem>
+                      <SelectItem value="overdue">Piutang Lama (&gt;7 hari)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Field Filter */}
+              <div className="mb-3">
                 <label className="block text-xs font-semibold mb-1">Field</label>
                 <Select value={filterField} onValueChange={setFilterField}>
                   <SelectTrigger className="w-full">
@@ -366,12 +721,21 @@ const TransactionPage = () => {
                   <SelectContent>
                     <SelectItem value="customer_name">Customer</SelectItem>
                     <SelectItem value="order_number">Nomor Orderan</SelectItem>
-                    <SelectItem value="status_pembayaran">Status Pembayaran</SelectItem>
-                    <SelectItem value="payment_type">Metode</SelectItem>
+                    {activeTab === 'transactions' && (
+                      <>
+                        <SelectItem value="status_pembayaran">Status Pembayaran</SelectItem>
+                        <SelectItem value="payment_type">Metode</SelectItem>
+                      </>
+                    )}
+                    {activeTab === 'piutang' && (
+                      <SelectItem value="order_status">Status Order</SelectItem>
+                    )}
                     <SelectItem value="tanggal">Tanggal</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Date or Value Filter */}
               {filterField === 'tanggal' ? (
                 <>
                   <Select value={dateMode} onValueChange={v => setDateMode(v as 'single' | 'range')}>
@@ -383,40 +747,58 @@ const TransactionPage = () => {
                       <SelectItem value="range">Rentang Tanggal</SelectItem>
                     </SelectContent>
                   </Select>
-                                     {dateMode === 'single' ? (
-                     <Calendar
-                       mode="single"
-                       selected={singleDate}
-                       onSelect={setSingleDate}
-                       className="w-full"
-                       classNames={{
-                         day_selected: "bg-[#0050C8] text-white hover:bg-[#003a8c]",
-                         day_today: "border border-[#0050C8]",
-                         day_range_end: "bg-[#0050C8] text-white",
-                       }}
-                     />
-                   ) : (
-                     <Calendar
-                       mode="range"
-                       selected={range}
-                       onSelect={(value) => setRange(value as any)}
-                       className="w-full"
-                       classNames={{
-                         day_selected: "bg-[#0050C8] text-white hover:bg-[#003a8c]",
-                         day_today: "border border-[#0050C8]",
-                         day_range_end: "bg-[#0050C8] text-white",
-                       }}
-                     />
-                   )}
+                  {dateMode === 'single' ? (
+                    <Calendar
+                      mode="single"
+                      selected={singleDate}
+                      onSelect={setSingleDate}
+                      className="w-full"
+                      classNames={{
+                        day_selected: "bg-[#0050C8] text-white hover:bg-[#003a8c]",
+                        day_today: "border border-[#0050C8]",
+                        day_range_end: "bg-[#0050C8] text-white",
+                      }}
+                    />
+                  ) : (
+                    <Calendar
+                      mode="range"
+                      selected={range}
+                      onSelect={(value) => setRange(value as any)}
+                      className="w-full"
+                      classNames={{
+                        day_selected: "bg-[#0050C8] text-white hover:bg-[#003a8c]",
+                        day_range_end: "bg-[#0050C8] text-white",
+                      }}
+                    />
+                  )}
                 </>
               ) : (
-                <div className="mb-2">
+                <div className="mb-3">
                   <label className="block text-xs font-semibold mb-1">Cari</label>
-                  <Input value={filterValue} onChange={e => setFilterValue(e.target.value)} placeholder="Ketik kata kunci..." />
+                  <Input 
+                    value={filterValue} 
+                    onChange={e => setFilterValue(e.target.value)} 
+                    placeholder="Ketik kata kunci..." 
+                  />
                 </div>
               )}
-              <div className="flex justify-end gap-2 mt-2">
-                <Button size="sm" variant="outline" onClick={() => { setSingleDate(undefined); setRange({ from: undefined, to: undefined }); setFilterField('customer_name'); setFilterValue(''); setFilterOpen(false); }}>Reset</Button>
+
+              <div className="flex justify-end gap-2 mt-3">
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => { 
+                    setSingleDate(undefined); 
+                    setRange({ from: undefined, to: undefined }); 
+                    setFilterField('customer_name'); 
+                    setFilterValue(''); 
+                    setSelectedStatus('all');
+                    setSearchTerm('');
+                    setFilterOpen(false); 
+                  }}
+                >
+                  Reset
+                </Button>
                 <Button
                   size="sm"
                   className="bg-[#0050C8] text-white hover:bg-[#003a8c]"
@@ -427,16 +809,19 @@ const TransactionPage = () => {
               </div>
             </PopoverContent>
           </Popover>
+          
           {hasAccess('Transaction', 'export_data') && (
             <Button variant="outline" className="gap-2">
               <FileDown className="h-4 w-4" />
               Export
             </Button>
           )}
+          
           <Button variant="outline" className="gap-2" onClick={handleRefresh}>
             <RefreshCw className="h-4 w-4" />
             Sync
           </Button>
+          
           {hasAccess('Transaction', 'export_data') && (
             <Button variant="outline" className="gap-2">
               <Download className="h-4 w-4" />
@@ -446,77 +831,203 @@ const TransactionPage = () => {
         </div>
       </div>
 
-      {/* Statistik */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-4 rounded-lg border shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Pendapatan</p>
-              <p className="text-2xl font-bold text-blue-700">{formatCurrency(totalRevenue)}</p>
-            </div>
-            <div>
-              <DollarSign className="text-blue-600 w-8 h-8" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg border shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Order</p>
-              <p className="text-2xl font-bold text-blue-700">{totalOrders}</p>
-            </div>
-            <div>
-              <FileText className="text-blue-600 w-8 h-8" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg border shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Lunas</p>
-              <p className="text-2xl font-bold text-blue-700">{completedPayments}</p>
-            </div>
-            <div>
-              <CheckSquare className="text-blue-600 w-8 h-8" />
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="transactions" className="flex items-center gap-2">
+            <FileText className="w-4 h-4" />
+            Transaksi Lunas & Selesai
+          </TabsTrigger>
+          <TabsTrigger value="piutang" className="flex items-center gap-2">
+            <CreditCard className="w-4 h-4" />
+            Piutang
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Filters */}
-      <div className="flex items-center justify-between bg-white p-4 rounded-lg border">
-        <div className="flex items-center gap-3 flex-1">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input 
-              placeholder="Cari orderan atau customer..." 
-              className="pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+        {/* Tab Content - Transaksi Lunas & Selesai */}
+        <TabsContent value="transactions" className="space-y-6">
+          {/* Statistik Transaksi */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Pendapatan</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600">{formatCurrency(totalRevenue)}</div>
+                <p className="text-xs text-muted-foreground">Total pembayaran orderan lunas & selesai</p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Order</CardTitle>
+                <FileText className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">{totalOrders}</div>
+                <p className="text-xs text-muted-foreground">Order lunas & selesai dengan receipt tercetak</p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Orderan Lunas</CardTitle>
+                <CheckSquare className="h-4 w-4 text-emerald-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-emerald-600">{completedPayments}</div>
+                <p className="text-xs text-muted-foreground">Jumlah orderan lunas & selesai</p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Orderan Belum Lunas</CardTitle>
+                <Clock className="h-4 w-4 text-orange-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-orange-600">{incompletePayments}</div>
+                <p className="text-xs text-muted-foreground">Jumlah orderan lunas & selesai (belum tercetak)</p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Belum Dibayar</CardTitle>
+                <XCircle className="h-4 w-4 text-red-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">{unpaidOrders}</div>
+                <p className="text-xs text-muted-foreground">Jumlah orderan lunas & selesai (belum tercetak)</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Search Bar Transaksi */}
+          <div className="flex items-center justify-between bg-white p-4 rounded-lg border">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input 
+                  placeholder="Cari orderan atau customer..." 
+                  className="pl-10"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm">Kemarin</Button>
+              <Button variant="outline" size="sm">Minggu ini</Button>
+              <Button variant="outline" size="sm">Bulan Lalu</Button>
+            </div>
+          </div>
+
+          {/* Transaction Table */}
+          <div className="bg-white rounded-lg border shadow-sm">
+            <div className="p-4 border-b">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Daftar Transaksi Lunas & Selesai ({filteredTransactions.length})
+              </h3>
+            </div>
+            <DataTable
+              data={filteredTransactions}
+              columns={transactionColumns}
+              loading={isLoading}
+              emptyMessage="Tidak ada pembayaran yang ditemukan"
             />
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">Kemarin</Button>
-          <Button variant="outline" size="sm">Minggu ini</Button>
-          <Button variant="outline" size="sm">Bulan Lalu</Button>
-        </div>
-      </div>
+        </TabsContent>
 
-      {/* Transaction Table */}
-      <div className="bg-white rounded-lg border shadow-sm">
-        <div className="p-4 border-b">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Daftar Pembayaran ({filteredTransactions.length})
-          </h3>
-        </div>
-        <DataTable
-          data={filteredTransactions}
-          columns={columns}
-          loading={isLoading}
-          emptyMessage="Tidak ada pembayaran yang ditemukan"
-        />
-      </div>
+        {/* Tab Content - Piutang */}
+        <TabsContent value="piutang" className="space-y-6">
+          {/* Statistik Piutang */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Piutang</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">{formatCurrency(totalPiutang)}</div>
+                <p className="text-xs text-muted-foreground">Total sisa pembayaran</p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Order</CardTitle>
+                <FileText className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600">{totalPiutangOrders}</div>
+                <p className="text-xs text-muted-foreground">Order belum lunas</p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Piutang Baru</CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">{recentOrders}</div>
+                <p className="text-xs text-muted-foreground">≤7 hari</p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Piutang Lama</CardTitle>
+                <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-orange-600">{overdueOrders}</div>
+                <p className="text-xs text-muted-foreground">&gt;7 hari</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Search Bar Piutang */}
+          <div className="flex items-center justify-between bg-white p-4 rounded-lg border">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input 
+                  placeholder="Cari orderan, customer, atau nomor order..." 
+                  className="pl-10"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm">Hari Ini</Button>
+              <Button variant="outline" size="sm">Minggu Ini</Button>
+              <Button variant="outline" size="sm">Bulan Ini</Button>
+            </div>
+          </div>
+
+          {/* Piutang Table */}
+          <div className="bg-white rounded-lg border shadow-sm">
+            <div className="p-4 border-b">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Daftar Piutang ({filteredPiutang.length})
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Menampilkan customer dengan piutang yang belum lunas (dikelompokkan per customer)
+              </p>
+            </div>
+            <DataTable
+              data={filteredPiutang}
+              columns={piutangColumns}
+              loading={isLoading}
+              emptyMessage="Tidak ada piutang yang ditemukan"
+            />
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Print Overlay */}
       {printOrderData && (
@@ -558,6 +1069,139 @@ const TransactionPage = () => {
           })}
         />
       )}
+
+      {/* Modal Pelunasan */}
+      <Dialog open={showPelunasanModal} onOpenChange={setShowPelunasanModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCardIcon className="w-5 h-5 text-green-600" />
+              Aksi Pelunasan - {selectedCustomer}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            {/* Ringkasan Orderan Customer */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="font-semibold text-lg mb-3">Ringkasan Orderan Customer</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">{customerOrders.length}</div>
+                  <div className="text-sm text-gray-600">Total Orderan</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-red-600">
+                    {formatCurrency(customerOrders.reduce((sum, order) => {
+                      const remaining = Number(order.remaining_payment) || 0;
+                      return sum + remaining;
+                    }, 0))}
+                  </div>
+                  <div className="text-sm text-gray-600">Total Sisa Pembayaran</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">
+                    {formatCurrency(customerOrders.reduce((sum, order) => {
+                      const downPayment = Number(order.down_payment) || 0;
+                      return sum + downPayment;
+                    }, 0))}
+                  </div>
+                  <div className="text-sm text-gray-600">Total Uang Muka</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Daftar Orderan */}
+            <div>
+              <h3 className="font-semibold text-lg mb-3">Daftar Orderan yang Belum Lunas</h3>
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">No. Order</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Tanggal</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Total Order</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Uang Muka</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Sisa</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {customerOrders.map((order) => (
+                      <tr key={order.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{order.order_number}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700">
+                          {order.tanggal ? formatDate(order.tanggal) : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm font-bold text-blue-600">{formatCurrency(Number(order.total_amount) || 0)}</td>
+                        <td className="px-4 py-3 text-sm font-semibold text-green-600">{formatCurrency(Number(order.down_payment) || 0)}</td>
+                        <td className="px-4 py-3 text-sm font-bold text-red-600">{formatCurrency(Number(order.remaining_payment) || 0)}</td>
+                        <td className="px-4 py-3">
+                          <Badge variant="outline" className="text-xs">
+                            {order.order_status || 'Pending'}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Form Pelunasan */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-lg">Form Pelunasan</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="pelunasanAmount">Jumlah Pelunasan</Label>
+                  <Input
+                    id="pelunasanAmount"
+                    type="number"
+                    value={pelunasanAmount}
+                    onChange={(e) => setPelunasanAmount(Number(e.target.value))}
+                    className="mt-1"
+                    placeholder="0"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Jumlah ini akan dibayarkan untuk semua orderan customer
+                  </p>
+                </div>
+                
+                <div>
+                  <Label htmlFor="pelunasanNote">Catatan Pelunasan</Label>
+                  <Textarea
+                    id="pelunasanNote"
+                    value={pelunasanNote}
+                    onChange={(e) => setPelunasanNote(e.target.value)}
+                    className="mt-1"
+                    placeholder="Catatan tambahan untuk pelunasan..."
+                    rows={3}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => setShowPelunasanModal(false)}
+                className="flex items-center gap-2"
+              >
+                <X className="w-4 h-4" />
+                Batal
+              </Button>
+              <Button
+                onClick={handleSubmitPelunasan}
+                className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
+              >
+                <CreditCardIcon className="w-4 h-4" />
+                Simpan Pelunasan
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

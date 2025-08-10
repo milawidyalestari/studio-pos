@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import { useOrders } from '@/hooks/useOrders';
 import { useOrderStatus } from '@/hooks/useOrderStatus';
+import { useProducts } from '@/hooks/useProducts';
 import { useToast } from '@/hooks/use-toast';
 
 import { useQuery } from '@tanstack/react-query';
@@ -47,13 +48,14 @@ const Report = () => {
     from: Date | undefined;
     to: Date | undefined;
   }>({ from: undefined, to: undefined });
-  const [showCustomCalendar, setShowCustomCalendar] = useState(false);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   
   const { toast } = useToast();
   const { orders, isLoading, refetch, isFetching } = useOrders({ enableAutoRefresh: false });
   const { data: orderStatuses, isLoading: statusesLoading } = useOrderStatus();
+  const { data: products } = useProducts();
   const { data: dbInfo } = useQuery({
     queryKey: ['database-info'],
     queryFn: async () => {
@@ -146,21 +148,20 @@ const Report = () => {
         order.order_items.forEach(item => {
 
           
-          // Create a more descriptive product name
-          let productName = item.item_name || 'Produk Tidak Diketahui';
+          // Get the actual product name from products database
+          let productName = 'Produk Tidak Diketahui';
           
-          // If item_name looks like a code or is very short, enhance it with material info
-          if (productName.length <= 10 && /^[A-Z0-9-_]+$/i.test(productName)) {
-            // This looks like a code, create a better display name
-            if (item.bahan) {
-              productName = `${productName} (${item.bahan})`;
-            } else if (item.description) {
-              productName = `${productName} (${item.description})`;
+          if (products && item.item_name) {
+            const product = products.find(p => p.kode === item.item_name);
+            if (product) {
+              productName = product.nama || product.kode || 'Produk Tidak Diketahui';
+            } else {
+              // Fallback to item_name if product not found in database
+              productName = item.item_name;
             }
-          } else if (item.bahan && !productName.includes(item.bahan)) {
-            // Even if not a code, add material for clarity if not already included
-            productName = `${productName} - ${item.bahan}`;
           }
+          
+          // No need to enhance with material info - just use product name
           
           if (!productSales[productName]) {
             productSales[productName] = { quantity: 0, revenue: 0 };
@@ -183,6 +184,21 @@ const Report = () => {
   };
 
   const salesData = calculateSalesData();
+
+  // Calculate totals for summary cards
+  const calculateTotals = () => {
+    const totalOrders = filteredOrders.length;
+    const totalRevenue = filteredOrders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
+    const totalQuantity = salesData.reduce((sum, item) => sum + item.quantity, 0);
+    
+    return {
+      totalOrders,
+      totalRevenue,
+      totalQuantity
+    };
+  };
+
+  const totals = calculateTotals();
 
   // Helper function to format date range display
   const formatDateRange = () => {
@@ -215,11 +231,6 @@ const Report = () => {
   // Handle date filter change
   const handleDateFilterChange = (value: string) => {
     setDateFilter(value);
-    if (value === 'custom') {
-      setShowCustomCalendar(true);
-    } else {
-      setShowCustomCalendar(false);
-    }
   };
 
   // Use real transaction data from filteredOrders
@@ -233,19 +244,20 @@ const Report = () => {
       const firstItem = order.order_items?.[0];
       if (!firstItem) return 'N/A';
       
-      // Same logic as sales data - create descriptive name
-      let itemName = firstItem.item_name || 'N/A';
+      // Get the actual product name from products database
+      let itemName = 'N/A';
       
-      // If item_name looks like a code, enhance it with material info
-      if (itemName !== 'N/A' && itemName.length <= 10 && /^[A-Z0-9-_]+$/i.test(itemName)) {
-        if (firstItem.bahan) {
-          itemName = `${itemName} (${firstItem.bahan})`;
-        } else if (firstItem.description) {
-          itemName = `${itemName} (${firstItem.description})`;
+      if (products && firstItem.item_name) {
+        const product = products.find(p => p.kode === firstItem.item_name);
+        if (product) {
+          itemName = product.nama || product.kode || 'N/A';
+        } else {
+          // Fallback to item_name if product not found in database
+          itemName = firstItem.item_name;
         }
-      } else if (firstItem.bahan && !itemName.includes(firstItem.bahan)) {
-        itemName = `${itemName} - ${firstItem.bahan}`;
       }
+      
+      // No need to enhance with material info - just use product name
       
       return itemName;
     })(),
@@ -402,16 +414,16 @@ const Report = () => {
                   </Select>
                 </div>
                 
-                {/* Custom Calendar Popover */}
-                {showCustomCalendar && (
-                  <Popover open={showCustomCalendar} onOpenChange={setShowCustomCalendar}>
+                {/* Custom Calendar Popover for Daily Orders */}
+                {dateFilter === 'custom' && (
+                  <Popover>
                     <PopoverTrigger asChild>
                       <Button variant="outline" size="sm" className="gap-2">
                         <Calendar className="h-4 w-4" />
                         Pilih Tanggal
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="end">
+                    <PopoverContent className="w-[320px] p-0" align="end">
                       <div className="p-3">
                         <h4 className="font-medium text-sm mb-2">Pilih Rentang Tanggal</h4>
                         <CalendarComponent
@@ -501,7 +513,7 @@ const Report = () => {
                             IDR {order.total_amount?.toLocaleString() || '0'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {order.payment_types?.payment_method || order.payment_type || 'Belum Ditentukan'}
+                            {order.payment_types?.payment_method || order.payment_type || '-'}
                           </td>
                         </tr>
                       ))}
@@ -511,6 +523,49 @@ const Report = () => {
               )}
             </CardContent>
           </Card>
+          
+          {/* Summary Cards for Daily Orders */}
+          {!isLoading && filteredOrders.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card className="bg-blue-50 border-blue-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-blue-600">Total Order</p>
+                      <p className="text-2xl font-bold text-blue-900">{totals.totalOrders}</p>
+                    </div>
+                    <Calendar className="h-8 w-8 text-blue-600" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-green-50 border-green-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-green-600">Total Pendapatan</p>
+                      <p className="text-2xl font-bold text-green-900">IDR {totals.totalRevenue.toLocaleString('id-ID')}</p>
+                    </div>
+                    <Receipt className="h-8 w-8 text-green-600" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-purple-50 border-purple-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-purple-600">Rata-rata per Order</p>
+                      <p className="text-2xl font-bold text-purple-900">
+                        IDR {totals.totalOrders > 0 ? (totals.totalRevenue / totals.totalOrders).toLocaleString('id-ID', { maximumFractionDigits: 0 }) : '0'}
+                      </p>
+                    </div>
+                    <BarChart3 className="h-8 w-8 text-purple-600" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </TabsContent>
 
         {/* Sales Report */}
@@ -545,16 +600,16 @@ const Report = () => {
                 </Select>
               </div>
               
-              {/* Custom Calendar Popover */}
-              {showCustomCalendar && (
-                <Popover open={showCustomCalendar} onOpenChange={setShowCustomCalendar}>
+              {/* Custom Calendar Popover for Sales */}
+              {dateFilter === 'custom' && (
+                <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" size="sm" className="gap-2">
                       <Calendar className="h-4 w-4" />
                       Pilih Tanggal
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="end">
+                  <PopoverContent className="w-[320px] p-0" align="end">
                     <div className="p-3">
                       <h4 className="font-medium text-sm mb-2">Pilih Rentang Tanggal</h4>
                       <CalendarComponent
@@ -617,6 +672,49 @@ const Report = () => {
               </div>
             </CardContent>
           </Card>
+          
+          {/* Summary Cards for Sales */}
+          {salesData.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card className="bg-blue-50 border-blue-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-blue-600">Total Produk Terjual</p>
+                      <p className="text-2xl font-bold text-blue-900">{totals.totalQuantity}</p>
+                    </div>
+                    <BarChart3 className="h-8 w-8 text-blue-600" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-green-50 border-green-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-green-600">Total Pendapatan</p>
+                      <p className="text-2xl font-bold text-green-900">IDR {totals.totalRevenue.toLocaleString('id-ID')}</p>
+                    </div>
+                    <Receipt className="h-8 w-8 text-green-600" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-purple-50 border-purple-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-purple-600">Rata-rata per Produk</p>
+                      <p className="text-2xl font-bold text-purple-900">
+                        IDR {totals.totalQuantity > 0 ? (totals.totalRevenue / totals.totalQuantity).toLocaleString('id-ID', { maximumFractionDigits: 0 }) : '0'}
+                      </p>
+                    </div>
+                    <BarChart3 className="h-8 w-8 text-purple-600" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </TabsContent>
 
         {/* Transaction Report (Read-only) */}
@@ -664,16 +762,16 @@ const Report = () => {
                   </Select>
                 </div>
                 
-                {/* Custom Calendar Popover */}
-                {showCustomCalendar && (
-                  <Popover open={showCustomCalendar} onOpenChange={setShowCustomCalendar}>
+                {/* Custom Calendar Popover for Transactions */}
+                {dateFilter === 'custom' && (
+                  <Popover>
                     <PopoverTrigger asChild>
                       <Button variant="outline" size="sm" className="gap-2">
                         <Calendar className="h-4 w-4" />
                         Pilih Tanggal
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="end">
+                    <PopoverContent className="w-[320px] p-0" align="end">
                       <div className="p-3">
                         <h4 className="font-medium text-sm mb-2">Pilih Rentang Tanggal</h4>
                         <CalendarComponent
@@ -747,6 +845,49 @@ const Report = () => {
               </div>
             </CardContent>
           </Card>
+          
+          {/* Summary Cards for Transactions */}
+          {transactionData.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card className="bg-blue-50 border-blue-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-blue-600">Total Transaksi</p>
+                      <p className="text-2xl font-bold text-blue-900">{transactionData.length}</p>
+                    </div>
+                    <Receipt className="h-8 w-8 text-blue-600" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-green-50 border-green-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-green-600">Total Pendapatan</p>
+                      <p className="text-2xl font-bold text-green-900">IDR {totals.totalRevenue.toLocaleString('id-ID')}</p>
+                    </div>
+                    <Receipt className="h-8 w-8 text-green-600" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-purple-50 border-purple-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-purple-600">Rata-rata per Transaksi</p>
+                      <p className="text-2xl font-bold text-purple-900">
+                        IDR {transactionData.length > 0 ? (totals.totalRevenue / transactionData.length).toLocaleString('id-ID', { maximumFractionDigits: 0 }) : '0'}
+                      </p>
+                    </div>
+                    <BarChart3 className="h-8 w-8 text-purple-600" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

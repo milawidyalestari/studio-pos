@@ -278,7 +278,9 @@ export type Database = {
           order_number: string
           outdoor: boolean | null
           payment_type: Database["public"]["Enums"]["payment_type"] | null
+          pelunasan: number | null
           ppn: number | null
+          receipt_printed: boolean | null
           remaining_payment: number | null
           status_id: number | null
           sub_total: number | null
@@ -308,7 +310,41 @@ export type Database = {
           order_number: string
           outdoor?: boolean | null
           payment_type?: Database["public"]["Enums"]["payment_type"] | null
+          pelunasan?: number | null
           ppn?: number | null
+          receipt_printed?: boolean | null
+          remaining_payment?: number | null
+          status_id?: number | null
+          sub_total?: number | null
+          tanggal: string
+          total_amount?: number | null
+          updated_at?: string | null
+          waktu?: string | null
+        }
+        Insert: {
+          admin_id?: string | null
+          bank?: string | null
+          biaya_lain?: number | null
+          created_at?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          desainer_id?: string | null
+          discount?: number | null
+          down_payment?: number | null
+          estimasi?: string | null
+          estimasi_waktu?: string | null
+          id?: string
+          jasa_desain?: number | null
+          komputer?: string | null
+          laser_printing?: boolean | null
+          mug_nota?: boolean | null
+          notes?: string | null
+          order_number: string
+          outdoor?: boolean | null
+          payment_type?: Database["public"]["Enums"]["payment_type"] | null
+          pelunasan?: number | null
+          ppn?: number | null
+          receipt_printed?: boolean | null
           remaining_payment?: number | null
           status_id?: number | null
           sub_total?: number | null
@@ -338,7 +374,9 @@ export type Database = {
           order_number?: string
           outdoor?: boolean | null
           payment_type?: Database["public"]["Enums"]["payment_type"] | null
+          pelunasan?: number | null
           ppn?: number | null
+          receipt_printed?: boolean | null
           remaining_payment?: number | null
           status_id?: number | null
           sub_total?: number | null
