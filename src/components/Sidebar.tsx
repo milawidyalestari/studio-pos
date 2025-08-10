@@ -15,7 +15,8 @@ import {
   Calculator,
   Truck,
   Printer,
-  DollarSign
+  DollarSign,
+  CreditCard
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -55,6 +56,12 @@ const menuItems = [
     path: ROUTES.TRANSACTION, 
     label: 'Transaction', 
     icon: Receipt,
+    permission: { menu: 'Transaction', action: 'view_transactions' }
+  },
+  { 
+    path: ROUTES.PIUTANG, 
+    label: 'Piutang', 
+    icon: CreditCard,
     permission: { menu: 'Transaction', action: 'view_transactions' }
   },
   { 

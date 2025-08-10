@@ -10,6 +10,7 @@ import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Orderan from "./pages/Orderan";
 import TransactionPage from "./pages/Transaction";
+import PiutangPage from "./pages/Piutang";
 import Inventory from "./pages/Inventory";
 import Report from "./pages/Report";
 import MasterData from "./pages/MasterData";
@@ -25,6 +26,7 @@ import { RoleAccessProvider } from '@/context/RoleAccessContext';
 import { useDatabaseInit } from '@/hooks/use-database-init';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { AutoRedirect, NoAccessPage } from '@/components/AutoRedirect';
+import { ROUTES } from '@/utils/constants';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -131,6 +133,7 @@ const App = () => {
                                 <Route path="/dashboard" element={<Dashboard />} />
                                 <Route path="/orderan" element={<Orderan />} />
                                 <Route path="/transaction" element={<TransactionPage />} />
+                                <Route path={ROUTES.PIUTANG} element={<PiutangPage />} />
                                 <Route path="/inventory" element={<Inventory />} />
                                 <Route path="/report" element={<Report />} />
                                 <Route path="/master-data" element={<MasterData />} />
