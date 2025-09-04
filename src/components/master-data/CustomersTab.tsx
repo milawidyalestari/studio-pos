@@ -238,12 +238,12 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
               <table className="w-full">
                 <thead className="bg-gray-50 border-b">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kode</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">No WhatsApp</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Level Pelanggan</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Kode</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">No WhatsApp</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Level Pelanggan</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -257,12 +257,12 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                   ) : (
                     filteredCustomers.map((customer) => (
                       <tr key={customer.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-4 text-sm font-medium text-gray-900">{customer.kode}</td>
-                        <td className="px-4 py-4 text-sm text-gray-900">{customer.nama}</td>
-                        <td className="px-4 py-4 text-sm text-gray-900">{customer.email || '-'}</td>
-                        <td className="px-4 py-4 text-sm text-gray-900">{customer.whatsapp || '-'}</td>
-                        <td className="px-4 py-4">{getLevelBadge(customer.level || 'Regular')}</td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-2 text-sm font-medium text-gray-900">{customer.kode}</td>
+                        <td className="px-4 py-2 text-sm font-medium text-gray-900">{customer.nama}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900">{customer.email || '-'}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900">{customer.whatsapp || '-'}</td>
+                        <td className="px-4 py-2">{getLevelBadge(customer.level || 'Regular')}</td>
+                        <td className="px-4 py-2">
                           <ActionButtons item={customer} onAction={onAction} />
                         </td>
                       </tr>

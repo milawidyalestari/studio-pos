@@ -18,6 +18,7 @@ import {
 import { usePrintService } from '../hooks/usePrintService';
 import { printService } from '../services/printService';
 import { getNotaSettings } from '../utils/notaSettings';
+import { notaPrintService } from '../services/notaPrintService';
 
 export interface PrintOverlayProps {
   isOpen: boolean;
@@ -95,6 +96,10 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
     mugNotaStempel: orderData?.mugNota || false,
   });
 
+  // State for nota print status
+  const [notaPrintStatus, setNotaPrintStatus] = useState<boolean | null>(null);
+  const [isCheckingNotaStatus, setIsCheckingNotaStatus] = useState(false);
+
   // Update printOptions when orderData changes
   useEffect(() => {
     setPrintOptions({
@@ -104,6 +109,46 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
       mugNotaStempel: orderData?.mugNota || false,
     });
   }, [orderData]);
+
+  // Check nota print status when component opens
+  useEffect(() => {
+    if (isOpen && printType === 'nota' && orderData?.orderNumber) {
+      checkNotaPrintStatus();
+    }
+  }, [isOpen, printType, orderData?.orderNumber]);
+
+  // Function to check nota print status
+  const checkNotaPrintStatus = async () => {
+    if (!orderData?.orderNumber) return;
+    
+    setIsCheckingNotaStatus(true);
+    try {
+      const status = await notaPrintService.getNotaPrintStatus(orderData.orderNumber);
+      setNotaPrintStatus(status);
+    } catch (error) {
+      console.error('Error checking nota print status:', error);
+      setNotaPrintStatus(null);
+    } finally {
+      setIsCheckingNotaStatus(false);
+    }
+  };
+
+  // Function to reset nota print status for re-printing
+  const resetNotaPrintStatus = async () => {
+    if (!orderData?.orderNumber) return;
+    
+    try {
+      const result = await notaPrintService.resetNotaPrintStatus(orderData.orderNumber);
+      if (result.success) {
+        setNotaPrintStatus(false);
+        console.log('Nota print status reset successfully');
+      } else {
+        console.error('Failed to reset nota print status:', result.message);
+      }
+    } catch (error) {
+      console.error('Error resetting nota print status:', error);
+    }
+  };
 
   // Initialize all items as selected by default
   useEffect(() => {
@@ -433,12 +478,35 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
               font-size: 14px;
               color: #666;
             }
+            .payment-stamp {
+              position: absolute;
+              pointer-events: none;
+              z-index: 10;
+            }
+            .stamp-circle {
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              background-color: rgba(255, 255, 255, 0.9);
+              transform: rotate(-15deg);
+            }
+            .stamp-text {
+              text-align: center;
+              line-height: 1.1;
+              letter-spacing: 1px;
+              text-transform: uppercase;
+              font-weight: bold;
+            }
+            .stamp-image {
+              object-fit: contain;
+            }
             @media print {
               body { margin: 0; }
             }
           </style>
         </head>
-        <body>
+        <body style="position: relative;">
           ${notaSettings.header.enabled ? `
             <!-- Header Section -->
             <div class="header" style="text-align: center; margin-bottom: 20px;">
@@ -583,6 +651,50 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
               ${notaSettings.footer.text.split('\n').map(line => `<p>${line}</p>`).join('')}
             </div>
           ` : ''}
+          
+          ${(() => {
+            // Calculate payment status for stamp
+            const selectedOrderItems = orderList.filter((item, index) => 
+              selectedItems.length === 0 || selectedItems.includes(item.id || index.toString())
+            );
+            const subtotal = selectedOrderItems.reduce((sum, item) => sum + (item.subTotal || 0), 0);
+            const total = subtotal + (orderData?.desain || 0) + (orderData?.biayaLainnya || 0);
+            const remaining = total - (orderData?.downPayment || 0) - (orderData?.pelunasan || 0);
+            const isLunas = remaining <= 0;
+            
+            // Only show stamp for "Lunas" status and if stamp is enabled
+            if (!notaSettings.stamp.enabled || !isLunas || !notaSettings.stamp.useImage || !notaSettings.stamp.lunasImageUrl) {
+              return '';
+            }
+            
+            // Position styles
+            let positionStyle = '';
+            switch (notaSettings.stamp.position) {
+              case 'top-left':
+                positionStyle = 'top: 20px; left: 20px;';
+                break;
+              case 'top-right':
+                positionStyle = 'top: 20px; right: 20px;';
+                break;
+              case 'bottom-left':
+                positionStyle = 'bottom: 20px; left: 20px;';
+                break;
+              case 'bottom-right':
+                positionStyle = 'bottom: 20px; right: 20px;';
+                break;
+              case 'center':
+                positionStyle = 'top: 50%; left: 50%; transform: translate(-50%, -50%);';
+                break;
+              default:
+                positionStyle = 'top: 20px; right: 20px;';
+            }
+            
+            return `
+              <div class="payment-stamp" style="position: absolute; opacity: ${notaSettings.stamp.opacity}; pointer-events: none; z-index: 10; ${positionStyle}">
+                <img class="stamp-image" src="${notaSettings.stamp.lunasImageUrl}" alt="Lunas Stamp" style="width: ${notaSettings.stamp.size}px; height: ${notaSettings.stamp.size}px; object-fit: contain;" />
+              </div>
+            `;
+          })()}
         </body>
         </html>
       `;
@@ -645,6 +757,32 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
                  printType === 'nota' ? 'Print Nota' : 
                  printType === 'pelunasan' ? 'Print Pelunasan' : 'Print'}
               </h2>
+              
+              {/* Nota Print Status Indicator */}
+              {printType === 'nota' && (
+                <div className="flex items-center gap-2 ml-4">
+                  {isCheckingNotaStatus ? (
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Mengecek status...
+                    </div>
+                  ) : notaPrintStatus !== null ? (
+                    <div className="flex items-center gap-2">
+                      {notaPrintStatus ? (
+                        <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-2 py-1 rounded-md border border-green-200">
+                          <FileText className="h-4 w-4" />
+                          Sudah di-print
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-sm text-orange-600 bg-orange-50 px-2 py-1 rounded-md border border-orange-200">
+                          <FileText className="h-4 w-4" />
+                          Belum di-print
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              )}
             </div>
             <Button 
               variant="ghost" 
@@ -841,9 +979,11 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
                     <span className="font-medium">{orderData?.customerName || 'N/A'}</span>
                   </div>
                   {(printType === 'nota' || printType === 'pelunasan') && (
-                    <div className="flex justify-between">
-                      <span>Order Number:</span>
-                      <span className="font-medium">{orderData?.orderNumber || 'N/A'}</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>Order Number:</span>
+                        <span className="font-medium">{orderData?.orderNumber || 'N/A'}</span>
+                      </div>
                     </div>
                   )}
                   <div className="flex justify-between">
@@ -1039,15 +1179,15 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
                         modal.classList.add('animate-out', 'fade-out', 'duration-200');
                         setTimeout(() => {
                           onClose();
-                          // If this is SPK print and we have the callback, reopen Request Order modal
-                          if (printType === 'spk' && onCloseAndReopenRequestOrder) {
+                          // If this is SPK or Nota print and we have the callback, reopen Request Order modal
+                          if ((printType === 'spk' || printType === 'nota') && onCloseAndReopenRequestOrder) {
                             onCloseAndReopenRequestOrder();
                           }
                         }, 400);
                       } else {
                         onClose();
-                        // If this is SPK print and we have the callback, reopen Request Order modal
-                        if (printType === 'spk' && onCloseAndReopenRequestOrder) {
+                        // If this is SPK or Nota print and we have the callback, reopen Request Order modal
+                        if ((printType === 'spk' || printType === 'nota') && onCloseAndReopenRequestOrder) {
                           onCloseAndReopenRequestOrder();
                         }
                       }
@@ -1064,7 +1204,9 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
                       ) : (
                         <Printer className="h-4 w-4" />
                       )}
-                      {isPrinting ? 'Printing...' : 'Print'}
+                      {isPrinting ? 'Printing...' : (
+                        printType === 'nota' && notaPrintStatus ? 'Print Ulang' : 'Print'
+                      )}
                     </Button>
                   </div>
                 </div>

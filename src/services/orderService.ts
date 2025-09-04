@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { NotificationService } from './notificationService';
 
 // Tambahkan fungsi pembulatan custom
 function customRounding(value: number): number {
@@ -297,6 +298,15 @@ export const updateExistingOrder = async (orderId: number, orderData: any) => {
     
     const { items, ...orderFields } = orderData;
     
+    // Get current order status before update
+    const { data: currentOrder } = await supabase
+      .from('orders')
+      .select('status_id')
+      .eq('id', orderId)
+      .single();
+    
+    const oldStatus = currentOrder?.status_id;
+    
     // Calculate totals
     const totals = calculateOrderTotal(
       items,
@@ -412,6 +422,26 @@ export const updateExistingOrder = async (orderId: number, orderData: any) => {
       await reduceMaterialStock(items);
     }
 
+    // Create notification for order update
+    if (orderFields.employee_id) {
+      const newStatus = orderFields.status_id;
+      if (oldStatus !== newStatus) {
+        // Status changed - create status update notification
+        await NotificationService.createOrderStatusUpdateNotification(
+          orderId.toString(),
+          orderFields.employee_id,
+          oldStatus || '',
+          newStatus || ''
+        );
+      } else {
+        // General update notification
+        await NotificationService.createOrderUpdateNotification(
+          orderId.toString(),
+          orderFields.employee_id
+        );
+      }
+    }
+
     return updatedOrder;
   } catch (error) {
     console.error('Error updating order in database:', error);
@@ -514,6 +544,14 @@ export const createNewOrder = async (orderData: any) => {
       await reduceMaterialStock(items);
     }
 
+    // Create notification for new order
+    if (orderFields.employee_id) {
+      await NotificationService.createOrderCreatedNotification(
+        savedOrder.id.toString(),
+        orderFields.employee_id
+      );
+    }
+
     return savedOrder;
   } catch (error) {
     console.error('Error creating new order:', error);
@@ -545,4 +583,63 @@ export const fetchNextOrderNumber = async () => {
   const { data, error } = await supabase.rpc('get_next_order_number');
   if (error) throw error;
   return data; // Pastikan data adalah nomor urut yang benar, misal: "ORD-00123"
+};
+
+// Delete order with notification
+export const deleteOrder = async (orderId: number, employeeId: string) => {
+  try {
+    console.log('Deleting order with ID:', orderId);
+    
+    // Get order items before deletion for stock restoration
+    const { data: orderItems, error: fetchError } = await supabase
+      .from('order_items')
+      .select('*')
+      .eq('order_id', orderId);
+
+    if (fetchError) {
+      console.error('Error fetching order items for deletion:', fetchError);
+      throw fetchError;
+    }
+
+    // Restore material stock for order items
+    if (orderItems && orderItems.length > 0) {
+      console.log('Restoring material stock for deleted order items:', orderItems);
+      await restoreMaterialStock(orderItems);
+    }
+
+    // Delete order items first
+    const { error: deleteItemsError } = await supabase
+      .from('order_items')
+      .delete()
+      .eq('order_id', orderId);
+
+    if (deleteItemsError) {
+      console.error('Error deleting order items:', deleteItemsError);
+      throw deleteItemsError;
+    }
+
+    // Delete the order
+    const { error: deleteOrderError } = await supabase
+      .from('orders')
+      .delete()
+      .eq('id', orderId);
+
+    if (deleteOrderError) {
+      console.error('Error deleting order:', deleteOrderError);
+      throw deleteOrderError;
+    }
+
+    console.log('Order deleted successfully');
+
+    // Create notification for order deletion
+    await NotificationService.createOrderDeletedNotification(
+      orderId.toString(),
+      employeeId
+    );
+
+    return true;
+  } catch (error) {
+    console.error('Error deleting order:', error);
+    throw error;
+  }
 };

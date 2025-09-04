@@ -1,6 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
-const isDev = process.env.NODE_ENV === 'development';
+const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
 // Database imports
 const { Pool } = require('pg');
@@ -10,6 +10,12 @@ const readFile = promisify(fs.readFile);
 
 // Set environment
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
+
+// Development flags
+const isDevelopment = process.env.NODE_ENV === 'development';
+const enableDevTools = process.argv.includes('--dev');
+const enableLogging = process.argv.includes('--enable-logging');
+const enableDebug = process.argv.includes('--inspect');
 
 // Global reference to prevent garbage collection
 let mainWindow;
@@ -490,24 +496,92 @@ const createWindow = () => {
       nodeIntegration: false,
       contextIsolation: true,
       enableRemoteModule: false,
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.js'),
+      // Development optimizations
+      devTools: isDevelopment,
+      webSecurity: !isDevelopment,
     },
     icon: path.join(__dirname, '..', 'public', 'favicon.ico'),
     show: false,
-    titleBarStyle: 'default'
+    titleBarStyle: 'default',
+    // Development window settings
+    ...(isDevelopment && {
+      minWidth: 1200,
+      minHeight: 800,
+      resizable: true,
+      maximizable: true,
+    })
   });
 
   // Load the app
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools();
+    
+    // Development tools
+    if (enableDevTools || isDevelopment) {
+      mainWindow.webContents.openDevTools();
+    }
+    
+    // Enable hot reload in development
+    if (isDevelopment) {
+      mainWindow.webContents.on('did-fail-load', () => {
+        console.log('Page failed to load, retrying...');
+        setTimeout(() => {
+          mainWindow.loadURL('http://localhost:5173');
+        }, 1000);
+      });
+    }
   } else {
-    mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
+    // Production mode - load from built files
+    const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
+    console.log('Loading production app from:', indexPath);
+    
+    // Check if file exists
+    if (require('fs').existsSync(indexPath)) {
+      mainWindow.loadFile(indexPath);
+    } else {
+      console.error('❌ index.html not found at:', indexPath);
+      // Fallback - try different paths
+      const altPath = path.join(process.resourcesPath, 'app', 'dist', 'index.html');
+      console.log('Trying alternative path:', altPath);
+      if (require('fs').existsSync(altPath)) {
+        mainWindow.loadFile(altPath);
+      } else {
+        console.error('❌ Alternative path also not found');
+        // Show error dialog
+        const { dialog } = require('electron');
+        dialog.showErrorBox('App Loading Error', 'Could not find application files. Please reinstall the application.');
+      }
+    }
   }
 
   // Show window when ready
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+    
+    // Always log in production for debugging
+    console.log('🎯 Main window ready');
+    console.log('🔧 Development mode:', isDevelopment);
+    console.log('📦 App packaged:', app.isPackaged);
+    console.log('🛠️ DevTools enabled:', enableDevTools);
+    console.log('📝 Logging enabled:', enableLogging);
+    console.log('📂 App path:', app.getAppPath());
+    console.log('📂 Resources path:', process.resourcesPath);
+    
+    // Open DevTools in production for debugging
+    if (!isDev) {
+      mainWindow.webContents.openDevTools();
+    }
+  });
+
+  // Handle load failures
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error('❌ Failed to load:', errorDescription, 'URL:', validatedURL);
+  });
+
+  // Handle console messages from renderer
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    console.log('Renderer console:', level, message);
   });
 
   // Handle window closed

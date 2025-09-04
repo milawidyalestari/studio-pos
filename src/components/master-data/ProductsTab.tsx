@@ -288,25 +288,25 @@ export const ProductsTab = forwardRef<ProductsTabRef, ProductsTabProps>(({
               <table className="w-full">
               <thead className="bg-gray-50 border-b">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kode</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jenis</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Satuan</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Harga Beli</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Harga Jual</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Kode</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Jenis</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Satuan</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Harga Beli</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Harga Jual</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredProducts.map((product) => (
                     <tr key={product.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-4 text-sm font-medium text-gray-900">{product.kode}</td>
-                      <td className="px-4 py-4 text-sm text-gray-900">{product.jenis}</td>
-                      <td className="px-4 py-4 text-sm text-gray-900">{product.nama}</td>
-                      <td className="px-4 py-4 text-sm text-gray-900">{product.satuan}</td>
-                      <td className="px-4 py-4 text-sm text-gray-900">{formatCurrency(product.harga_beli || 0)}</td>
-                      <td className="px-4 py-4 text-sm font-semibold text-[#0050C8]">{formatCurrency(product.harga_jual || 0)}</td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900">{product.kode}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900">{product.jenis}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900">{product.nama}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900">{product.satuan}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900">{formatCurrency(product.harga_beli || 0)}</td>
+                      <td className="px-4 py-2 text-sm font-semibold text-[#0050C8]">{formatCurrency(product.harga_jual || 0)}</td>
+                      <td className="px-4 py-2">
                         <ProductActionButtons product={product} />
                       </td>
                     </tr>

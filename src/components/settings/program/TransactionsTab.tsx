@@ -13,15 +13,9 @@ export const TransactionsTab = () => {
   const [transactionSettings, setTransactionSettings] = useState({
     defaultCurrency: 'IDR',
     taxRate: '11',
-    discountType: 'percentage',
-    maxDiscount: '50',
     receiptPrefix: 'DPS',
-    invoicePrefix: 'INV',
     autoNumbering: true,
-    printAfterSale: true,
-    requireCustomerInfo: false,
-    allowPartialPayment: true,
-    defaultPaymentMethod: 'cash'
+    printAfterSale: true
   });
 
   const handleInputChange = (field: string, value: string | boolean) => {
@@ -42,13 +36,13 @@ export const TransactionsTab = () => {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>General Transaction Settings</CardTitle>
-          <CardDescription>Configure basic transaction parameters</CardDescription>
+          <CardTitle>Basic Settings</CardTitle>
+          <CardDescription>Essential transaction configuration</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="currency">Default Currency</Label>
+              <Label htmlFor="currency">Currency</Label>
               <Select
                 value={transactionSettings.defaultCurrency}
                 onValueChange={(value) => handleInputChange('defaultCurrency', value)}
@@ -57,9 +51,9 @@ export const TransactionsTab = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="IDR">Indonesian Rupiah (IDR)</SelectItem>
-                  <SelectItem value="USD">US Dollar (USD)</SelectItem>
-                  <SelectItem value="EUR">Euro (EUR)</SelectItem>
+                  <SelectItem value="IDR">IDR</SelectItem>
+                  <SelectItem value="USD">USD</SelectItem>
+                  <SelectItem value="EUR">EUR</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -74,41 +68,6 @@ export const TransactionsTab = () => {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="discount-type">Discount Type</Label>
-              <Select
-                value={transactionSettings.discountType}
-                onValueChange={(value) => handleInputChange('discountType', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="percentage">Percentage (%)</SelectItem>
-                  <SelectItem value="fixed">Fixed Amount</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="max-discount">Maximum Discount</Label>
-              <Input
-                id="max-discount"
-                value={transactionSettings.maxDiscount}
-                onChange={(e) => handleInputChange('maxDiscount', e.target.value)}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Document Settings</CardTitle>
-          <CardDescription>Configure receipt and invoice numbering</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
               <Label htmlFor="receipt-prefix">Receipt Prefix</Label>
               <Input
                 id="receipt-prefix"
@@ -116,85 +75,32 @@ export const TransactionsTab = () => {
                 onChange={(e) => handleInputChange('receiptPrefix', e.target.value)}
               />
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="invoice-prefix">Invoice Prefix</Label>
-              <Input
-                id="invoice-prefix"
-                value={transactionSettings.invoicePrefix}
-                onChange={(e) => handleInputChange('invoicePrefix', e.target.value)}
-              />
-            </div>
           </div>
           
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="auto-numbering"
-              checked={transactionSettings.autoNumbering}
-              onCheckedChange={(checked) => handleInputChange('autoNumbering', checked)}
-            />
-            <Label htmlFor="auto-numbering">Enable automatic numbering</Label>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Sales Behavior</CardTitle>
-          <CardDescription>Configure how sales transactions behave</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
           <div className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="auto-numbering"
+                checked={transactionSettings.autoNumbering}
+                onCheckedChange={(checked) => handleInputChange('autoNumbering', checked)}
+              />
+              <Label htmlFor="auto-numbering">Auto numbering</Label>
+            </div>
+            
             <div className="flex items-center space-x-2">
               <Switch
                 id="print-after-sale"
                 checked={transactionSettings.printAfterSale}
                 onCheckedChange={(checked) => handleInputChange('printAfterSale', checked)}
               />
-              <Label htmlFor="print-after-sale">Automatically print receipt after sale</Label>
+              <Label htmlFor="print-after-sale">Print receipt after sale</Label>
             </div>
-            
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="require-customer"
-                checked={transactionSettings.requireCustomerInfo}
-                onCheckedChange={(checked) => handleInputChange('requireCustomerInfo', checked)}
-              />
-              <Label htmlFor="require-customer">Require customer information for sales</Label>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="partial-payment"
-                checked={transactionSettings.allowPartialPayment}
-                onCheckedChange={(checked) => handleInputChange('allowPartialPayment', checked)}
-              />
-              <Label htmlFor="partial-payment">Allow partial payments</Label>
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="payment-method">Default Payment Method</Label>
-            <Select
-              value={transactionSettings.defaultPaymentMethod}
-              onValueChange={(value) => handleInputChange('defaultPaymentMethod', value)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="cash">Cash</SelectItem>
-                <SelectItem value="card">Credit/Debit Card</SelectItem>
-                <SelectItem value="transfer">Bank Transfer</SelectItem>
-                <SelectItem value="ewallet">E-Wallet</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </CardContent>
       </Card>
       
       <div className="flex justify-end">
-        <Button onClick={handleSave}>Save Transaction Settings</Button>
+        <Button onClick={handleSave}>Save Settings</Button>
       </div>
     </div>
   );

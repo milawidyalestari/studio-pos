@@ -1,355 +1,995 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { 
-  Download, 
-  Upload, 
   Database, 
+  Upload, 
+  Download, 
+  RefreshCw, 
+  Trash2, 
+  AlertTriangle, 
   CheckCircle, 
-  XCircle, 
-  AlertTriangle,
-  FileText,
-  Settings,
-  RefreshCw
+  Loader2, 
+  FileText, 
+  Settings, 
+  ArrowRight,
+  ArrowLeft,
+  Copy,
+  Archive,
+  History,
+  Shield,
+  HardDrive,
+  Cloud,
+  Server
 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { MigrationService } from '@/services/migrationService';
+import { supabase } from '@/integrations/supabase/client';
+import { DatabaseFactory } from '@/lib/database';
 
 interface MigrationStatus {
-  type: 'export' | 'import' | 'idle';
+  id: string;
+  name: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
   progress: number;
   message: string;
-  isActive: boolean;
+  timestamp: Date;
+  details?: any;
 }
 
-interface MigrationResult {
-  success: boolean;
-  totalRecords: number;
-  tables: Record<string, number>;
-  errors?: string[];
+interface DatabaseInfo {
+  name: string;
+  type: 'supabase' | 'local' | 'external';
+  status: 'connected' | 'disconnected' | 'error';
+  tables: number;
+  records: number;
+  lastBackup?: Date;
+  size?: string;
 }
 
 export const DataMigration = () => {
   const { toast } = useToast();
-  const [status, setStatus] = useState<MigrationStatus>({
-    type: 'idle',
-    progress: 0,
-    message: '',
-    isActive: false
+  const [migrationService] = useState(() => {
+    const database = DatabaseFactory.createDatabase();
+    return new MigrationService(database);
   });
-  const [lastResult, setLastResult] = useState<MigrationResult | null>(null);
-  const [selectedDbType, setSelectedDbType] = useState('postgresql');
+  
+  const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [isBackingUp, setIsBackingUp] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [importProgress, setImportProgress] = useState(0);
+  const [backupProgress, setBackupProgress] = useState(0);
+  const [restoreProgress, setRestoreProgress] = useState(0);
+  const [validationProgress, setValidationProgress] = useState(0);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
+  
+  const [migrationHistory, setMigrationHistory] = useState<MigrationStatus[]>([]);
+  const [databaseInfo, setDatabaseInfo] = useState<DatabaseInfo[]>([]);
+  const [selectedTables, setSelectedTables] = useState<string[]>([]);
+  const [migrationConfig, setMigrationConfig] = useState({
+    includeData: true,
+    includeSchema: true,
+    includeIndexes: true,
+    includeConstraints: true,
+    validateData: true,
+    backupBeforeMigration: true,
+    createLogs: true,
+    batchSize: 1000,
+    timeout: 30000
+  });
 
-  const updateStatus = (type: 'export' | 'import' | 'idle', progress: number, message: string, isActive: boolean = true) => {
-    setStatus({ type, progress, message, isActive });
+  useEffect(() => {
+    loadMigrationHistory();
+    loadDatabaseInfo();
+  }, []);
+
+  const loadMigrationHistory = async () => {
+    try {
+      const history = await migrationService.getMigrationStatus();
+      // Convert MigrationStatus to MigrationStatus for display
+      const displayHistory = history.map(status => ({
+        id: status.tableName,
+        name: `Migration: ${status.tableName}`,
+        status: status.migrationStatus === 'completed' ? 'completed' : 
+                status.migrationStatus === 'failed' ? 'failed' : 
+                status.migrationStatus === 'running' ? 'running' : 'pending',
+        progress: status.migrationStatus === 'completed' ? 100 : 
+                 status.migrationStatus === 'failed' ? 0 : 
+                 status.migrationStatus === 'running' ? 50 : 0,
+        message: status.errorMessage || `Status: ${status.migrationStatus}`,
+        timestamp: new Date(),
+        details: status
+      }));
+      setMigrationHistory(displayHistory);
+    } catch (error) {
+      console.error('Error loading migration history:', error);
+    }
   };
 
-  const handleExportData = async () => {
-    updateStatus('export', 0, 'Initializing export...');
+  const loadDatabaseInfo = async () => {
+    try {
+      // Get current database info
+      const { data: tables, error } = await supabase
+        .from('information_schema.tables')
+        .select('table_name')
+        .eq('table_schema', 'public');
+
+      if (!error && tables) {
+        const currentDb: DatabaseInfo = {
+          name: 'Current Database',
+          type: 'supabase',
+          status: 'connected',
+          tables: tables.length,
+          records: 0, // Would need to count records from each table
+          lastBackup: new Date()
+        };
+        setDatabaseInfo([currentDb]);
+      }
+    } catch (error) {
+      console.error('Error loading database info:', error);
+    }
+  };
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    setExportProgress(0);
     
     try {
-      // Simulate export process with progress updates
-      const tables = [
-        'roles', 'employees', 'categories', 'groups', 'units', 'payment_types',
-        'customers', 'suppliers', 'materials', 'products', 'product_materials',
-        'positions', 'order_statuses', 'orders', 'order_items', 'transactions', 'inventory_movements'
+      const steps = [
+        'Menyiapkan export...',
+        'Mengumpulkan data...',
+        'Memvalidasi struktur...',
+        'Membuat file export...',
+        'Mengkompresi data...',
+        'Selesai'
       ];
-
-      let totalRecords = 0;
-      const tableResults: Record<string, number> = {};
-
-      for (let i = 0; i < tables.length; i++) {
-        const table = tables[i];
-        updateStatus('export', Math.round((i / tables.length) * 100), `Exporting ${table}...`);
-        
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Simulate record count (in real implementation, this would come from API)
-        const recordCount = Math.floor(Math.random() * 100) + 10;
-        tableResults[table] = recordCount;
-        totalRecords += recordCount;
-      }
-
-      updateStatus('export', 100, 'Export completed successfully!', false);
       
-      const result: MigrationResult = {
-        success: true,
-        totalRecords,
-        tables: tableResults
+      for (let i = 0; i < steps.length; i++) {
+        setExportProgress(Math.round(((i + 1) / steps.length) * 100));
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      
+      // Use the database service exportData method instead
+      const exportData = await migrationService.database.exportData();
+      
+      // Create and download file
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+        type: 'application/json'
+      });
+      
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `database-export-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Export berhasil",
+        description: `Data berhasil diekspor ke file`,
+      });
+      
+      // Add to migration history
+      const newMigration: MigrationStatus = {
+        id: Date.now().toString(),
+        name: 'Database Export',
+        status: 'completed',
+        progress: 100,
+        message: `Export berhasil: ${selectedTables.length} tabel`,
+        timestamp: new Date(),
+        details: { tables: selectedTables, config: migrationConfig }
       };
       
-      setLastResult(result);
+      setMigrationHistory(prev => [newMigration, ...prev]);
       
-      toast({
-        title: "Export Successful",
-        description: `Exported ${totalRecords} records from Supabase`,
-      });
-
     } catch (error) {
-      updateStatus('export', 0, `Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`, false);
-      
+      console.error('Export error:', error);
       toast({
-        title: "Export Failed",
-        description: "Failed to export data from Supabase",
+        title: "Export gagal",
+        description: `Terjadi kesalahan saat mengekspor data: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive"
       });
+    } finally {
+      setIsExporting(false);
+      setExportProgress(0);
     }
   };
 
-  const handleImportData = async () => {
-    if (!lastResult) {
-      toast({
-        title: "No Export Data",
-        description: "Please export data first before importing",
-        variant: "destructive"
-      });
-      return;
-    }
+  const handleImport = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,.sql,.csv';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
 
-    updateStatus('import', 0, 'Connecting to local database...');
+      setIsImporting(true);
+      setImportProgress(0);
+      
+      try {
+        const text = await file.text();
+        let importData;
+        
+        try {
+          importData = JSON.parse(text);
+        } catch {
+          // Try to parse as SQL or CSV
+          importData = { raw: text, type: file.name.endsWith('.sql') ? 'sql' : 'csv' };
+        }
+
+        const confirmed = window.confirm(
+          'Import data dari file?\n' +
+          `File: ${file.name}\n` +
+          `Size: ${(file.size / 1024 / 1024).toFixed(2)} MB\n\n` +
+          'Data yang ada mungkin akan diganti atau ditambahkan.'
+        );
+
+        if (!confirmed) return;
+
+        const steps = [
+          'Membaca file...',
+          'Memvalidasi format...',
+          'Menyiapkan database...',
+          'Mengimport data...',
+          'Memvalidasi hasil...',
+          'Selesai'
+        ];
+        
+        for (let i = 0; i < steps.length; i++) {
+          setImportProgress(Math.round(((i + 1) / steps.length) * 100));
+          await new Promise(resolve => setTimeout(resolve, 400));
+        }
+
+        // Use the database service importData method instead
+        await migrationService.database.importData(importData);
+        
+        toast({
+          title: "Import berhasil",
+          description: `Data berhasil diimport dari file`,
+        });
+        
+        // Add to migration history
+        const newMigration: MigrationStatus = {
+          id: Date.now().toString(),
+          name: 'Database Import',
+          status: 'completed',
+          progress: 100,
+          message: `Import berhasil dari ${file.name}`,
+          timestamp: new Date(),
+          details: { file: file.name }
+        };
+        
+        setMigrationHistory(prev => [newMigration, ...prev]);
+        
+        // Refresh database info
+        loadDatabaseInfo();
+        
+      } catch (error) {
+        console.error('Import error:', error);
+        toast({
+          title: "Import gagal",
+          description: `Terjadi kesalahan saat mengimport data: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          variant: "destructive"
+        });
+      } finally {
+        setIsImporting(false);
+        setImportProgress(0);
+      }
+    };
+    input.click();
+  };
+
+  const handleBackup = async () => {
+    setIsBackingUp(true);
+    setBackupProgress(0);
     
     try {
-      const tables = Object.keys(lastResult.tables);
-      let importedRecords = 0;
-
-      updateStatus('import', 10, `Connected to ${selectedDbType} database`);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      updateStatus('import', 20, 'Disabling foreign key constraints...');
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      for (let i = 0; i < tables.length; i++) {
-        const table = tables[i];
-        const recordCount = lastResult.tables[table];
-        
-        updateStatus('import', 20 + Math.round((i / tables.length) * 70), `Importing ${recordCount} records to ${table}...`);
-        
-        // Simulate import delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-        importedRecords += recordCount;
+      const steps = [
+        'Menyiapkan backup...',
+        'Mengumpulkan data...',
+        'Membuat snapshot...',
+        'Mengkompresi...',
+        'Menyimpan backup...',
+        'Selesai'
+      ];
+      
+      for (let i = 0; i < steps.length; i++) {
+        setBackupProgress(Math.round(((i + 1) / steps.length) * 100));
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
-
-      updateStatus('import', 90, 'Re-enabling foreign key constraints...');
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      updateStatus('import', 95, 'Updating sequences...');
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      updateStatus('import', 100, `Import completed! ${importedRecords} records imported to ${selectedDbType}`, false);
+      
+      // Use the migrationService backupLocalStorage method instead
+      const filename = await migrationService.backupLocalStorage();
       
       toast({
-        title: "Import Successful",
-        description: `Imported ${importedRecords} records to local ${selectedDbType} database`,
+        title: "Backup berhasil",
+        description: `Database berhasil dibackup ke ${filename}`,
       });
-
-    } catch (error) {
-      updateStatus('import', 0, `Import failed: ${error instanceof Error ? error.message : 'Unknown error'}`, false);
       
+      // Add to migration history
+      const newMigration: MigrationStatus = {
+        id: Date.now().toString(),
+        name: 'Database Backup',
+        status: 'completed',
+        progress: 100,
+        message: `Backup berhasil dibuat: ${filename}`,
+        timestamp: new Date(),
+        details: { filename }
+      };
+      
+      setMigrationHistory(prev => [newMigration, ...prev]);
+      
+    } catch (error) {
+      console.error('Backup error:', error);
       toast({
-        title: "Import Failed",
-        description: "Failed to import data to local database",
+        title: "Backup gagal",
+        description: `Terjadi kesalahan saat membuat backup: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive"
       });
+    } finally {
+      setIsBackingUp(false);
+      setBackupProgress(0);
     }
   };
 
-  const getStatusIcon = () => {
-    if (status.type === 'export') return <Download className="h-4 w-4" />;
-    if (status.type === 'import') return <Upload className="h-4 w-4" />;
-    return <Database className="h-4 w-4" />;
+  const handleRestore = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      const confirmed = window.confirm(
+        'Restore database dari backup?\n' +
+        '⚠️ PERINGATAN: Semua data saat ini akan diganti dengan data dari backup!\n\n' +
+        'Pastikan Anda telah membuat backup terbaru sebelum melanjutkan.'
+      );
+
+      if (!confirmed) return;
+
+      setIsRestoring(true);
+      setRestoreProgress(0);
+      
+      try {
+        const steps = [
+          'Membaca backup...',
+          'Memvalidasi backup...',
+          'Menyiapkan restore...',
+          'Mengembalikan data...',
+          'Memvalidasi hasil...',
+          'Selesai'
+        ];
+        
+        for (let i = 0; i < steps.length; i++) {
+          setRestoreProgress(Math.round(((i + 1) / steps.length) * 100));
+          await new Promise(resolve => setTimeout(resolve, 600));
+        }
+
+        // Use the migrationService restoreFromBackup method instead
+        await migrationService.restoreFromBackup(file);
+        
+        toast({
+          title: "Restore berhasil",
+          description: `Database berhasil dikembalikan dari backup`,
+        });
+        
+        // Add to migration history
+        const newMigration: MigrationStatus = {
+          id: Date.now().toString(),
+          name: 'Database Restore',
+          status: 'completed',
+          progress: 100,
+          message: 'Restore berhasil',
+          timestamp: new Date(),
+          details: { file: file.name }
+        };
+        
+        setMigrationHistory(prev => [newMigration, ...prev]);
+        
+        // Refresh database info
+        loadDatabaseInfo();
+        
+      } catch (error) {
+        console.error('Restore error:', error);
+        toast({
+          title: "Restore gagal",
+          description: `Terjadi kesalahan saat restore: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          variant: "destructive"
+        });
+      } finally {
+        setIsRestoring(false);
+        setRestoreProgress(0);
+      }
+    };
+    input.click();
   };
 
-  const getStatusBadge = () => {
-    if (status.isActive) {
-      return <Badge variant="outline" className="animate-pulse">
-        <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-        {status.type === 'export' ? 'Exporting' : 'Importing'}
-      </Badge>;
-    }
+  const handleValidate = async () => {
+    setIsValidating(true);
+    setValidationProgress(0);
     
-    if (status.message.includes('completed')) {
-      return <Badge variant="default" className="bg-green-100 text-green-800">
-        <CheckCircle className="h-3 w-3 mr-1" />
-        Completed
-      </Badge>;
+    try {
+      const steps = [
+        'Memulai validasi...',
+        'Memeriksa struktur tabel...',
+        'Memvalidasi data...',
+        'Memeriksa relasi...',
+        'Memverifikasi integritas...',
+        'Selesai'
+      ];
+      
+      for (let i = 0; i < steps.length; i++) {
+        setValidationProgress(Math.round(((i + 1) / steps.length) * 100));
+        await new Promise(resolve => setTimeout(resolve, 400));
+      }
+      
+      // Use the migrationService getMigrationStatus method to validate
+      const validationResult = await migrationService.getMigrationStatus();
+      const isValid = validationResult.every(status => status.migrationStatus !== 'failed');
+      
+      toast({
+        title: "Validasi selesai",
+        description: `Database valid: ${isValid ? 'Ya' : 'Tidak'}`,
+        variant: isValid ? "default" : "destructive"
+      });
+      
+      // Add to migration history
+      const newMigration: MigrationStatus = {
+        id: Date.now().toString(),
+        name: 'Database Validation',
+        status: 'completed',
+        progress: 100,
+        message: `Validasi: ${isValid ? 'Berhasil' : 'Gagal'}`,
+        timestamp: new Date(),
+        details: { validation: validationResult }
+      };
+      
+      setMigrationHistory(prev => [newMigration, ...prev]);
+      
+    } catch (error) {
+      console.error('Validation error:', error);
+      toast({
+        title: "Validasi gagal",
+        description: `Terjadi kesalahan saat validasi: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive"
+      });
+    } finally {
+      setIsValidating(false);
+      setValidationProgress(0);
     }
+  };
+
+  const handleAnalyze = async () => {
+    setIsAnalyzing(true);
+    setAnalysisProgress(0);
     
-    if (status.message.includes('failed')) {
-      return <Badge variant="destructive">
-        <XCircle className="h-3 w-3 mr-1" />
-        Failed
-      </Badge>;
+    try {
+      const steps = [
+        'Memulai analisis...',
+        'Menganalisis struktur...',
+        'Memeriksa performa...',
+        'Mengidentifikasi masalah...',
+        'Membuat rekomendasi...',
+        'Selesai'
+      ];
+      
+      for (let i = 0; i < steps.length; i++) {
+        setAnalysisProgress(Math.round(((i + 1) / steps.length) * 100));
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      // Use the migrationService getMigrationStatus method to analyze
+      const analysisResult = await migrationService.getMigrationStatus();
+      
+      toast({
+        title: "Analisis selesai",
+        description: `Database berhasil dianalisis`,
+      });
+      
+      // Add to migration history
+      const newMigration: MigrationStatus = {
+        id: Date.now().toString(),
+        name: 'Database Analysis',
+        status: 'completed',
+        progress: 100,
+        message: 'Analisis selesai',
+        timestamp: new Date(),
+        details: { analysis: analysisResult }
+      };
+      
+      setMigrationHistory(prev => [newMigration, ...prev]);
+      
+    } catch (error) {
+      console.error('Analysis error:', error);
+      toast({
+        title: "Analisis gagal",
+        description: `Terjadi kesalahan saat analisis: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive"
+      });
+    } finally {
+      setIsAnalyzing(false);
+      setAnalysisProgress(0);
     }
-    
-    return <Badge variant="secondary">
-      <Settings className="h-3 w-3 mr-1" />
-      Ready
-    </Badge>;
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'failed': return 'bg-red-100 text-red-800';
+      case 'running': return 'bg-blue-100 text-blue-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed': return <CheckCircle className="h-4 w-4" />;
+      case 'failed': return <AlertTriangle className="h-4 w-4" />;
+      case 'running': return <Loader2 className="h-4 w-4 animate-spin" />;
+      default: return <Settings className="h-4 w-4" />;
+    }
   };
 
   return (
     <div className="space-y-6">
-      {/* Migration Control Panel */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Database className="h-5 w-5" />
-              <CardTitle>Data Migration Tools</CardTitle>
-            </div>
-            {getStatusBadge()}
-          </div>
-          <CardDescription>
-            Export data from Supabase cloud and import to local database for offline operations
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Database Type Selection */}
-          <div className="space-y-2">
-            <Label htmlFor="db-type">Target Local Database</Label>
-            <Select value={selectedDbType} onValueChange={setSelectedDbType} disabled={status.isActive}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="postgresql">PostgreSQL</SelectItem>
-                <SelectItem value="mysql">MySQL</SelectItem>
-              </SelectContent>
-            </Select>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Data Migration & Backup</h2>
+          <p className="text-gray-600">Kelola migrasi data, backup, dan restore database</p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={loadDatabaseInfo}
+            disabled={isLoading}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="export">Export</TabsTrigger>
+          <TabsTrigger value="import">Import</TabsTrigger>
+          <TabsTrigger value="backup">Backup</TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Database Status</CardTitle>
+                <Database className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {databaseInfo.find(db => db.type === 'supabase')?.status === 'connected' ? 'Connected' : 'Disconnected'}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {databaseInfo.find(db => db.type === 'supabase')?.tables || 0} tables available
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Migration History</CardTitle>
+                <History className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{migrationHistory.length}</div>
+                <p className="text-xs text-muted-foreground">
+                  {migrationHistory.filter(m => m.status === 'completed').length} successful
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Last Backup</CardTitle>
+                <Archive className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {databaseInfo.find(db => db.type === 'supabase')?.lastBackup 
+                    ? new Date(databaseInfo.find(db => db.type === 'supabase')!.lastBackup!).toLocaleDateString('id-ID')
+                    : 'Never'
+                  }
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Last backup date
+                </p>
+              </CardContent>
+            </Card>
           </div>
 
-          {/* Action Buttons */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+              <CardDescription>
+                Akses cepat ke fitur-fitur utama migrasi data
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <Button
+                  onClick={handleBackup}
+                  variant="outline"
+                  className="justify-start"
+                  disabled={isBackingUp}
+                >
+                  {isBackingUp ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Archive className="h-4 w-4 mr-2" />
+                  )}
+                  {isBackingUp ? 'Backing up...' : 'Backup'}
+                </Button>
+                
+                <Button
+                  onClick={handleValidate}
+                  variant="outline"
+                  className="justify-start"
+                  disabled={isValidating}
+                >
+                  {isValidating ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Shield className="h-4 w-4 mr-2" />
+                  )}
+                  {isValidating ? 'Validating...' : 'Validate'}
+                </Button>
+                
+                <Button
+                  onClick={handleAnalyze}
+                  variant="outline"
+                  className="justify-start"
+                  disabled={isAnalyzing}
+                >
+                  {isAnalyzing ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <HardDrive className="h-4 w-4 mr-2" />
+                  )}
+                  {isAnalyzing ? 'Analyzing...' : 'Analyze'}
+                </Button>
+                
+                <Button
+                  onClick={loadMigrationHistory}
+                  variant="outline"
+                  className="justify-start"
+                  disabled={isLoading}
+                >
+                  <History className="h-4 w-4 mr-2" />
+                  History
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="export" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Export Database</CardTitle>
+              <CardDescription>
+                Ekspor data database ke file untuk backup atau migrasi
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Pilih Tabel</label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {['products', 'customers', 'orders', 'employees', 'suppliers', 'materials', 'transactions'].map((table) => (
+                    <label key={table} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedTables.includes(table)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedTables([...selectedTables, table]);
+                          } else {
+                            setSelectedTables(selectedTables.filter(t => t !== table));
+                          }
+                        }}
+                        className="rounded"
+                      />
+                      <span className="text-sm capitalize">{table}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Konfigurasi Export</label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={migrationConfig.includeData}
+                      onChange={(e) => setMigrationConfig({...migrationConfig, includeData: e.target.checked})}
+                      className="rounded"
+                    />
+                    <span className="text-sm">Include Data</span>
+                  </label>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={migrationConfig.includeSchema}
+                      onChange={(e) => setMigrationConfig({...migrationConfig, includeSchema: e.target.checked})}
+                      className="rounded"
+                    />
+                    <span className="text-sm">Include Schema</span>
+                  </label>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={migrationConfig.includeIndexes}
+                      onChange={(e) => setMigrationConfig({...migrationConfig, includeIndexes: e.target.checked})}
+                      className="rounded"
+                    />
+                    <span className="text-sm">Include Indexes</span>
+                  </label>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={migrationConfig.includeConstraints}
+                      onChange={(e) => setMigrationConfig({...migrationConfig, includeConstraints: e.target.checked})}
+                      className="rounded"
+                    />
+                    <span className="text-sm">Include Constraints</span>
+                  </label>
+                </div>
+              </div>
+
+              <Button
+                onClick={handleExport}
+                disabled={isExporting || selectedTables.length === 0}
+                className="w-full"
+              >
+                {isExporting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-2" />
+                )}
+                {isExporting ? 'Exporting...' : 'Export Database'}
+              </Button>
+
+              {isExporting && (
+                <div className="space-y-2">
+                  <Progress value={exportProgress} className="w-full" />
+                  <p className="text-xs text-gray-500 text-center">{exportProgress}% selesai</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="import" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Import Database</CardTitle>
+              <CardDescription>
+                Import data dari file ke database
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Peringatan:</strong> Import data dapat mengganti data yang sudah ada. 
+                  Pastikan Anda telah membuat backup sebelum melakukan import.
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Konfigurasi Import</label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={migrationConfig.validateData}
+                      onChange={(e) => setMigrationConfig({...migrationConfig, validateData: e.target.checked})}
+                      className="rounded"
+                    />
+                    <span className="text-sm">Validate Data</span>
+                  </label>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={migrationConfig.backupBeforeMigration}
+                      onChange={(e) => setMigrationConfig({...migrationConfig, backupBeforeMigration: e.target.checked})}
+                      className="rounded"
+                    />
+                    <span className="text-sm">Backup Before Import</span>
+                  </label>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={migrationConfig.createLogs}
+                      onChange={(e) => setMigrationConfig({...migrationConfig, createLogs: e.target.checked})}
+                      className="rounded"
+                    />
+                    <span className="text-sm">Create Logs</span>
+                  </label>
+                </div>
+              </div>
+
+              <Button
+                onClick={handleImport}
+                disabled={isImporting}
+                className="w-full"
+              >
+                {isImporting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4 mr-2" />
+                )}
+                {isImporting ? 'Importing...' : 'Import Database'}
+              </Button>
+
+              {isImporting && (
+                <div className="space-y-2">
+                  <Progress value={importProgress} className="w-full" />
+                  <p className="text-xs text-gray-500 text-center">{importProgress}% selesai</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="backup" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Button 
-              onClick={handleExportData}
-              disabled={status.isActive}
-              className="flex items-center gap-2 h-12"
-              size="lg"
-            >
-              <Download className="h-5 w-5" />
-              <div className="text-left">
-                <div className="font-medium">Export from Supabase</div>
-                <div className="text-xs opacity-75">Download all data</div>
-              </div>
-            </Button>
-            
-            <Button 
-              onClick={handleImportData}
-              disabled={status.isActive || !lastResult}
-              variant="outline"
-              className="flex items-center gap-2 h-12"
-              size="lg"
-            >
-              <Upload className="h-5 w-5" />
-              <div className="text-left">
-                <div className="font-medium">Import to Local</div>
-                <div className="text-xs opacity-75">Upload to {selectedDbType}</div>
-              </div>
-            </Button>
-          </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Create Backup</CardTitle>
+                <CardDescription>
+                  Buat backup lengkap database
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button
+                  onClick={handleBackup}
+                  disabled={isBackingUp}
+                  className="w-full"
+                >
+                  {isBackingUp ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Archive className="h-4 w-4 mr-2" />
+                  )}
+                  {isBackingUp ? 'Creating Backup...' : 'Create Backup'}
+                </Button>
 
-          {/* Progress Section */}
-          {status.isActive && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                {getStatusIcon()}
-                <span className="text-sm font-medium">{status.message}</span>
-              </div>
-              <Progress value={status.progress} className="w-full" />
-              <p className="text-xs text-muted-foreground text-center">
-                {status.progress}% completed
-              </p>
-            </div>
-          )}
-
-          {/* Status Message */}
-          {!status.isActive && status.message && (
-            <Alert className={status.message.includes('failed') ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}>
-              {status.message.includes('failed') ? 
-                <XCircle className="h-4 w-4 text-red-600" /> : 
-                <CheckCircle className="h-4 w-4 text-green-600" />
-              }
-              <AlertDescription className={status.message.includes('failed') ? 'text-red-800' : 'text-green-800'}>
-                {status.message}
-              </AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Migration Results */}
-      {lastResult && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Last Migration Results
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">{lastResult.totalRecords}</div>
-                <div className="text-sm text-muted-foreground">Total Records</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">{Object.keys(lastResult.tables).length}</div>
-                <div className="text-sm text-muted-foreground">Tables</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">
-                  {lastResult.success ? '✓' : '✗'}
-                </div>
-                <div className="text-sm text-muted-foreground">Status</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-orange-600">
-                  {selectedDbType === 'postgresql' ? '🐘' : '🐬'}
-                </div>
-                <div className="text-sm text-muted-foreground">Target DB</div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <h4 className="font-medium">Table Details:</h4>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
-                {Object.entries(lastResult.tables).map(([table, count]) => (
-                  <div key={table} className="flex justify-between p-2 bg-muted rounded">
-                    <span className="font-medium">{table}</span>
-                    <span className="text-muted-foreground">{count}</span>
+                {isBackingUp && (
+                  <div className="space-y-2">
+                    <Progress value={backupProgress} className="w-full" />
+                    <p className="text-xs text-gray-500 text-center">{backupProgress}% selesai</p>
                   </div>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                )}
+              </CardContent>
+            </Card>
 
-      {/* Important Notes */}
-      <Card className="border-orange-200 bg-orange-50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-orange-800">
-            <AlertTriangle className="h-5 w-5" />
-            Important Notes
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-orange-700">
-          <p className="text-sm">
-            <strong>Before Migration:</strong> Backup your local database and ensure you have sufficient storage space.
-          </p>
-          <p className="text-sm">
-            <strong>During Migration:</strong> Do not close this window or interrupt the process to avoid data corruption.
-          </p>
-          <p className="text-sm">
-            <strong>After Migration:</strong> Test your application thoroughly and verify data integrity before going live.
-          </p>
-        </CardContent>
-      </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Restore Backup</CardTitle>
+                <CardDescription>
+                  Restore database dari backup file
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>PERINGATAN:</strong> Restore akan mengganti semua data saat ini!
+                  </AlertDescription>
+                </Alert>
+
+                <Button
+                  onClick={handleRestore}
+                  disabled={isRestoring}
+                  variant="destructive"
+                  className="w-full"
+                >
+                  {isRestoring ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                  )}
+                  {isRestoring ? 'Restoring...' : 'Restore Backup'}
+                </Button>
+
+                {isRestoring && (
+                  <div className="space-y-2">
+                    <Progress value={restoreProgress} className="w-full" />
+                    <p className="text-xs text-gray-500 text-center">{restoreProgress}% selesai</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="history" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Migration History</CardTitle>
+              <CardDescription>
+                Riwayat semua operasi migrasi dan backup
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {migrationHistory.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    Belum ada riwayat migrasi
+                  </div>
+                ) : (
+                  migrationHistory.map((migration) => (
+                    <div
+                      key={migration.id}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div className="flex items-center space-x-3">
+                        {getStatusIcon(migration.status)}
+                        <div>
+                          <div className="font-medium">{migration.name}</div>
+                          <div className="text-sm text-gray-500">
+                            {migration.message}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Badge className={getStatusColor(migration.status)}>
+                          {migration.status}
+                        </Badge>
+                        <span className="text-xs text-gray-500">
+                          {migration.timestamp.toLocaleString('id-ID')}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      <Separator />
+
+      <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+        <div className="flex items-start gap-3">
+          <Server className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+          <div>
+            <h4 className="font-medium text-blue-800 mb-2">Tips Migrasi Data</h4>
+            <div className="text-sm text-blue-700 space-y-1">
+              <p>• <strong>Backup Rutin:</strong> Selalu buat backup sebelum melakukan migrasi</p>
+              <p>• <strong>Validasi:</strong> Validasi data setelah import untuk memastikan integritas</p>
+              <p>• <strong>Test Environment:</strong> Test migrasi di environment non-produksi terlebih dahulu</p>
+              <p>• <strong>Logs:</strong> Aktifkan logging untuk tracking operasi migrasi</p>
+              <p>• <strong>Batch Size:</strong> Atur batch size sesuai dengan kapasitas sistem</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

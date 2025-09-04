@@ -174,3 +174,4 @@ Integrasi cash register dengan halaman Kasir memberikan:
 - **Scalability**: Mudah dikembangkan untuk kebutuhan masa depan
 
 Sistem ini dirancang untuk studio printing modern dengan kebutuhan hardware yang bervariasi dan kemudahan dalam pengelolaan transaksi.
+

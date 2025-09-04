@@ -3,6 +3,7 @@ import { Card, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Separator } from '../ui/separator';
 import { getNotaSettings } from '../../utils/notaSettings';
+import { PaymentStamp } from './PaymentStamp';
 
 interface PrintPreviewProps {
   orderData?: {
@@ -255,9 +256,22 @@ export const NotaPreview: React.FC<PrintPreviewProps> = ({ orderData, orderList,
   // Get custom nota settings
   const notaSettings = getNotaSettings();
   
+  // Calculate payment status - check if remaining payment is 0 or less
+  const calculatePaymentStatus = () => {
+    const selectedOrderItems = orderList?.filter((item, index) => 
+      selectedItems.length === 0 || selectedItems.includes(item.id || index.toString())
+    ) || [];
+    const subtotal = selectedOrderItems.reduce((sum, item) => sum + (item.subTotal || 0), 0);
+    const total = subtotal + (orderData?.desain || 0) + (orderData?.biayaLainnya || 0);
+    const remaining = total - (orderData?.downPayment || 0) - (orderData?.pelunasan || 0);
+    return remaining <= 0;
+  };
+
+  const isLunas = calculatePaymentStatus();
+  
   return (
     <div className="space-y-4">
-      <Card className="border-2 border-gray-300">
+      <Card className="border-2 border-gray-300 relative">
         <CardContent className="p-4">
           {/* Header Section */}
           {notaSettings.header.enabled && (
@@ -459,6 +473,12 @@ export const NotaPreview: React.FC<PrintPreviewProps> = ({ orderData, orderList,
               </div>
             </div>
           )}
+          
+          {/* Payment Status Stamp */}
+          <PaymentStamp 
+            isLunas={isLunas}
+            settings={notaSettings.stamp}
+          />
         </CardContent>
       </Card>
     </div>

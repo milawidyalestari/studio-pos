@@ -19,7 +19,7 @@ export interface MigrationProgress {
 }
 
 export class MigrationService {
-  private database: DatabaseService;
+  public database: DatabaseService;
   private onProgress?: (progress: MigrationProgress) => void;
 
   constructor(database: DatabaseService) {

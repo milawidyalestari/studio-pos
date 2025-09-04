@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Truck } from 'lucide-react';
+import { Truck, MessageCircle } from 'lucide-react';
 import { TableHeader } from './TableHeader';
 import { SearchAndFilter } from './SearchAndFilter';
 import { ActionButtons } from './ActionButtons';
@@ -15,6 +15,7 @@ import { Filter } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
+import WhatsAppButton from '@/components/ui/whatsapp-button';
 
 interface SuppliersTabProps {
   searchTerm: string;
@@ -225,12 +226,12 @@ export const SuppliersTab: React.FC<SuppliersTabProps> = ({
             <table className="w-full">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Whatsapp</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Telepon</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Alamat</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Whatsapp</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Telepon</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Alamat</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -243,12 +244,14 @@ export const SuppliersTab: React.FC<SuppliersTabProps> = ({
                 ) : (
                   filteredSuppliers.map((supplier) => (
                     <tr key={supplier.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-4 text-sm font-medium text-gray-900">{supplier.name}</td>
-                      <td className="px-4 py-4 text-sm text-gray-900">{supplier.contact_person || '-'}</td>
-                      <td className="px-4 py-4 text-sm text-gray-900">{supplier.phone || '-'}</td>
-                      <td className="px-4 py-4 text-sm text-gray-900">{supplier.email || '-'}</td>
-                      <td className="px-4 py-4 text-sm text-gray-900">{supplier.address || '-'}</td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900">{supplier.name}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900">
+                        <WhatsAppButton phoneNumber={supplier.contact_person || ''} />
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-900">{supplier.phone || '-'}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900">{supplier.email || '-'}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900">{supplier.address || '-'}</td>
+                      <td className="px-4 py-2">
                         <ActionButtons item={supplier} onAction={onAction} />
                       </td>
                     </tr>

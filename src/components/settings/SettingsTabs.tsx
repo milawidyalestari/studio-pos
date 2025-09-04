@@ -137,9 +137,9 @@ export const SettingsTabs = () => {
           <TabsContent value="users" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>User Settings</CardTitle>
+                <CardTitle>Pengaturan User</CardTitle>
                 <CardDescription>
-                  Settings related to user management, roles, and permissions.
+                  Pengaturan terkait manajemen pengguna, peran, dan hak akses.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -153,9 +153,9 @@ export const SettingsTabs = () => {
           <TabsContent value="nota" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Nota Settings</CardTitle>
+                <CardTitle>Pengaturan Nota</CardTitle>
                 <CardDescription>
-                  Customize header, logo, and footer for Nota prints.
+                  Sesuaikan header, logo, dan footer untuk cetakan Nota.
                 </CardDescription>
               </CardHeader>
               <CardContent>

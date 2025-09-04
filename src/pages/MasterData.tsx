@@ -77,25 +77,25 @@ const MasterData = () => {
   const deleteProductMutation = useDeleteProduct();
   
   // Database Categories hooks
-  const { data: dbCategories = [], isLoading: dbCategoriesLoading } = useCategories();
+  const { data: dbCategories = [], isLoading: dbCategoriesLoading, refetch: refetchCategories } = useCategories();
   const createDbCategoryMutation = useCreateCategory();
   const updateDbCategoryMutation = useUpdateCategory();
   const deleteDbCategoryMutation = useDeleteCategory();
   
   // Groups hooks
-  const { data: groups = [], isLoading: groupsLoading } = useGroups();
+  const { data: groups = [], isLoading: groupsLoading, refetch: refetchGroups } = useGroups();
   const createGroupMutation = useCreateGroup();
   const updateGroupMutation = useUpdateGroup();
   const deleteGroupMutation = useDeleteGroup();
   
   // Units hooks
-  const { data: units = [], isLoading: unitsLoading } = useUnits();
+  const { data: units = [], isLoading: unitsLoading, refetch: refetchUnits } = useUnits();
   const createUnitMutation = useCreateUnit();
   const updateUnitMutation = useUpdateUnit();
   const deleteUnitMutation = useDeleteUnit();
   
   // Payment Types hooks
-  const { data: paymentTypes = [], isLoading: paymentTypesLoading } = usePaymentTypes();
+  const { data: paymentTypes = [], isLoading: paymentTypesLoading, refetch: refetchPaymentTypes } = usePaymentTypes();
   const createPaymentTypeMutation = useCreatePaymentType();
   const updatePaymentTypeMutation = useUpdatePaymentType();
   const deletePaymentTypeMutation = useDeletePaymentType();
@@ -460,6 +460,21 @@ const MasterData = () => {
     setOverlayConfig(prev => ({ ...prev, isOpen: false }));
   };
 
+  // Function to refresh overlay data based on type
+  const refreshOverlayData = async () => {
+    if (overlayConfig.type === 'categories') {
+      await refetchCategories();
+    } else if (overlayConfig.type === 'groups') {
+      await refetchGroups();
+    } else if (overlayConfig.type === 'units') {
+      await refetchUnits();
+    } else if (overlayConfig.type === 'payments') {
+      await refetchPaymentTypes();
+    } else if (overlayConfig.type === 'positions') {
+      await fetchPositions();
+    }
+  };
+
   const handleAdd = async (item: MasterDataItem) => {
     try {
       console.log('handleAdd called with type:', overlayConfig.type, 'item:', item);
@@ -485,7 +500,7 @@ const MasterData = () => {
           title: "Berhasil",
           description: "Kelompok berhasil dibuat",
         });
-      } else if (overlayConfig.type === 'Unit') {
+      } else if (overlayConfig.type === 'units') {
         console.log('Creating unit:', item);
         await createUnitMutation.mutateAsync({
           code: item.code as string,
@@ -508,9 +523,7 @@ const MasterData = () => {
         });
       } else if (overlayConfig.type === 'positions') {
         await supabase.from('positions').insert([{ name: item.name }]);
-        fetchPositions();
         toast({ title: 'Success', description: 'Posisi berhasil ditambahkan' });
-        return;
       } else if (overlayConfig.type === 'customers') {
         // Generate customer code automatically
         const { data: customerCode } = await supabase.rpc('generate_customer_code');
@@ -534,6 +547,79 @@ const MasterData = () => {
         });
         return;
       }
+      
+      // Refresh overlay data after successful operation (only for master data types)
+      if (['categories', 'groups', 'units', 'payments', 'positions'].includes(overlayConfig.type)) {
+        await refreshOverlayData();
+        // Update overlay data with fresh data
+        if (overlayConfig.type === 'categories') {
+          const { data: freshCategories } = await supabase.from('categories').select('*').order('code');
+          if (freshCategories) {
+            setOverlayConfig(prev => ({
+              ...prev,
+              data: freshCategories.map(cat => ({
+                id: cat.id,
+                kode: cat.code,
+                code: cat.code,
+                group_name: cat.group_name,
+                category_name: cat.category_name
+              }))
+            }));
+          }
+        } else if (overlayConfig.type === 'groups') {
+          const { data: freshGroups } = await supabase.from('groups').select('*').order('code');
+          if (freshGroups) {
+            setOverlayConfig(prev => ({
+              ...prev,
+              data: freshGroups.map(group => ({
+                id: group.id,
+                kode: group.code,
+                code: group.code,
+                name: group.name
+              }))
+            }));
+          }
+        } else if (overlayConfig.type === 'units') {
+          const { data: freshUnits } = await supabase.from('units').select('*').order('code');
+          if (freshUnits) {
+            setOverlayConfig(prev => ({
+              ...prev,
+              data: freshUnits.map(unit => ({
+                id: unit.id,
+                kode: unit.code,
+                code: unit.code,
+                name: unit.name
+              }))
+            }));
+          }
+        } else if (overlayConfig.type === 'payments') {
+          const { data: freshPayments } = await supabase.from('payment_types').select('*').order('code');
+          if (freshPayments) {
+            setOverlayConfig(prev => ({
+              ...prev,
+              data: freshPayments.map(payment => ({
+                id: payment.id,
+                kode: payment.code,
+                code: payment.code,
+                type: payment.type,
+                payment_method: payment.payment_method
+              }))
+            }));
+          }
+        } else if (overlayConfig.type === 'positions') {
+          const { data: freshPositions } = await supabase.from('positions').select('*').order('name');
+          if (freshPositions) {
+            setOverlayConfig(prev => ({
+              ...prev,
+              data: freshPositions.map(pos => ({ 
+                id: pos.id.toString(), // Convert to string to match MasterDataItem
+                kode: pos.id.toString(), // Use id as kode for positions
+                name: pos.name 
+              }))
+            }));
+          }
+        }
+      }
     } catch (error) {
       console.error('Error in handleAdd:', error);
       toast({
@@ -548,7 +634,7 @@ const MasterData = () => {
     try {
       console.log('handleEdit called with type:', overlayConfig.type, 'item:', item);
       
-      if (overlayConfig.type === 'Kategori') {
+      if (overlayConfig.type === 'categories') {
         console.log('Updating database category:', item);
         await updateDbCategoryMutation.mutateAsync({
           id: item.id!,
@@ -560,7 +646,7 @@ const MasterData = () => {
           title: "Berhasil",
           description: "Kategori berhasil diperbarui",
         });
-      } else if (overlayConfig.type === 'Group') {
+      } else if (overlayConfig.type === 'groups') {
         console.log('Updating group:', item);
         await updateGroupMutation.mutateAsync({
           id: item.id!,
@@ -596,9 +682,80 @@ const MasterData = () => {
         });
       } else if (overlayConfig.type === 'positions') {
         await supabase.from('positions').update({ name: item.name }).eq('id', parseInt(item.id));
-        fetchPositions();
         toast({ title: 'Success', description: 'Posisi berhasil diupdate' });
-        return;
+      }
+      
+      // Refresh overlay data after successful operation (only for master data types)
+      if (['categories', 'groups', 'units', 'payments', 'positions'].includes(overlayConfig.type)) {
+        await refreshOverlayData();
+        // Update overlay data with fresh data
+        if (overlayConfig.type === 'categories') {
+          const { data: freshCategories } = await supabase.from('categories').select('*').order('code');
+          if (freshCategories) {
+            setOverlayConfig(prev => ({
+              ...prev,
+              data: freshCategories.map(cat => ({
+                id: cat.id,
+                kode: cat.code,
+                code: cat.code,
+                group_name: cat.group_name,
+                category_name: cat.category_name
+              }))
+            }));
+          }
+        } else if (overlayConfig.type === 'groups') {
+          const { data: freshGroups } = await supabase.from('groups').select('*').order('code');
+          if (freshGroups) {
+            setOverlayConfig(prev => ({
+              ...prev,
+              data: freshGroups.map(group => ({
+                id: group.id,
+                kode: group.code,
+                code: group.code,
+                name: group.name
+              }))
+            }));
+          }
+        } else if (overlayConfig.type === 'units') {
+          const { data: freshUnits } = await supabase.from('units').select('*').order('code');
+          if (freshUnits) {
+            setOverlayConfig(prev => ({
+              ...prev,
+              data: freshUnits.map(unit => ({
+                id: unit.id,
+                kode: unit.code,
+                code: unit.code,
+                name: unit.name
+              }))
+            }));
+          }
+        } else if (overlayConfig.type === 'payments') {
+          const { data: freshPayments } = await supabase.from('payment_types').select('*').order('code');
+          if (freshPayments) {
+            setOverlayConfig(prev => ({
+              ...prev,
+              data: freshPayments.map(payment => ({
+                id: payment.id,
+                kode: payment.code,
+                code: payment.code,
+                type: payment.type,
+                payment_method: payment.payment_method
+              }))
+            }));
+          }
+        } else if (overlayConfig.type === 'positions') {
+          const { data: freshPositions } = await supabase.from('positions').select('*').order('name');
+          if (freshPositions) {
+            setOverlayConfig(prev => ({
+              ...prev,
+              data: freshPositions.map(pos => ({ 
+                id: pos.id.toString(), // Convert to string to match MasterDataItem
+                kode: pos.id.toString(), // Use id as kode for positions
+                name: pos.name 
+              }))
+            }));
+          }
+        }
       } else if (overlayConfig.type === 'customers') {
         await updateCustomer({
           id: item.id!,
@@ -665,9 +822,80 @@ const MasterData = () => {
         });
       } else if (overlayConfig.type === 'positions') {
         await supabase.from('positions').delete().eq('id', parseInt(id));
-        fetchPositions();
         toast({ title: 'Success', description: 'Posisi berhasil dihapus' });
-        return;
+      }
+      
+      // Refresh overlay data after successful operation (only for master data types)
+      if (['categories', 'groups', 'units', 'payments', 'positions'].includes(overlayConfig.type)) {
+        await refreshOverlayData();
+        // Update overlay data with fresh data
+        if (overlayConfig.type === 'categories') {
+          const { data: freshCategories } = await supabase.from('categories').select('*').order('code');
+          if (freshCategories) {
+            setOverlayConfig(prev => ({
+              ...prev,
+              data: freshCategories.map(cat => ({
+                id: cat.id,
+                kode: cat.code,
+                code: cat.code,
+                group_name: cat.group_name,
+                category_name: cat.category_name
+              }))
+            }));
+          }
+        } else if (overlayConfig.type === 'groups') {
+          const { data: freshGroups } = await supabase.from('groups').select('*').order('code');
+          if (freshGroups) {
+            setOverlayConfig(prev => ({
+              ...prev,
+              data: freshGroups.map(group => ({
+                id: group.id,
+                kode: group.code,
+                code: group.code,
+                name: group.name
+              }))
+            }));
+          }
+        } else if (overlayConfig.type === 'units') {
+          const { data: freshUnits } = await supabase.from('units').select('*').order('code');
+          if (freshUnits) {
+            setOverlayConfig(prev => ({
+              ...prev,
+              data: freshUnits.map(unit => ({
+                id: unit.id,
+                kode: unit.code,
+                code: unit.code,
+                name: unit.name
+              }))
+            }));
+          }
+        } else if (overlayConfig.type === 'payments') {
+          const { data: freshPayments } = await supabase.from('payment_types').select('*').order('code');
+          if (freshPayments) {
+            setOverlayConfig(prev => ({
+              ...prev,
+              data: freshPayments.map(payment => ({
+                id: payment.id,
+                kode: payment.code,
+                code: payment.code,
+                type: payment.type,
+                payment_method: payment.payment_method
+              }))
+            }));
+          }
+        } else if (overlayConfig.type === 'positions') {
+          const { data: freshPositions } = await supabase.from('positions').select('*').order('name');
+          if (freshPositions) {
+            setOverlayConfig(prev => ({
+              ...prev,
+              data: freshPositions.map(pos => ({ 
+                id: pos.id.toString(), // Convert to string to match MasterDataItem
+                kode: pos.id.toString(), // Use id as kode for positions
+                name: pos.name 
+              }))
+            }));
+          }
+        }
       } else if (overlayConfig.type === 'customers') {
         await deleteCustomer(id);
         return;

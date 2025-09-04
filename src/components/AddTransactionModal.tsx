@@ -31,15 +31,18 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   categories
 }) => {
   const [formData, setFormData] = useState({
-    type: 'expense' as 'income' | 'expense',
+    transaction_type: 'expense' as 'income' | 'expense' | 'transfer' | 'adjustment',
     amount: '',
     formattedAmount: '', // For display
     description: '',
-    category: '',
-    date: new Date(),
+    category_id: '',
+    transaction_date: new Date(),
     notes: '',
-    paymentMethod: 'Cash',
-    status: 'completed' as 'completed' | 'pending' | 'cancelled'
+    payment_method: 'Cash',
+    status: 'completed' as 'completed' | 'pending' | 'cancelled' | 'rejected',
+    priority: 'normal' as 'low' | 'normal' | 'high' | 'urgent',
+    currency: 'IDR',
+    recurring: false
   });
 
   const [datePickerOpen, setDatePickerOpen] = useState(false);
@@ -51,27 +54,34 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       if (editingTransaction) {
         const formattedAmount = formatCurrencyInput(editingTransaction.amount.toString());
         setFormData({
-          type: editingTransaction.type as 'income' | 'expense',
+          transaction_type: editingTransaction.transaction_type || (editingTransaction.type as any) || 'expense',
           amount: editingTransaction.amount.toString(),
           formattedAmount: formattedAmount,
           description: editingTransaction.description || '',
-          category: editingTransaction.category || '',
-          date: editingTransaction.date ? new Date(editingTransaction.date) : new Date(),
+          category_id: editingTransaction.category_id || editingTransaction.category || '',
+          transaction_date: editingTransaction.transaction_date ? new Date(editingTransaction.transaction_date) : 
+                          (editingTransaction.date ? new Date(editingTransaction.date) : new Date()),
           notes: editingTransaction.notes || '',
-          paymentMethod: editingTransaction.payment_method || 'Cash',
-          status: editingTransaction.status || 'completed'
+          payment_method: editingTransaction.payment_method || 'Cash',
+          status: editingTransaction.status || 'completed',
+          priority: editingTransaction.priority || 'normal',
+          currency: editingTransaction.currency || 'IDR',
+          recurring: editingTransaction.recurring || false
         });
       } else {
         setFormData({
-          type: 'expense',
+          transaction_type: 'expense',
           amount: '',
           formattedAmount: '',
           description: '',
-          category: '',
-          date: new Date(),
+          category_id: '',
+          transaction_date: new Date(),
           notes: '',
-          paymentMethod: 'Cash',
-          status: 'completed'
+          payment_method: 'Cash',
+          status: 'completed',
+          priority: 'normal',
+          currency: 'IDR',
+          recurring: false
         });
       }
     }
@@ -100,7 +110,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.amount || !formData.description || !formData.category) {
+    if (!formData.amount || !formData.description || !formData.category_id) {
       alert('Harap isi semua field yang wajib diisi.');
       return;
     }
@@ -108,11 +118,17 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
     setIsLoading(true);
     try {
       await onSave({
-        ...formData,
+        transaction_type: formData.transaction_type,
         amount: parseFloat(formData.amount),
-        date: formData.date.toISOString().split('T')[0],
-        payment_method: formData.paymentMethod, // Map to database field
-        notes: formData.notes
+        transaction_date: formData.transaction_date.toISOString().split('T')[0],
+        description: formData.description,
+        category_id: formData.category_id,
+        payment_method: formData.payment_method,
+        notes: formData.notes,
+        status: formData.status,
+        priority: formData.priority,
+        currency: formData.currency,
+        recurring: formData.recurring
       });
       onClose();
     } catch (error) {
@@ -125,7 +141,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
 
   const expenseCategories = categories.filter(cat => cat.type === 'expense');
   const incomeCategories = categories.filter(cat => cat.type === 'income');
-  const availableCategories = formData.type === 'expense' ? expenseCategories : incomeCategories;
+  const availableCategories = formData.transaction_type === 'expense' ? expenseCategories : incomeCategories;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -142,8 +158,8 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           <div className="space-y-2">
             <Label>Jenis Transaksi</Label>
             <RadioGroup 
-              value={formData.type} 
-              onValueChange={(value) => handleInputChange('type', value)}
+              value={formData.transaction_type} 
+              onValueChange={(value) => handleInputChange('transaction_type', value)}
               className="flex gap-4"
             >
               <div className="flex items-center space-x-2">
@@ -166,7 +182,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             <Label htmlFor="amount">Jumlah *</Label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">
-                IDR
+                {formData.currency}
               </span>
               <Input
                 id="amount"
@@ -196,15 +212,15 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           <div className="space-y-2">
             <Label>Kategori *</Label>
             <Select 
-              value={formData.category} 
-              onValueChange={(value) => handleInputChange('category', value)}
+              value={formData.category_id} 
+              onValueChange={(value) => handleInputChange('category_id', value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Pilih kategori" />
               </SelectTrigger>
               <SelectContent>
                 {availableCategories.map((category) => (
-                  <SelectItem key={category.id} value={category.name}>
+                  <SelectItem key={category.id} value={category.id}>
                     {category.name}
                   </SelectItem>
                 ))}
@@ -216,8 +232,8 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           <div className="space-y-2">
             <Label htmlFor="paymentMethod">Metode Pembayaran *</Label>
             <Select 
-              value={formData.paymentMethod} 
-              onValueChange={(value) => handleInputChange('paymentMethod', value)}
+              value={formData.payment_method} 
+              onValueChange={(value) => handleInputChange('payment_method', value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Pilih metode pembayaran" />
@@ -245,6 +261,44 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                 <SelectItem value="completed">Selesai</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="cancelled">Dibatalkan</SelectItem>
+                <SelectItem value="rejected">Ditolak</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Priority */}
+          <div className="space-y-2">
+            <Label htmlFor="priority">Prioritas</Label>
+            <Select 
+              value={formData.priority} 
+              onValueChange={(value) => handleInputChange('priority', value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih prioritas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">Rendah</SelectItem>
+                <SelectItem value="normal">Normal</SelectItem>
+                <SelectItem value="high">Tinggi</SelectItem>
+                <SelectItem value="urgent">Urgent</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Currency */}
+          <div className="space-y-2">
+            <Label htmlFor="currency">Mata Uang</Label>
+            <Select 
+              value={formData.currency} 
+              onValueChange={(value) => handleInputChange('currency', value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih mata uang" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="IDR">IDR (Rupiah)</SelectItem>
+                <SelectItem value="USD">USD (Dollar)</SelectItem>
+                <SelectItem value="EUR">EUR (Euro)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -258,12 +312,12 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                   variant="outline"
                   className={cn(
                     "w-full justify-start text-left font-normal",
-                    !formData.date && "text-muted-foreground"
+                    !formData.transaction_date && "text-muted-foreground"
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {formData.date ? (
-                    format(formData.date, 'PPP', { locale: id })
+                  {formData.transaction_date ? (
+                    format(formData.transaction_date, 'PPP', { locale: id })
                   ) : (
                     <span>Pilih tanggal</span>
                   )}
@@ -272,10 +326,10 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
                   mode="single"
-                  selected={formData.date}
+                  selected={formData.transaction_date}
                   onSelect={(date) => {
                     if (date) {
-                      handleInputChange('date', date);
+                      handleInputChange('transaction_date', date);
                       setDatePickerOpen(false);
                     }
                   }}

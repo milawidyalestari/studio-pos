@@ -299,3 +299,15 @@ If you encounter issues:
 The migration from local storage to a proper database system will significantly improve your Studio POS application's reliability, performance, and scalability. Follow this guide carefully, and don't hesitate to seek help if you encounter any issues.
 
 Remember: **Always backup your data before starting any migration process!**
+
+
+
+
+
+
+
+
+
+
+
+

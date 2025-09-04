@@ -1,27 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
 import { 
-  Loader2, 
+  Database, 
   CheckCircle, 
   XCircle, 
-  Database, 
-  Cloud, 
-  Download, 
-  Upload,
+  Loader2, 
+  ArrowRight,
   AlertTriangle,
   Info
 } from 'lucide-react';
-import { migrationService, MigrationProgress, MigrationResult } from '@/services/migrationService';
+import { MigrationService, MigrationProgress } from '@/services/migrationService';
+import { DatabaseFactory } from '@/lib/database';
+
+interface MigrationResult {
+  success: boolean;
+  message: string;
+  error?: string;
+}
 
 export default function MigrationWizard() {
+  const [migrationService] = useState(() => {
+    const database = DatabaseFactory.createDatabase();
+    return new MigrationService(database);
+  });
+  
   const [progress, setProgress] = useState<MigrationProgress>({
-    step: 'Ready to migrate',
-    current: 0,
-    total: 7,
+    currentTable: 'Ready to migrate',
+    currentRecord: 0,
+    totalRecords: 7,
     percentage: 0,
     status: 'idle'
   });
@@ -38,8 +49,11 @@ export default function MigrationWizard() {
     });
 
     try {
-      const migrationResult = await migrationService.performMigration();
-      setResult(migrationResult);
+      const migrationResult = await migrationService.migrateAllData();
+      setResult({
+        success: true,
+        message: `Migration completed successfully. Migrated ${migrationResult.length} tables.`
+      });
     } catch (error) {
       setResult({
         success: false,
@@ -128,7 +142,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here`}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card className="p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Cloud className="w-4 h-4 text-blue-500" />
+                  <Info className="w-4 h-4 text-blue-500" />
                   <span className="font-medium">Step 1: Export</span>
                 </div>
                 <p className="text-sm text-gray-600">
@@ -137,7 +151,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here`}
               </Card>
               <Card className="p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Download className="w-4 h-4 text-green-500" />
+                  <ArrowRight className="w-4 h-4 text-green-500" />
                   <span className="font-medium">Step 2: Validate</span>
                 </div>
                 <p className="text-sm text-gray-600">
@@ -146,7 +160,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here`}
               </Card>
               <Card className="p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Upload className="w-4 h-4 text-purple-500" />
+                  <Info className="w-4 h-4 text-purple-500" />
                   <span className="font-medium">Step 3: Import</span>
                 </div>
                 <p className="text-sm text-gray-600">
@@ -166,9 +180,9 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here`}
             <div className="flex items-center gap-3">
               {getStatusIcon(progress.status)}
               <div className="flex-1">
-                <p className="font-medium">{progress.step}</p>
+                <p className="font-medium">{progress.currentTable}</p>
                 <p className="text-sm text-gray-600">
-                  Step {progress.current} of {progress.total} ({progress.percentage}%)
+                  Table {progress.currentRecord} of {progress.totalRecords} ({progress.percentage}%)
                 </p>
               </div>
             </div>
@@ -224,45 +238,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here`}
                 </AlertDescription>
               </Alert>
 
-              {result.summary && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Migration Summary</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-blue-600">{result.summary.customers}</div>
-                        <div className="text-sm text-gray-600">Customers</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-green-600">{result.summary.products}</div>
-                        <div className="text-sm text-gray-600">Products</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-purple-600">{result.summary.orders}</div>
-                        <div className="text-sm text-gray-600">Orders</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-orange-600">{result.summary.transactions}</div>
-                        <div className="text-sm text-gray-600">Transactions</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-red-600">{result.summary.suppliers}</div>
-                        <div className="text-sm text-gray-600">Suppliers</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-indigo-600">{result.summary.employees}</div>
-                        <div className="text-sm text-gray-600">Employees</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-pink-600">{result.summary.categories}</div>
-                        <div className="text-sm text-gray-600">Categories</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+              {/* The summary section was removed as per the new_code, as the MigrationService no longer provides a summary object. */}
             </div>
           )}
 

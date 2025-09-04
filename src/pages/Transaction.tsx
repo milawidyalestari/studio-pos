@@ -25,7 +25,6 @@ import {
   CreditCard,
   Users,
   AlertTriangle,
-  Eye,
   CreditCard as CreditCardIcon,
   X,
   XCircle
@@ -34,7 +33,7 @@ import { OrderWithItems } from '@/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { useHasAccess } from '@/context/RoleAccessContext';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,7 +41,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
-// Interface untuk data transaksi dari orders yang sudah lunas dan receipt tercetak
+// Interface untuk data transaksi dari orders
 interface PaymentTransaction {
   id: string;
   order_number: string;
@@ -75,6 +74,7 @@ interface PiutangData {
   admin_name?: string;
   desainer_name?: string;
   days_overdue: number;
+  receipt_printed: boolean;
 }
 
 const TransactionPage = () => {
@@ -112,6 +112,7 @@ const TransactionPage = () => {
   // Helper untuk akses pelunasan secara aman
   type OrderWithMaybePelunasan = OrderWithItems & { pelunasan?: number | null };
 
+  // Mapping semua order menjadi data transaksi
   const allTransactionData = (orders as OrderWithMaybePelunasan[])
     .map(order => {
       const uangMuka = order.down_payment || 0;
@@ -138,21 +139,22 @@ const TransactionPage = () => {
       };
     });
 
-  // Filter untuk transaksi yang memenuhi kriteria: ada pembayaran, status Done/Selesai-Diambil, dan receipt tercetak
-  // Kriteria ini memastikan hanya menampilkan orderan yang:
-  // 1. Sudah melakukan pembayaran (DP atau Pelunasan)
-  // 2. Status order adalah "Done" atau "Selesai-Diambil"
-  // 3. Receipt sudah tercetak (receipt_printed = true)
+  // Filter untuk transaksi yang sudah ada pembayaran atau status selesai
   const paymentTransactions = allTransactionData.filter(t =>
-    // Harus ada pembayaran (DP atau Pelunasan)
-    (t.down_payment > 0 || t.pelunasan > 0) &&
-    // Status harus Done atau Selesai-Diambil
-    (t.order_status_name === 'Done' || t.order_status_name === 'Selesai-Diambil') &&
-    // Receipt harus sudah tercetak
+    // Hanya tampilkan orderan yang sudah melakukan pembayaran (DP atau Pelunasan)
+    // ATAU orderan yang berstatus Done/Selesai-Diambil
+    // ATAU orderan yang notanya sudah tercetak
+    (t.down_payment > 0 || t.pelunasan > 0) ||
+    t.order_status_name === 'Done' ||
+    t.order_status_name === 'Selesai-Diambil' ||
     t.receipt_printed === true
   );
 
-  // Filter untuk piutang (order yang belum lunas) - dikelompokkan per customer
+  // Filter untuk piutang (order yang memenuhi kriteria piutang) - dikelompokkan per customer
+  // Hanya menampilkan orderan dengan kondisi:
+  // 1. Status pembayaran "belum lunas" (not fully paid)
+  // 2. Status pembayaran "belum bayar" (not paid)
+  // 3. Status nota "Sudah di print" (already printed) / TRUE
   const piutangDataRaw = (orders as OrderWithMaybePelunasan[])
     .map(order => {
       // Pastikan semua nilai numerik valid dan tidak null/undefined
@@ -201,15 +203,20 @@ const TransactionPage = () => {
         estimasi: order.estimasi || '-',
         admin_name: order.admin?.nama || '-',
         desainer_name: order.desainer?.nama || '-',
-        days_overdue: daysDiff
-      };
+        days_overdue: daysDiff,
+        receipt_printed: (order as any).receipt_printed || false
+      };tgyyyyyyyyyyyyyyyyyyyyyyyyyyy
     })
     .filter(order => {
       // Filter out order yang null atau invalid
       if (!order) return false;
       
-      const totalPaid = order.down_payment + order.pelunasan;
-      return totalPaid < order.total_amount && totalPaid >= 0 && order.total_amount > 0;
+      // HANYA tampilkan order yang BELUM LUNAS (masih ada sisa pembayaran)
+      // Customer yang sudah lunas tidak akan masuk ke daftar piutang
+      const isPaymentNotFullyPaid = order.status_pembayaran === 'Belum Lunas' || order.status_pembayaran === 'Belum Dibayar';
+      
+      // Orderan harus memenuhi kriteria: masih ada sisa pembayaran
+      return isPaymentNotFullyPaid && order.total_amount > 0;
     });
 
   // Kelompokkan piutang berdasarkan customer
@@ -398,10 +405,73 @@ const TransactionPage = () => {
   const handleOpenPelunasanModal = (customerName: string) => {
     setSelectedCustomer(customerName);
     
-    // Filter orderan berdasarkan customer
-    const customerOrderList = piutangData.filter(order => 
-      order.customer_name === customerName
-    );
+    // Filter orderan berdasarkan customer dari data mentah (orders), bukan dari piutangData yang sudah di-aggregate
+    const customerOrderList = (orders as OrderWithMaybePelunasan[])
+      .filter(order => order.customer_name === customerName)
+      .map(order => {
+        // Pastikan semua nilai numerik valid dan tidak null/undefined
+        const uangMuka = Number(order.down_payment) || 0;
+        const pelunasan = Number(order.pelunasan) || 0;
+        const totalOrder = Number(order.total_amount) || 0;
+        
+        // Validasi bahwa totalOrder > 0 untuk menghindari NaN
+        if (totalOrder <= 0) {
+          console.warn(`Order ${order.order_number} memiliki total_amount invalid:`, order.total_amount);
+          return null;
+        }
+        
+        const sisaPembayaran = Math.max(0, totalOrder - (uangMuka + pelunasan));
+        
+        // Hitung hari keterlambatan dengan validasi tanggal
+        let daysDiff = 0;
+        try {
+          const orderDate = new Date(order.tanggal);
+          if (!isNaN(orderDate.getTime())) {
+            const today = new Date();
+            daysDiff = Math.floor((today.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24));
+          }
+        } catch (error) {
+          console.warn(`Order ${order.order_number} memiliki tanggal invalid:`, order.tanggal);
+        }
+        
+        let statusPembayaran = 'Belum Dibayar';
+        if (uangMuka === 0 && pelunasan === 0) statusPembayaran = 'Belum Dibayar';
+        else if (uangMuka + pelunasan < totalOrder) statusPembayaran = 'Belum Lunas';
+        else if (uangMuka + pelunasan >= totalOrder) statusPembayaran = 'Lunas';
+
+        return {
+          id: order.id,
+          order_number: order.order_number,
+          customer_name: order.customer_name || '-',
+          customer_whatsapp: (order as any).customer_whatsapp,
+          tanggal: order.tanggal,
+          down_payment: uangMuka,
+          pelunasan: pelunasan,
+          remaining_payment: sisaPembayaran,
+          total_amount: totalOrder,
+          payment_type: paymentTypeMap[order.payment_type as string] || '-',
+          status_pembayaran: statusPembayaran,
+          order_status: order.order_statuses?.name || '',
+          estimasi: order.estimasi || '-',
+          admin_name: order.admin?.nama || '-',
+          desainer_name: order.desainer?.nama || '-',
+          days_overdue: daysDiff,
+          receipt_printed: (order as any).receipt_printed || false,
+          order_items: (order as any).order_items || [] // Tambahkan order_items
+        };
+      })
+      .filter(order => {
+        // Filter out order yang null atau invalid
+        if (!order) return false;
+        
+        // HANYA tampilkan order yang BELUM LUNAS (masih ada sisa pembayaran)
+        // Customer yang sudah lunas tidak akan masuk ke daftar piutang
+        const isPaymentNotFullyPaid = order.status_pembayaran === 'Belum Lunas' || order.status_pembayaran === 'Belum Dibayar';
+        
+        // Orderan harus memenuhi kriteria: masih ada sisa pembayaran
+        return isPaymentNotFullyPaid && order.total_amount > 0;
+      });
+    
     setCustomerOrders(customerOrderList);
     
     // Hitung total sisa pembayaran dengan validasi
@@ -459,6 +529,8 @@ const TransactionPage = () => {
   };
 
   // Columns untuk transaksi
+  // Menampilkan orderan yang sudah melakukan pembayaran (DP/Pelunasan)
+  // atau berstatus Done/Selesai-Diambil atau notanya sudah tercetak
   const transactionColumns: Column<typeof paymentTransactions[0]>[] = [
     {
       key: 'order_number',
@@ -525,6 +597,9 @@ const TransactionPage = () => {
   ];
 
   // Columns untuk piutang (dikelompokkan per customer)
+  // Menampilkan orderan yang memenuhi kriteria piutang:
+  // - Status Done, Proses Cetak, Export, Selesai-Diambil
+  // - Atau yang sudah melakukan pembayaran (Uang Muka/Pelunasan)
   const piutangColumns: Column<any>[] = [
     {
       key: 'customer_name',
@@ -598,21 +673,11 @@ const TransactionPage = () => {
         <div className="flex gap-2">
           <Button
             size="sm"
-            variant="outline"
-            onClick={() => handleOpenPelunasanModal(row.customer_name)}
-            className="h-9 px-4 text-xs font-medium"
-          >
-            <Eye className="w-4 h-4 mr-2" />
-            Detail
-          </Button>
-          <Button
-            size="sm"
             variant="default"
             onClick={() => handleOpenPelunasanModal(row.customer_name)}
-            className="h-9 px-4 text-xs font-medium bg-green-600 hover:bg-green-700 text-white"
+            className="h-9 px-3 text-xs font-medium bg-green-600 hover:bg-green-700 text-white"
           >
-            <CreditCardIcon className="w-4 h-4 mr-2" />
-            Pelunasan
+            <CreditCardIcon className="w-4 h-4" />
           </Button>
         </div>
       )
@@ -624,11 +689,11 @@ const TransactionPage = () => {
     refetch();
   };
 
-  // Hitung total statistik untuk transaksi lunas & selesai
-  const totalRevenue = paymentTransactions.reduce((sum, t) => sum + t.down_payment + t.pelunasan, 0);
+  // Hitung total statistik untuk transaksi
+  const totalRevenue = paymentTransactions.reduce((sum, t) => sum + t.down_payment + t.remaining_payment, 0);
   const totalOrders = paymentTransactions.length;
   
-  // Hitung orderan berdasarkan status pembayaran (semua sudah lunas karena filter)
+  // Hitung orderan berdasarkan status pembayaran
   const completedPayments = paymentTransactions.filter(t => 
     t.status_pembayaran === 'Lunas'
   ).length;
@@ -671,27 +736,65 @@ const TransactionPage = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Transaksi & Piutang</h1>
-          <p className="text-gray-600">Kelola riwayat transaksi lunas & selesai dan piutang orderan</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Popover open={filterOpen} onOpenChange={setFilterOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant={isFilterActive ? 'default' : 'outline'}
-                className={`gap-2 ${isFilterActive ? 'bg-[#0050C8] text-white' : ''}`}
-              >
-                <SlidersHorizontal className="h-4 w-4" />
-                Filter
-              </Button>
-            </PopoverTrigger>
+    <div className="min-h-screen">
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Header */}
+        <div className="bg-white rounded-xl border shadow-sm p-6 mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">Transaksi & Piutang</h1>
+              <p className="text-gray-600">Kelola pembayaran dan piutang customer</p>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <DollarSign className="w-4 h-4" />
+              {new Date().toLocaleDateString('id-ID', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}
+            </div>
+          </div>
+          
+          {/* Navigation Tabs */}
+          <div className="flex gap-1 mt-6 border-b border-gray-200">
+            {[
+              { id: 'transactions', label: 'Semua Transaksi', icon: FileText },
+              { id: 'piutang', label: 'Piutang', icon: CreditCard }
+            ].map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors ${
+                    activeTab === tab.id
+                      ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+          
+          {/* Action Buttons */}
+          <div className="flex items-center gap-3 mt-4 ">
+            <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={isFilterActive ? 'default' : 'outline'}
+                  className={`gap-2 ${isFilterActive ? 'bg-[#0050C8] text-white' : ''}`}
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  Filter
+                </Button>
+              </PopoverTrigger>
             <PopoverContent className="w-[300px]">
               <div className="mb-3 font-semibold text-sm">
-                Filter {activeTab === 'transactions' ? 'Transaksi Lunas & Selesai' : 'Piutang'}
+                Filter {activeTab === 'transactions' ? 'Transaksi' : 'Piutang'}
               </div>
               
               {/* Status Filter untuk Piutang */}
@@ -828,24 +931,12 @@ const TransactionPage = () => {
               Download
             </Button>
           )}
+          </div>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="transactions" className="flex items-center gap-2">
-            <FileText className="w-4 h-4" />
-            Transaksi Lunas & Selesai
-          </TabsTrigger>
-          <TabsTrigger value="piutang" className="flex items-center gap-2">
-            <CreditCard className="w-4 h-4" />
-            Piutang
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Tab Content - Transaksi Lunas & Selesai */}
-        <TabsContent value="transactions" className="space-y-6">
+        {/* Content */}
+        {activeTab === 'transactions' && (
+        <div className="space-y-6">
           {/* Statistik Transaksi */}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <Card>
@@ -855,7 +946,7 @@ const TransactionPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-blue-600">{formatCurrency(totalRevenue)}</div>
-                <p className="text-xs text-muted-foreground">Total pembayaran orderan lunas & selesai</p>
+                <p className="text-xs text-muted-foreground">Total semua pembayaran</p>
               </CardContent>
             </Card>
             
@@ -866,7 +957,7 @@ const TransactionPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-green-600">{totalOrders}</div>
-                <p className="text-xs text-muted-foreground">Order lunas & selesai dengan receipt tercetak</p>
+                <p className="text-xs text-muted-foreground">Order dengan pembayaran</p>
               </CardContent>
             </Card>
             
@@ -877,7 +968,7 @@ const TransactionPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-emerald-600">{completedPayments}</div>
-                <p className="text-xs text-muted-foreground">Jumlah orderan lunas & selesai</p>
+                <p className="text-xs text-muted-foreground">Jumlah orderan yang telah lunas</p>
               </CardContent>
             </Card>
             
@@ -888,7 +979,7 @@ const TransactionPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-orange-600">{incompletePayments}</div>
-                <p className="text-xs text-muted-foreground">Jumlah orderan lunas & selesai (belum tercetak)</p>
+                <p className="text-xs text-muted-foreground">Jumlah orderan yang belum lunas</p>
               </CardContent>
             </Card>
             
@@ -899,7 +990,7 @@ const TransactionPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-red-600">{unpaidOrders}</div>
-                <p className="text-xs text-muted-foreground">Jumlah orderan lunas & selesai (belum tercetak)</p>
+                <p className="text-xs text-muted-foreground">Jumlah orderan yang belum dibayar</p>
               </CardContent>
             </Card>
           </div>
@@ -928,7 +1019,7 @@ const TransactionPage = () => {
           <div className="bg-white rounded-lg border shadow-sm">
             <div className="p-4 border-b">
               <h3 className="text-lg font-semibold text-gray-900">
-                Daftar Transaksi Lunas & Selesai ({filteredTransactions.length})
+                Daftar Pembayaran ({filteredTransactions.length})
               </h3>
             </div>
             <DataTable
@@ -938,10 +1029,12 @@ const TransactionPage = () => {
               emptyMessage="Tidak ada pembayaran yang ditemukan"
             />
           </div>
-        </TabsContent>
+        </div>
+        )}
 
         {/* Tab Content - Piutang */}
-        <TabsContent value="piutang" className="space-y-6">
+        {activeTab === 'piutang' && (
+        <div className="space-y-6">
           {/* Statistik Piutang */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card>
@@ -951,7 +1044,7 @@ const TransactionPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-red-600">{formatCurrency(totalPiutang)}</div>
-                <p className="text-xs text-muted-foreground">Total sisa pembayaran</p>
+                <p className="text-xs text-muted-foreground">Total sisa pembayaran orderan piutang</p>
               </CardContent>
             </Card>
             
@@ -962,7 +1055,7 @@ const TransactionPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-blue-600">{totalPiutangOrders}</div>
-                <p className="text-xs text-muted-foreground">Order belum lunas</p>
+                <p className="text-xs text-muted-foreground">Order memenuhi kriteria piutang</p>
               </CardContent>
             </Card>
             
@@ -1015,9 +1108,6 @@ const TransactionPage = () => {
               <h3 className="text-lg font-semibold text-gray-900">
                 Daftar Piutang ({filteredPiutang.length})
               </h3>
-              <p className="text-sm text-gray-600 mt-1">
-                Menampilkan customer dengan piutang yang belum lunas (dikelompokkan per customer)
-              </p>
             </div>
             <DataTable
               data={filteredPiutang}
@@ -1026,8 +1116,9 @@ const TransactionPage = () => {
               emptyMessage="Tidak ada piutang yang ditemukan"
             />
           </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+        )}
+      </div>
 
       {/* Print Overlay */}
       {printOrderData && (
@@ -1110,39 +1201,74 @@ const TransactionPage = () => {
               </div>
             </div>
 
-            {/* Daftar Orderan */}
+            {/* Daftar Pembelian */}
             <div>
-              <h3 className="font-semibold text-lg mb-3">Daftar Orderan yang Belum Lunas</h3>
+              <h3 className="font-semibold text-lg mb-3">Daftar Pembelian</h3>
               <div className="border rounded-lg overflow-hidden">
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">No. Order</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">No Order</th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Tanggal</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Total Order</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Uang Muka</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Sisa</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Status</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Nama Item</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Qty</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Sub Total</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {customerOrders.map((order) => (
-                      <tr key={order.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{order.order_number}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {order.tanggal ? formatDate(order.tanggal) : '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-bold text-blue-600">{formatCurrency(Number(order.total_amount) || 0)}</td>
-                        <td className="px-4 py-3 text-sm font-semibold text-green-600">{formatCurrency(Number(order.down_payment) || 0)}</td>
-                        <td className="px-4 py-3 text-sm font-bold text-red-600">{formatCurrency(Number(order.remaining_payment) || 0)}</td>
-                        <td className="px-4 py-3">
-                          <Badge variant="outline" className="text-xs">
-                            {order.order_status || 'Pending'}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
+                    {customerOrders.flatMap((order) => {
+                      // Ambil order items dari order
+                      const orderItems = (order as any).order_items || [];
+                      
+                      // Jika tidak ada order items, tampilkan order sebagai satu baris
+                      if (orderItems.length === 0) {
+                        return (
+                          <tr key={order.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{order.order_number}</td>
+                            <td className="px-4 py-3 text-sm text-gray-700">
+                              {order.tanggal ? formatDate(order.tanggal) : '-'}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-700">-</td>
+                            <td className="px-4 py-3 text-sm text-gray-700">-</td>
+                            <td className="px-4 py-3 text-sm font-bold text-blue-600">{formatCurrency(Number(order.total_amount) || 0)}</td>
+                          </tr>
+                        );
+                      }
+                      
+                      // Jika ada order items, tampilkan setiap item sebagai baris terpisah
+                      return orderItems.map((item: any, index: number) => (
+                        <tr key={`${order.id}-${item.id || index}`} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{order.order_number}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            {order.tanggal ? formatDate(order.tanggal) : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{item.item_name || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{item.quantity || 0}</td>
+                          <td className="px-4 py-3 text-sm font-bold text-blue-600">{formatCurrency(Number(item.sub_total) || 0)}</td>
+                        </tr>
+                      ));
+                    })}
                   </tbody>
+                  <tfoot className="bg-gray-50">
+                    <tr>
+                      <td colSpan={4} className="px-4 py-3 text-right text-sm font-semibold text-gray-700">
+                        Total Sub Total:
+                      </td>
+                      <td className="px-4 py-3 text-sm font-bold text-blue-600">
+                        {formatCurrency(
+                          customerOrders.reduce((total, order) => {
+                            const orderItems = (order as any).order_items || [];
+                            if (orderItems.length === 0) {
+                              return total + (Number(order.total_amount) || 0);
+                            }
+                            return total + orderItems.reduce((itemTotal: number, item: any) => {
+                              return itemTotal + (Number(item.sub_total) || 0);
+                            }, 0);
+                          }, 0)
+                        )}
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </div>

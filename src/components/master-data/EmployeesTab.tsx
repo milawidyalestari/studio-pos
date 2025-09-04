@@ -244,14 +244,14 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
           <table className="w-full">
             <thead className="bg-gray-50 border-b sticky top-0 z-10">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kode</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Posisi</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Kode</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Posisi</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr><td colSpan={5} className="text-center py-6">Loading...</td></tr>
               ) : employees.length === 0 ? (
@@ -280,11 +280,11 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
                 })
                 .map((employee) => (
                   <tr key={employee.kode} className="hover:bg-gray-50">
-                    <td className="px-4 py-4 text-sm font-medium text-gray-900">{employee.kode}</td>
-                    <td className="px-4 py-4 text-sm text-gray-900">{employee.nama}</td>
-                    <td className="px-4 py-4 text-sm text-gray-900">{employee.posisi}</td>
-                    <td className="px-4 py-4">{getStatusBadge(employee.status)}</td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-2 text-sm font-medium text-gray-900">{employee.kode}</td>
+                    <td className="px-4 py-2 text-sm text-gray-900">{employee.nama}</td>
+                    <td className="px-4 py-2 text-sm text-gray-900">{employee.posisi}</td>
+                    <td className="px-4 py-2">{getStatusBadge(employee.status)}</td>
+                    <td className="px-4 py-2">
                       <ActionButtons item={employee} onAction={handleAction} />
                     </td>
                   </tr>

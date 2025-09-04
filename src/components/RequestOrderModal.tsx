@@ -94,8 +94,6 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
   const { toast } = useToast();
   const { createOrder, isCreatingOrder, updateOrder, isUpdatingOrder } = useOrders();
   const { data: products } = useProducts();
-  const [showPrintOverlay, setShowPrintOverlay] = useState(false);
-  const [printOrderData, setPrintOrderData] = useState<any>(null);
   // Tambahkan query untuk materials
   const { data: materials = [], refetch: refetchMaterials } = useQuery({
     queryKey: ['materials'],
@@ -714,25 +712,9 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
       finishing: item.finishing,
     }));
 
-    setPrintOrderData({
-      orderData,
-      orderList: orderListForPrint,
-    });
-    setShowPrintOverlay(true);
-  };
-
-  const handlePrintOverlayClose = () => {
-    setShowPrintOverlay(false);
-    setPrintOrderData(null);
-  };
-
-  const handlePrintSuccess = () => {
-    toast({
-      title: 'Berhasil',
-      description: 'Nota berhasil dicetak',
-    });
-    setShowPrintOverlay(false);
-    setPrintOrderData(null);
+    // Pause modal instead of closing it
+    setIsModalPaused(true);
+    openPrintOverlay('nota', { orderList: orderListForPrint, orderData });
   };
 
   const resetForm = async () => {
@@ -768,8 +750,8 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
 
   // Pre-fill form with editing order data
   useEffect(() => {
-    // Reset modal pause state when modal opens
-    if (open) {
+    // Reset modal pause state when modal opens, but only if it's not from a print operation
+    if (open && !isModalPaused) {
       setIsModalPaused(false);
     }
     
@@ -938,6 +920,14 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
       <DialogContent 
         className="max-w-7xl h-[95vh] max-h-[95vh] p-0 flex flex-col animate-in fade-in-0 zoom-in-95 duration-300"
         onOpenAutoFocus={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => {
+          // Prevent closing when clicking outside
+          e.preventDefault();
+        }}
+        onEscapeKeyDown={(e) => {
+          // Prevent closing when pressing Escape key
+          e.preventDefault();
+        }}
       >
         <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
           <DialogTitle className="text-xl font-bold text-left">
@@ -1066,9 +1056,10 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
         orderList={printData.orderList}
         orderData={printData.orderData}
         printType={printType}
-        onCloseAndReopenRequestOrder={printType === 'spk' ? () => {
+        onCloseAndReopenRequestOrder={(printType === 'spk' || printType === 'nota') ? () => {
           // Resume modal when PrintOverlay is closed
-          console.log('PrintOverlay closed, resuming RequestOrderModal');
+          console.log('PrintOverlay closed, resuming RequestOrderModal for type:', printType);
+          console.log('Current isModalPaused state:', isModalPaused);
           setIsModalPaused(false);
           
           // Ensure modal is visible by forcing a re-render
@@ -1077,22 +1068,13 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
               console.log('Modal still paused, forcing resume');
               setIsModalPaused(false);
             }
+            console.log('Modal resume completed, isModalPaused:', isModalPaused);
           }, 100);
         } : undefined}
       />
 
       {/* Print Nota Overlay */}
-      {printOrderData && (
-        <PrintOverlay
-          isOpen={showPrintOverlay}
-          onClose={handlePrintOverlayClose}
-          onPrint={handlePrintSuccess}
-          title="Print Nota"
-          printType="nota"
-          orderData={printOrderData.orderData}
-          orderList={printOrderData.orderList}
-        />
-      )}
+      {/* This section is removed as per the edit hint */}
 
       {/* Add Stock Modal */}
       <AddStockModal

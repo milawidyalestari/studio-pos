@@ -1,3 +1,5 @@
+import { supabase } from '../integrations/supabase/client';
+
 // Print Service for Native Printer Integration
 export interface PrintSettings {
   destination: string;
@@ -404,6 +406,31 @@ export class PrintService {
     }
   }
 
+  // Update receipt_printed status in database after successful print
+  async updateReceiptPrintedStatus(orderNumber: string): Promise<boolean> {
+    try {
+      console.log('Updating receipt_printed status for order:', orderNumber);
+      
+      const { data, error } = await supabase
+        .from('orders')
+        .update({ receipt_printed: true })
+        .eq('order_number', orderNumber)
+        .select('id, order_number, receipt_printed')
+        .single();
+
+      if (error) {
+        console.error('Error updating receipt_printed status:', error);
+        return false;
+      }
+
+      console.log('Successfully updated receipt_printed status:', data);
+      return true;
+    } catch (error) {
+      console.error('Error in updateReceiptPrintedStatus:', error);
+      return false;
+    }
+  }
+
   // Main print method
   async print(job: PrintJob): Promise<boolean> {
     // Prevent multiple print jobs
@@ -443,6 +470,17 @@ export class PrintService {
 
       if (success) {
         console.log('Print job completed successfully');
+        
+        // Update receipt_printed status in database for nota type
+        if (job.type === 'nota' && job.orderData?.orderNumber) {
+          try {
+            await this.updateReceiptPrintedStatus(job.orderData.orderNumber);
+            console.log('Receipt printed status updated successfully');
+          } catch (error) {
+            console.error('Failed to update receipt printed status:', error);
+            // Don't fail the print job if status update fails
+          }
+        }
       } else {
         console.error('All print methods failed');
       }
@@ -477,6 +515,17 @@ export class PrintService {
           printWindow.close();
         }, 500);
       }, 100);
+
+      // Update receipt_printed status in database for nota type
+      if (job.type === 'nota' && job.orderData?.orderNumber) {
+        try {
+          await this.updateReceiptPrintedStatus(job.orderData.orderNumber);
+          console.log('Receipt printed status updated successfully (browser print)');
+        } catch (error) {
+          console.error('Failed to update receipt printed status (browser print):', error);
+          // Don't fail the print job if status update fails
+        }
+      }
 
       return true;
     } catch (error) {

@@ -275,8 +275,8 @@ export const useDatabase = () => {
   }, [loadData]);
 
   // Refresh data
-  const refreshData = useCallback(() => {
-    loadData();
+  const refreshData = useCallback(async () => {
+    return await loadData();
   }, [loadData]);
 
   // Refresh orders data specifically

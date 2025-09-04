@@ -16,16 +16,29 @@ const SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY') || getEnvVar('REAC
 // Database types
 export interface Transaction {
   id: string;
-  date: string;
-  type: 'income' | 'expense';
-  category: string;
+  transaction_code: string;
+  transaction_type: 'income' | 'expense' | 'transfer' | 'adjustment';
+  category_id?: string;
   description: string;
   amount: number;
-  payment_method: string; // Changed from paymentMethod to match database
-  status: 'completed' | 'pending' | 'cancelled';
-  notes?: string; // Added notes field
+  currency: string;
+  payment_method?: string;
+  bank_reference?: string;
+  transaction_date: string;
+  due_date?: string;
+  status: 'pending' | 'completed' | 'cancelled' | 'rejected';
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  recurring: boolean;
+  recurring_pattern?: string;
+  recurring_end_date?: string;
+  notes?: string;
+  attachments?: string[];
+  tags?: string[];
+  created_by?: string;
+  approved_by?: string;
   created_at?: string;
   updated_at?: string;
+  deleted_at?: string;
 }
 
 export interface FinancialSummary {
@@ -93,7 +106,37 @@ export class LocalDatabaseService implements DatabaseService {
   private getTransactionsFromStorage(): Transaction[] {
     try {
       const data = localStorage.getItem(this.TRANSACTIONS_KEY);
-      return data ? JSON.parse(data) : [];
+      if (!data) return [];
+      
+      const oldTransactions = JSON.parse(data);
+      
+      // Transform old format to new format for backward compatibility
+      return oldTransactions.map((t: any) => ({
+        id: t.id,
+        transaction_code: t.transaction_code || `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        transaction_type: t.transaction_type || t.type || 'income',
+        category_id: t.category_id,
+        description: t.description,
+        amount: t.amount,
+        currency: t.currency || 'IDR',
+        payment_method: t.payment_method || '',
+        bank_reference: t.bank_reference,
+        transaction_date: t.transaction_date || t.date,
+        due_date: t.due_date,
+        status: t.status || 'pending',
+        priority: t.priority || 'normal',
+        recurring: t.recurring || false,
+        recurring_pattern: t.recurring_pattern,
+        recurring_end_date: t.recurring_end_date,
+        notes: t.notes,
+        attachments: t.attachments,
+        tags: t.tags,
+        created_by: t.created_by,
+        approved_by: t.approved_by,
+        created_at: t.created_at,
+        updated_at: t.updated_at,
+        deleted_at: t.deleted_at
+      }));
     } catch (error) {
       console.error('Error reading transactions from localStorage:', error);
       return [];
@@ -111,10 +154,10 @@ export class LocalDatabaseService implements DatabaseService {
   private getCategoriesFromStorage(): Category[] {
     try {
       const data = localStorage.getItem(this.CATEGORIES_KEY);
-      return data ? JSON.parse(data) : this.getDefaultCategories();
+      return data ? JSON.parse(data) : [];
     } catch (error) {
       console.error('Error reading categories from localStorage:', error);
-      return this.getDefaultCategories();
+      return [];
     }
   }
 
@@ -126,24 +169,38 @@ export class LocalDatabaseService implements DatabaseService {
     }
   }
 
-  private getDefaultCategories(): Category[] {
-    return [
-      { id: '1', name: 'Penjualan', type: 'income', color: '#10b981' },
-      { id: '2', name: 'Jasa', type: 'income', color: '#10b981' },
-      { id: '3', name: 'Bahan Baku', type: 'expense', color: '#ef4444' },
-      { id: '4', name: 'Operasional', type: 'expense', color: '#ef4444' }
-    ];
-  }
-
   async getTransactions(): Promise<Transaction[]> {
     return this.getTransactionsFromStorage();
   }
 
   async addTransaction(transaction: Omit<Transaction, 'id'>): Promise<Transaction> {
     const transactions = this.getTransactionsFromStorage();
+    
+    // Generate unique transaction code if not provided
+    const transactionCode = transaction.transaction_code || `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
     const newTransaction: Transaction = {
-      ...transaction,
       id: Date.now().toString(),
+      transaction_code: transactionCode,
+      transaction_type: transaction.transaction_type,
+      category_id: transaction.category_id,
+      description: transaction.description,
+      amount: transaction.amount,
+      currency: transaction.currency || 'IDR',
+      payment_method: transaction.payment_method,
+      bank_reference: transaction.bank_reference,
+      transaction_date: transaction.transaction_date,
+      due_date: transaction.due_date,
+      status: transaction.status || 'pending',
+      priority: transaction.priority || 'normal',
+      recurring: transaction.recurring || false,
+      recurring_pattern: transaction.recurring_pattern,
+      recurring_end_date: transaction.recurring_end_date,
+      notes: transaction.notes,
+      attachments: transaction.attachments,
+      tags: transaction.tags,
+      created_by: transaction.created_by,
+      approved_by: transaction.approved_by,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -183,9 +240,12 @@ export class LocalDatabaseService implements DatabaseService {
 
   async addCategory(category: Omit<Category, 'id'>): Promise<Category> {
     const categories = this.getCategoriesFromStorage();
+    
     const newCategory: Category = {
-      ...category,
       id: Date.now().toString(),
+      name: category.name,
+      type: category.type,
+      color: category.color,
       created_at: new Date().toISOString()
     };
     
@@ -222,39 +282,39 @@ export class LocalDatabaseService implements DatabaseService {
     const transactions = this.getTransactionsFromStorage();
     
     const totalIncome = transactions
-      .filter(t => t.type === 'income' && t.status === 'completed')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .filter(t => t.transaction_type === 'income' && t.status === 'completed')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
     
     const totalExpense = transactions
-      .filter(t => t.type === 'expense' && t.status === 'completed')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .filter(t => t.transaction_type === 'expense' && t.status === 'completed')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
     
     const pendingAmount = transactions
       .filter(t => t.status === 'pending')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + Number(t.amount), 0);
 
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
     
     const thisMonthIncome = transactions
       .filter(t => {
-        const transactionDate = new Date(t.date);
-        return t.type === 'income' && 
+        const transactionDate = new Date(t.transaction_date);
+        return t.transaction_type === 'income' && 
                t.status === 'completed' &&
                transactionDate.getMonth() === currentMonth &&
                transactionDate.getFullYear() === currentYear;
       })
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + Number(t.amount), 0);
     
     const thisMonthExpense = transactions
       .filter(t => {
-        const transactionDate = new Date(t.date);
-        return t.type === 'expense' && 
+        const transactionDate = new Date(t.transaction_date);
+        return t.transaction_type === 'expense' && 
                t.status === 'completed' &&
                transactionDate.getMonth() === currentMonth &&
                transactionDate.getFullYear() === currentYear;
       })
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + Number(t.amount), 0);
 
     // Calculate enhanced financial metrics
     const netProfit = totalIncome - totalExpense;
@@ -264,12 +324,12 @@ export class LocalDatabaseService implements DatabaseService {
     
     // Calculate outstanding receivables and payables
     const outstandingReceivables = transactions
-      .filter(t => t.type === 'income' && t.status === 'pending')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .filter(t => t.transaction_type === 'income' && t.status === 'pending')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
     
     const outstandingPayables = transactions
-      .filter(t => t.type === 'expense' && t.status === 'pending')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .filter(t => t.transaction_type === 'expense' && t.status === 'pending')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
     
     // Calculate working capital
     const workingCapital = totalIncome - totalExpense - outstandingPayables + outstandingReceivables;
@@ -283,13 +343,13 @@ export class LocalDatabaseService implements DatabaseService {
     
     const previousMonthIncome = transactions
       .filter(t => {
-        const transactionDate = new Date(t.date);
-        return t.type === 'income' && 
+        const transactionDate = new Date(t.transaction_date);
+        return t.transaction_type === 'income' && 
                t.status === 'completed' &&
                transactionDate.getMonth() === previousMonth &&
                transactionDate.getFullYear() === previousYear;
       })
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + Number(t.amount), 0);
     
     const monthlyGrowthRate = previousMonthIncome > 0 
       ? ((thisMonthIncome - previousMonthIncome) / previousMonthIncome) * 100 
@@ -354,7 +414,35 @@ export class LocalDatabaseService implements DatabaseService {
 
   async importData(data: any): Promise<void> {
     if (data.transactions) {
-      this.saveTransactionsToStorage(data.transactions);
+      // Transform old format to new format for backward compatibility
+      const transformedTransactions = data.transactions.map((t: any) => ({
+        id: t.id,
+        transaction_code: t.transaction_code || `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        transaction_type: t.transaction_type || t.type || 'income',
+        category_id: t.category_id,
+        description: t.description,
+        amount: t.amount,
+        currency: t.currency || 'IDR',
+        payment_method: t.payment_method || '',
+        bank_reference: t.bank_reference,
+        transaction_date: t.transaction_date || t.date,
+        due_date: t.due_date,
+        status: t.status || 'pending',
+        priority: t.priority || 'normal',
+        recurring: t.recurring || false,
+        recurring_pattern: t.recurring_pattern,
+        recurring_end_date: t.recurring_end_date,
+        notes: t.notes,
+        attachments: t.attachments,
+        tags: t.tags,
+        created_by: t.created_by,
+        approved_by: t.approved_by,
+        created_at: t.created_at,
+        updated_at: t.updated_at,
+        deleted_at: t.deleted_at
+      }));
+      
+      this.saveTransactionsToStorage(transformedTransactions);
     }
     if (data.categories) {
       this.saveCategoriesToStorage(data.categories);
@@ -379,22 +467,64 @@ export class SupabaseDatabaseService implements DatabaseService {
 
   async getTransactions(): Promise<Transaction[]> {
     const { data, error } = await this.supabase
-      .from('transactions')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .from('transaction_master')
+      .select(`
+        *,
+        categories (
+          id,
+          name,
+          type,
+          color
+        )
+      `)
+      .is('deleted_at', null)
+      .order('transaction_date', { ascending: false });
 
     if (error) {
       console.error('Error fetching transactions:', error);
       throw error;
     }
 
-    return data || [];
+    // Transform data to match the expected interface
+    return (data || []).map(transaction => ({
+      ...transaction,
+      // Map category_id to category for backward compatibility
+      category: transaction.categories?.name || '',
+      // Map transaction_type to type for backward compatibility
+      type: transaction.transaction_type,
+      // Map transaction_date to date for backward compatibility
+      date: transaction.transaction_date
+    }));
   }
 
   async addTransaction(transaction: Omit<Transaction, 'id'>): Promise<Transaction> {
+    // Transform the data to match transaction_master table
+    const transactionData = {
+      transaction_code: transaction.transaction_code || `TXN-${Date.now()}`,
+      transaction_type: transaction.transaction_type,
+      category_id: transaction.category_id,
+      description: transaction.description,
+      amount: transaction.amount,
+      currency: transaction.currency || 'IDR',
+      payment_method: transaction.payment_method,
+      bank_reference: transaction.bank_reference,
+      transaction_date: transaction.transaction_date,
+      due_date: transaction.due_date,
+      status: transaction.status || 'pending',
+      priority: transaction.priority || 'normal',
+      recurring: transaction.recurring || false,
+      recurring_pattern: transaction.recurring_pattern,
+      recurring_end_date: transaction.recurring_end_date,
+      notes: transaction.notes,
+      attachments: transaction.attachments,
+      tags: transaction.tags,
+      created_by: transaction.created_by,
+      approved_by: transaction.approved_by
+    };
+
     const { data, error } = await this.supabase
-      .from('transactions')
-      .insert([transaction])
+      .from('transaction_master')
+      .insert([transactionData])
       .select()
       .single();
 
@@ -407,9 +537,33 @@ export class SupabaseDatabaseService implements DatabaseService {
   }
 
   async updateTransaction(id: string, transaction: Partial<Transaction>): Promise<Transaction> {
+    // Transform the data to match transaction_master table
+    const updateData: any = {};
+    
+    if (transaction.transaction_type) updateData.transaction_type = transaction.transaction_type;
+    if (transaction.category_id !== undefined) updateData.category_id = transaction.category_id;
+    if (transaction.description) updateData.description = transaction.description;
+    if (transaction.amount !== undefined) updateData.amount = transaction.amount;
+    if (transaction.currency) updateData.currency = transaction.currency;
+    if (transaction.payment_method !== undefined) updateData.payment_method = transaction.payment_method;
+    if (transaction.bank_reference !== undefined) updateData.bank_reference = transaction.bank_reference;
+    if (transaction.transaction_date) updateData.transaction_date = transaction.transaction_date;
+    if (transaction.due_date !== undefined) updateData.due_date = transaction.due_date;
+    if (transaction.status) updateData.status = transaction.status;
+    if (transaction.priority) updateData.priority = transaction.priority;
+    if (transaction.recurring !== undefined) updateData.recurring = transaction.recurring;
+    if (transaction.recurring_pattern !== undefined) updateData.recurring_pattern = transaction.recurring_pattern;
+    if (transaction.recurring_end_date !== undefined) updateData.recurring_end_date = transaction.recurring_end_date;
+    if (transaction.notes !== undefined) updateData.notes = transaction.notes;
+    if (transaction.attachments !== undefined) updateData.attachments = transaction.attachments;
+    if (transaction.tags !== undefined) updateData.tags = transaction.tags;
+    if (transaction.approved_by !== undefined) updateData.approved_by = transaction.approved_by;
+    
+    updateData.updated_at = new Date().toISOString();
+
     const { data, error } = await this.supabase
-      .from('transactions')
-      .update({ ...transaction, updated_at: new Date().toISOString() })
+      .from('transaction_master')
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();
@@ -423,9 +577,10 @@ export class SupabaseDatabaseService implements DatabaseService {
   }
 
   async deleteTransaction(id: string): Promise<void> {
+    // Soft delete by setting deleted_at
     const { error } = await this.supabase
-      .from('transactions')
-      .delete()
+      .from('transaction_master')
+      .update({ deleted_at: new Date().toISOString() })
       .eq('id', id);
 
     if (error) {
@@ -493,8 +648,9 @@ export class SupabaseDatabaseService implements DatabaseService {
 
   async getFinancialSummary(): Promise<FinancialSummary> {
     const { data: transactions, error } = await this.supabase
-      .from('transactions')
-      .select('*');
+      .from('transaction_master')
+      .select('*')
+      .is('deleted_at', null);
 
     if (error) {
       console.error('Error fetching transactions for summary:', error);
@@ -502,39 +658,39 @@ export class SupabaseDatabaseService implements DatabaseService {
     }
 
     const totalIncome = transactions
-      ?.filter(t => t.type === 'income' && t.status === 'completed')
-      .reduce((sum, t) => sum + t.amount, 0) || 0;
+      ?.filter(t => t.transaction_type === 'income' && t.status === 'completed')
+      .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
     
     const totalExpense = transactions
-      ?.filter(t => t.type === 'expense' && t.status === 'completed')
-      .reduce((sum, t) => sum + t.amount, 0) || 0;
+      ?.filter(t => t.transaction_type === 'expense' && t.status === 'completed')
+      .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
     
     const pendingAmount = transactions
       ?.filter(t => t.status === 'pending')
-      .reduce((sum, t) => sum + t.amount, 0) || 0;
+      .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
 
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
     
     const thisMonthIncome = transactions
       ?.filter(t => {
-        const transactionDate = new Date(t.date);
-        return t.type === 'income' && 
+        const transactionDate = new Date(t.transaction_date);
+        return t.transaction_type === 'income' && 
                t.status === 'completed' &&
                transactionDate.getMonth() === currentMonth &&
                transactionDate.getFullYear() === currentYear;
       })
-      .reduce((sum, t) => sum + t.amount, 0) || 0;
+      .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
     
     const thisMonthExpense = transactions
       ?.filter(t => {
-        const transactionDate = new Date(t.date);
-        return t.type === 'expense' && 
+        const transactionDate = new Date(t.transaction_date);
+        return t.transaction_type === 'expense' && 
                t.status === 'completed' &&
                transactionDate.getMonth() === currentMonth &&
                transactionDate.getFullYear() === currentYear;
       })
-      .reduce((sum, t) => sum + t.amount, 0) || 0;
+      .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
 
     // Get orders data for sales analysis
     const { data: orders, error: ordersError } = await this.supabase
@@ -575,12 +731,12 @@ export class SupabaseDatabaseService implements DatabaseService {
     
     // Calculate outstanding receivables and payables
     const outstandingReceivables = transactions
-      ?.filter(t => t.type === 'income' && t.status === 'pending')
-      .reduce((sum, t) => sum + t.amount, 0) || 0;
+      ?.filter(t => t.transaction_type === 'income' && t.status === 'pending')
+      .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
     
     const outstandingPayables = transactions
-      ?.filter(t => t.type === 'expense' && t.status === 'pending')
-      .reduce((sum, t) => sum + t.amount, 0) || 0;
+      ?.filter(t => t.transaction_type === 'expense' && t.status === 'pending')
+      .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
     
     // Calculate working capital
     const workingCapital = totalIncome - totalExpense - outstandingPayables + outstandingReceivables;
@@ -594,13 +750,13 @@ export class SupabaseDatabaseService implements DatabaseService {
     
     const previousMonthIncome = transactions
       ?.filter(t => {
-        const transactionDate = new Date(t.date);
-        return t.type === 'income' && 
+        const transactionDate = new Date(t.transaction_date);
+        return t.transaction_type === 'income' && 
                t.status === 'completed' &&
                transactionDate.getMonth() === previousMonth &&
                transactionDate.getFullYear() === previousYear;
       })
-      .reduce((sum, t) => sum + t.amount, 0) || 0;
+      .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
     
     const monthlyGrowthRate = previousMonthIncome > 0 
       ? ((thisMonthIncome - previousMonthIncome) / previousMonthIncome) * 100 
@@ -650,10 +806,11 @@ export class SupabaseDatabaseService implements DatabaseService {
   }
 
   async clearAllData(): Promise<void> {
+    // Soft delete all transactions
     const { error: transactionsError } = await this.supabase
-      .from('transactions')
-      .delete()
-      .neq('id', '0'); // Delete all records
+      .from('transaction_master')
+      .update({ deleted_at: new Date().toISOString() })
+      .is('deleted_at', null);
 
     const { error: categoriesError } = await this.supabase
       .from('categories')
@@ -681,9 +838,33 @@ export class SupabaseDatabaseService implements DatabaseService {
 
   async importData(data: any): Promise<void> {
     if (data.transactions && data.transactions.length > 0) {
+      // Transform transactions to match transaction_master table
+      const transformedTransactions = data.transactions.map((t: any) => ({
+        transaction_code: t.transaction_code || `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        transaction_type: t.transaction_type || t.type || 'income',
+        category_id: t.category_id,
+        description: t.description,
+        amount: t.amount,
+        currency: t.currency || 'IDR',
+        payment_method: t.payment_method,
+        bank_reference: t.bank_reference,
+        transaction_date: t.transaction_date || t.date,
+        due_date: t.due_date,
+        status: t.status || 'pending',
+        priority: t.priority || 'normal',
+        recurring: t.recurring || false,
+        recurring_pattern: t.recurring_pattern,
+        recurring_end_date: t.recurring_end_date,
+        notes: t.notes,
+        attachments: t.attachments,
+        tags: t.tags,
+        created_by: t.created_by,
+        approved_by: t.approved_by
+      }));
+
       const { error } = await this.supabase
-        .from('transactions')
-        .insert(data.transactions);
+        .from('transaction_master')
+        .insert(transformedTransactions);
 
       if (error) {
         console.error('Error importing transactions:', error);

@@ -16,6 +16,7 @@ interface OrderWithItemsExtended extends OrderWithItems {
   admin?: { id: string; nama: string } | null;
   desainer?: { id: string; nama: string } | null;
   payment_types?: { id: string; type: string; payment_method: string } | null;
+  payment_update?: string | null; // Add payment_update field
 }
 
 export const useOrders = (options?: { enableAutoRefresh?: boolean }) => {
@@ -47,10 +48,16 @@ export const useOrders = (options?: { enableAutoRefresh?: boolean }) => {
 
   const createOrderMutation = useMutation({
     mutationFn: async ({ orderData, items }: { orderData: OrderInsert; items: OrderItemInsert[] }) => {
+      // Add payment_update timestamp when creating order
+      const orderDataWithPaymentUpdate = {
+        ...orderData,
+        payment_update: new Date().toISOString()
+      };
+
       // First create the order
       const { data: order, error: orderError } = await supabase
         .from('orders')
-        .insert(orderData)
+        .insert(orderDataWithPaymentUpdate)
         .select()
         .single();
 
@@ -85,9 +92,27 @@ export const useOrders = (options?: { enableAutoRefresh?: boolean }) => {
 
   const updateOrderMutation = useMutation({
     mutationFn: async ({ orderId, orderData, items }: { orderId: string; orderData: OrderUpdate; items?: OrderItemInsert[] }) => {
+      // Check if this update involves payment fields (down_payment or pelunasan)
+      // Only update payment_update if there's an actual meaningful change in payment values
+      const hasDownPaymentChange = orderData.hasOwnProperty('down_payment');
+      const hasPelunasanChange = orderData.hasOwnProperty('pelunasan');
+      
+      let updateData = { ...orderData };
+      
+      // Only add payment_update if there's a meaningful payment change
+      if (hasDownPaymentChange || hasPelunasanChange) {
+        const newDownPayment = orderData.down_payment || 0;
+        const newPelunasan = orderData.pelunasan || 0;
+        
+        // Only update payment_update if the new payment values are meaningful (> 0)
+        if (newDownPayment > 0 || newPelunasan > 0) {
+          updateData.payment_update = new Date().toISOString();
+        }
+      }
+
       const { data: updatedOrder, error: orderError } = await supabase
         .from('orders')
-        .update(orderData)
+        .update(updateData)
         .eq('id', orderId)
         .select()
         .single();

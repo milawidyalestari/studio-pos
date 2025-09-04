@@ -19,7 +19,10 @@
     "electron:start": "cross-env NODE_ENV=development electron start-electron.js",
     "electron:test": "cross-env NODE_ENV=development electron test-electron.js",
     "electron:build": "npm run build && electron-builder",
-    "electron:dist": "npm run build && electron-builder --publish=never"
+    "electron:dist": "npm run build && electron-builder --publish=never",
+    "electron:dev:hot": "concurrently \"npm run dev:electron\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron . --dev\"",
+    "electron:dev:debug": "cross-env NODE_ENV=development electron . --inspect=5858",
+    "electron:dev:reload": "concurrently \"npm run dev:electron\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron . --enable-logging\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

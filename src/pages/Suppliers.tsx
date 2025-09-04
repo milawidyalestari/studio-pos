@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2, MessageCircle } from 'lucide-react';
 import { SearchInput } from '@/components/common/SearchInput';
 import { DataTable, Column } from '@/components/common/DataTable';
 import { StatusBadge } from '@/components/common/StatusBadge';
@@ -10,6 +10,7 @@ import { useSuppliers } from '@/hooks/useSuppliers';
 import { formatCurrency } from '@/utils/formatters';
 import { PAGINATION } from '@/utils/constants';
 import type { Database } from '@/integrations/supabase/types';
+import WhatsAppButton from '@/components/ui/whatsapp-button';
 
 type Supplier = Database['public']['Tables']['suppliers']['Row'];
 
@@ -76,8 +77,8 @@ const Suppliers = () => {
     },
     {
       key: 'contact_person',
-      label: 'Whatsapps',
-      render: (value) => <span>{value || '-'}</span>
+      label: 'WhatsApp',
+      render: (value) => <WhatsAppButton phoneNumber={value || ''} />
     },
     {
       key: 'email',
@@ -94,15 +95,7 @@ const Suppliers = () => {
       label: 'Pembayaran',
       render: (value) => <span>{value || '-'}</span>
     },
-    {
-      key: 'outstanding_balance',
-      label: 'Sisa Tagihan',
-      render: (value) => (
-        <span className={value && value > 0 ? 'text-red-600 font-semibold' : 'text-green-600'}>
-          {formatCurrency(value || 0)}
-        </span>
-      )
-    },
+
     {
       key: 'address',
       label: 'Alamat',
@@ -146,7 +139,7 @@ const Suppliers = () => {
       <div className="max-w-7xl mx-auto">
                  <div className="flex justify-between items-center mb-p4">
            <div>
-             <h1 className="text-3xl font-bold text-gray-800">Managemen Supplier</h1>
+             <h1 className="text-2xl font-bold text-gray-800">Managemen Supplier</h1>
              <p className="text-gray-600 mb-6">Manajemen stok & inventaris</p>
            </div>
            <Button 

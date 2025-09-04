@@ -686,15 +686,15 @@ const Inventory = () => {
           <table className="w-full">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kode</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Satuan</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Awal</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Minimum</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Masuk</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Keluar</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Akhir</th>
-                <th className="pl-12 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kode</th>
+                <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
+                <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Satuan</th>
+                <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Awal</th>
+                <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Minimum</th>
+                <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Masuk</th>
+                <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Keluar</th>
+                <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Akhir</th>
+                <th className="pl-12 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -710,15 +710,15 @@ const Inventory = () => {
                   const stokAkhir = item.stok_akhir;
                   return (
                     <tr key={item.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.kode}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.nama}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.satuan}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.stok_awal}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.stok_minimum ?? '-'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">+{item.stok_masuk ?? 0}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">-{item.stok_keluar ?? 0}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[#0050C8]">{stokAkhir}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{item.kode}</td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">{item.nama}</td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">{item.satuan}</td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">{item.stok_awal}</td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">{item.stok_minimum ?? '-'}</td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-green-600 font-medium">+{item.stok_masuk ?? 0}</td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-red-600 font-medium">-{item.stok_keluar ?? 0}</td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm font-semibold text-[#0050C8]">{stokAkhir}</td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-500">
                         <div className="flex items-center gap-1">
                           <Button size="icon" variant="ghost" onClick={() => handleEditClick(item)} title="Edit">
                             <Edit className="w-4 h-4" />
