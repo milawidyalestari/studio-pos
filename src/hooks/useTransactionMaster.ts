@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 import { Database } from '@/integrations/supabase/types';
 
 type TransactionMaster = Database['public']['Tables']['transaction_master']['Row'];
@@ -83,46 +83,58 @@ export const useTransactionMaster = (options: UseTransactionMasterOptions = {}):
 
       console.log('Fetching transactions with filters:', filtersRef.current);
 
-      // Simplified query without problematic joins
-      let query = supabase
-        .from('transaction_master')
-        .select(`
-          *,
-          categories (
-            id,
-            category_name,
-            code,
-            group_name
-          )
-        `)
-        .is('deleted_at', null)
-        .order('transaction_date', { ascending: false });
+      await databaseService.initialize();
+
+      // Build where conditions
+      const whereConditions: any = {
+        deleted_at: null
+      };
 
       // Apply filters
       if (filtersRef.current.transaction_type) {
-        query = query.eq('transaction_type', filtersRef.current.transaction_type);
+        whereConditions.transaction_type = filtersRef.current.transaction_type;
       }
       if (filtersRef.current.status) {
-        query = query.eq('status', filtersRef.current.status);
+        whereConditions.status = filtersRef.current.status;
       }
       if (filtersRef.current.date_from) {
-        query = query.gte('transaction_date', filtersRef.current.date_from);
+        whereConditions.transaction_date = { gte: filtersRef.current.date_from };
       }
       if (filtersRef.current.date_to) {
-        query = query.lte('transaction_date', filtersRef.current.date_to);
+        whereConditions.transaction_date = { ...whereConditions.transaction_date, lte: filtersRef.current.date_to };
       }
       if (filtersRef.current.category_id) {
-        query = query.eq('category_id', filtersRef.current.category_id);
+        whereConditions.category_id = filtersRef.current.category_id;
       }
 
-      const { data, error: fetchError } = await query;
+      // Fetch transactions
+      const transactions = await databaseService.query('transaction_master', {
+        where: whereConditions,
+        orderBy: { column: 'transaction_date', direction: 'desc' }
+      });
 
-      if (fetchError) {
-        throw fetchError;
-      }
+      // Fetch categories for each transaction
+      const transactionsWithCategories = await Promise.all(
+        transactions.map(async (transaction: any) => {
+          if (transaction.category_id) {
+            const categories = await databaseService.query('categories', {
+              where: { id: transaction.category_id },
+              limit: 1
+            });
+            return {
+              ...transaction,
+              categories: categories[0] || null
+            };
+          }
+          return {
+            ...transaction,
+            categories: null
+          };
+        })
+      );
 
-      console.log('Successfully fetched transactions:', data?.length || 0);
-      setTransactions(data || []);
+      console.log('Successfully fetched transactions:', transactionsWithCategories?.length || 0);
+      setTransactions(transactionsWithCategories || []);
     } catch (err) {
       // Don't set error if request was aborted
       if (err instanceof Error && err.name === 'AbortError') {
@@ -140,19 +152,17 @@ export const useTransactionMaster = (options: UseTransactionMasterOptions = {}):
 
   const createTransaction = useCallback(async (data: Omit<TransactionMasterInsert, 'transaction_code'>): Promise<TransactionMaster | null> => {
     try {
-      // Generate transaction code
-      const { data: codeData, error: codeError } = await supabase
-        .rpc('generate_transaction_code');
+      await databaseService.initialize();
 
-      if (codeError) {
-        console.error('Error generating transaction code:', codeError);
-        throw codeError;
-      }
+      // Generate transaction code (simplified version)
+      const timestamp = new Date().getTime();
+      const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      const transactionCode = `TXN-${timestamp}-${randomSuffix}`;
 
       // Prepare transaction data with proper defaults
       const transactionData: TransactionMasterInsert = {
         ...data,
-        transaction_code: codeData,
+        transaction_code: transactionCode,
         // Set category_id to null if not provided to avoid foreign key issues
         category_id: data.category_id || null,
         // Ensure required fields have proper values
@@ -165,16 +175,7 @@ export const useTransactionMaster = (options: UseTransactionMasterOptions = {}):
 
       console.log('Creating transaction with data:', transactionData);
 
-      const { data: newTransaction, error: insertError } = await supabase
-        .from('transaction_master')
-        .insert(transactionData)
-        .select()
-        .single();
-
-      if (insertError) {
-        console.error('Error inserting transaction:', insertError);
-        throw insertError;
-      }
+      const newTransaction = await databaseService.create('transaction_master', transactionData);
 
       console.log('Transaction created successfully:', newTransaction);
 
@@ -197,21 +198,14 @@ export const useTransactionMaster = (options: UseTransactionMasterOptions = {}):
 
   const updateTransaction = useCallback(async (id: number, data: TransactionMasterUpdate): Promise<TransactionMaster | null> => {
     try {
+      await databaseService.initialize();
+
       const updateData = {
         ...data,
         updated_at: new Date().toISOString()
       };
 
-      const { data: updatedTransaction, error: updateError } = await supabase
-        .from('transaction_master')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (updateError) {
-        throw updateError;
-      }
+      const updatedTransaction = await databaseService.update('transaction_master', id, updateData);
 
       // Optimistically update the list
       setTransactions(prev => 
@@ -228,14 +222,11 @@ export const useTransactionMaster = (options: UseTransactionMasterOptions = {}):
 
   const deleteTransaction = useCallback(async (id: number): Promise<boolean> => {
     try {
-      const { error: deleteError } = await supabase
-        .from('transaction_master')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', id);
+      await databaseService.initialize();
 
-      if (deleteError) {
-        throw deleteError;
-      }
+      await databaseService.update('transaction_master', id, { 
+        deleted_at: new Date().toISOString() 
+      });
 
       // Optimistically update the list
       setTransactions(prev => prev.filter(t => t.id !== id));
@@ -250,26 +241,35 @@ export const useTransactionMaster = (options: UseTransactionMasterOptions = {}):
 
   const getTransactionById = useCallback(async (id: number): Promise<TransactionMasterWithBasicJoins | null> => {
     try {
-      const { data, error: fetchError } = await supabase
-        .from('transaction_master')
-        .select(`
-          *,
-          categories (
-            id,
-            category_name,
-            code,
-            group_name
-          )
-        `)
-        .eq('id', id)
-        .is('deleted_at', null)
-        .single();
+      await databaseService.initialize();
 
-      if (fetchError) {
-        throw fetchError;
+      const transactions = await databaseService.query('transaction_master', {
+        where: { id, deleted_at: null },
+        limit: 1
+      });
+
+      if (transactions.length === 0) {
+        return null;
       }
 
-      return data;
+      const transaction = transactions[0];
+
+      // Fetch category if exists
+      if (transaction.category_id) {
+        const categories = await databaseService.query('categories', {
+          where: { id: transaction.category_id },
+          limit: 1
+        });
+        return {
+          ...transaction,
+          categories: categories[0] || null
+        };
+      }
+
+      return {
+        ...transaction,
+        categories: null
+      };
     } catch (err) {
       console.error('Error fetching transaction by ID:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch transaction');
@@ -279,14 +279,10 @@ export const useTransactionMaster = (options: UseTransactionMasterOptions = {}):
 
   const generateTransactionCode = useCallback(async (): Promise<string> => {
     try {
-      const { data, error } = await supabase
-        .rpc('generate_transaction_code');
-
-      if (error) {
-        throw error;
-      }
-
-      return data;
+      // Generate transaction code (simplified version)
+      const timestamp = new Date().getTime();
+      const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      return `TXN-${timestamp}-${randomSuffix}`;
     } catch (err) {
       console.error('Error generating transaction code:', err);
       throw err;

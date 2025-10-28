@@ -57,9 +57,10 @@ const CustomerInfoSection = ({ formData, onFormDataChange, isEditMode = false }:
     }
   }, [formData.customer, isInputFocused, isEditMode]);
 
-  const handleCustomerCreated = (newCustomer: { nama: string }) => {
+  const handleCustomerCreated = (newCustomer: { id: string; nama: string }) => {
     onFormDataChange('customer', newCustomer.nama);
-    // Note: The customerId will be set once the customer list refreshes
+    onFormDataChange('customerId', newCustomer.id);
+    setShowCustomerModal(false);
   };
 
   const filteredCustomers = customers?.filter(customer => 
@@ -100,7 +101,7 @@ const CustomerInfoSection = ({ formData, onFormDataChange, isEditMode = false }:
                     </div>
                   ))
                 ) : (
-                  <div className="px-3 py-2 text-sm text-gray-500">
+                  <div key="no-customers" className="px-3 py-2 text-sm text-gray-500">
                     {formData.customer.length > 0 ? 'No customers found' : 'Select a customer'}
                   </div>
                 )}
@@ -151,7 +152,7 @@ const CustomerInfoSection = ({ formData, onFormDataChange, isEditMode = false }:
               {isEditMode ? 'Tanggal Dibuat' : 'Tanggal Order'}
             </Label>
             {isEditMode && formData.createdAt ? (
-              <div className="mt-1 h-8 px-2 py-1 bg-gray-100 border border-gray-300 rounded-md text-sm flex items-center">
+              <div key="tanggal-display" className="mt-1 h-8 px-2 py-1 bg-gray-100 border border-gray-300 rounded-md text-sm flex items-center">
                 {new Date(formData.createdAt).toLocaleDateString('id-ID', {
                   day: '2-digit',
                   month: '2-digit',
@@ -160,6 +161,7 @@ const CustomerInfoSection = ({ formData, onFormDataChange, isEditMode = false }:
               </div>
             ) : (
               <Input
+                key="tanggal-input"
                 id="tanggal"
                 type="date"
                 value={formData.tanggal}
@@ -185,7 +187,7 @@ const CustomerInfoSection = ({ formData, onFormDataChange, isEditMode = false }:
               type="date"
               value={formData.estimasi}
               onChange={(e) => onFormDataChange('estimasi', e.target.value)}
-              className="mt-1 h-8 p"
+              className="mt-1 h-8 pl-2"
             />
           </div>
           <div>

@@ -15,7 +15,6 @@ const routePermissions = [
   { path: '/report', permission: { menu: 'Report', action: 'view_reports' } },
   { path: '/master-data', permission: { menu: 'Master Data', action: 'view_products' } },
   { path: '/settings', permission: { menu: 'Settings', action: 'view_settings' } },
-  { path: '/print-demo', permission: { menu: 'Settings', action: 'system_tools' } },
 ];
 
 interface AutoRedirectProps {
@@ -30,22 +29,26 @@ export const AutoRedirect: React.FC<AutoRedirectProps> = ({ children }) => {
   useEffect(() => {
     // Hanya redirect jika sedang di root path "/"
     if (location.pathname === '/') {
-      console.log('🔍 AutoRedirect: User di root path, checking permissions...');
+      // Default redirect ke dashboard untuk Administrator
+      const userRole = localStorage.getItem('azuro_user') ? 
+        JSON.parse(localStorage.getItem('azuro_user') || '{}').role : 'Administrator';
+      
+      if (userRole === 'Administrator') {
+        navigate('/dashboard', { replace: true });
+        return;
+      }
       
       // Cari halaman pertama yang user miliki akses
       const firstAccessibleRoute = routePermissions.find(route => {
         const access = hasAccess(route.permission.menu, route.permission.action);
-        console.log(`🔍 Checking ${route.path}: ${access ? '✅' : '❌'}`);
         return access;
       });
 
       if (firstAccessibleRoute) {
-        console.log(`🎯 Redirecting to: ${firstAccessibleRoute.path}`);
         navigate(firstAccessibleRoute.path, { replace: true });
       } else {
-        console.log('❌ No accessible routes found, redirecting to access denied');
-        // Jika tidak ada route yang accessible, redirect ke halaman khusus
-        navigate('/no-access', { replace: true });
+        // Fallback ke dashboard
+        navigate('/dashboard', { replace: true });
       }
     }
   }, [location.pathname, hasAccess, navigate]);
@@ -79,8 +82,45 @@ export const NoAccessPage: React.FC = () => {
         </p>
         <button 
           onClick={() => {
-            localStorage.removeItem('studio_pos_user');
-            window.location.href = '/login';
+            try {
+              console.log('🔄 Starting logout process...');
+              
+              // Step 1: Clear user data
+              localStorage.removeItem('azuro_user');
+              console.log('✅ User data cleared from localStorage');
+              
+              // Step 2: Clear any other auth-related data
+              sessionStorage.removeItem('current_user');
+              console.log('✅ Session data cleared');
+              
+              // Step 3: Check if running in Electron
+              const isElectron = typeof window !== 'undefined' && 
+                (window as any).electronAPI?.app?.isDev !== undefined;
+              
+              if (isElectron) {
+                // For Electron, reload the page to trigger NativeAppWrapper login flow
+                console.log('🔄 Electron detected, reloading page for login flow');
+                window.location.reload();
+              } else {
+                // For web version, navigate to login
+                window.location.href = '/login';
+                console.log('✅ Navigation to login successful');
+              }
+              
+            } catch (error) {
+              console.error('❌ Error during logout:', error);
+              
+              // Fallback logout method
+              try {
+                localStorage.removeItem('azuro_user');
+                sessionStorage.clear();
+                window.location.reload();
+              } catch (fallbackError) {
+                console.error('❌ Fallback logout failed:', fallbackError);
+                // Last resort - reload page
+                window.location.reload();
+              }
+            }
           }}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >

@@ -891,6 +891,9 @@ export class DatabaseFactory {
     // Check stored configuration first
     const storedConfig = this.getStoredConfig();
     
+    // Check if we're in Electron environment
+    const isElectron = typeof window !== 'undefined' && (window as any).electronAPI?.app?.isDev !== undefined;
+    
     // Check environment variables
     const envUseSupabase = getEnvVar('VITE_USE_SUPABASE') || getEnvVar('REACT_APP_USE_SUPABASE');
     const envSupabaseUrl = SUPABASE_URL;
@@ -908,13 +911,20 @@ export class DatabaseFactory {
       supabaseKey = storedConfig.key || '';
       console.log('📋 Using stored database configuration');
     } else {
-      // Fallback to environment variables
-      useSupabase = envUseSupabase === 'true' || (envSupabaseUrl && envSupabaseKey && envUseSupabase !== 'false');
-      supabaseUrl = envSupabaseUrl;
-      supabaseKey = envSupabaseKey;
-      console.log('🔧 Using environment database configuration');
+      // For Electron apps, prioritize local database over Supabase
+      if (isElectron) {
+        console.log('🖥️ Electron detected - prioritizing local database');
+        useSupabase = false;
+      } else {
+        // Fallback to environment variables for web
+        useSupabase = envUseSupabase === 'true' || (envSupabaseUrl && envSupabaseKey && envUseSupabase !== 'false');
+        supabaseUrl = envSupabaseUrl;
+        supabaseKey = envSupabaseKey;
+        console.log('🔧 Using environment database configuration');
+      }
     }
     
+    // Check if we should use Supabase
     if (useSupabase && supabaseUrl && supabaseKey) {
       try {
         console.log('🚀 Initializing Supabase database connection...');
@@ -925,6 +935,7 @@ export class DatabaseFactory {
       }
     }
     
+    // Default to local storage
     console.log('💾 Using local storage database...');
     return new LocalDatabaseService();
   }

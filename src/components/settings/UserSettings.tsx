@@ -22,7 +22,7 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { Switch as Toggle } from '@/components/ui/switch';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 import bcrypt from 'bcryptjs';
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogFooter, AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
 import { RoleAccessContext } from '@/context/RoleAccessContext';
@@ -105,6 +105,50 @@ const MENU_TREE = [
         label: 'Laporan Keuangan',
         children: [
           { action: 'financial_reports', label: 'Laporan Keuangan' }
+        ]
+      }
+    ]
+  },
+  {
+    menu: 'Accounting',
+    label: 'Manajemen Akuntansi',
+    children: [
+      {
+        label: 'Chart of Accounts',
+        children: [
+          { action: 'view_accounting', label: 'Lihat Akuntansi' },
+          { action: 'manage_chart_of_accounts', label: 'Kelola Chart of Accounts' },
+          { action: 'create_account', label: 'Buat Akun Baru' },
+          { action: 'edit_account', label: 'Edit Akun' },
+          { action: 'delete_account', label: 'Hapus Akun' }
+        ]
+      },
+      {
+        label: 'Akun Kas',
+        children: [
+          { action: 'manage_cash_accounts', label: 'Kelola Akun Kas' },
+          { action: 'create_cash_account', label: 'Buat Akun Kas' },
+          { action: 'update_cash_balance', label: 'Update Saldo Kas' },
+          { action: 'set_primary_cash_account', label: 'Set Akun Kas Utama' }
+        ]
+      },
+      {
+        label: 'Jurnal Umum',
+        children: [
+          { action: 'manage_journal_entries', label: 'Kelola Jurnal Umum' },
+          { action: 'create_journal_entry', label: 'Buat Jurnal' },
+          { action: 'post_journal_entry', label: 'Post Jurnal' },
+          { action: 'cancel_journal_entry', label: 'Batalkan Jurnal' }
+        ]
+      },
+      {
+        label: 'Laporan Akuntansi',
+        children: [
+          { action: 'view_trial_balance', label: 'Lihat Neraca Saldo' },
+          { action: 'view_balance_sheet', label: 'Lihat Neraca' },
+          { action: 'view_profit_loss', label: 'Lihat Laba Rugi' },
+          { action: 'view_cash_flow_report', label: 'Lihat Laporan Arus Kas' },
+          { action: 'export_accounting_reports', label: 'Export Laporan Akuntansi' }
         ]
       }
     ]
@@ -361,23 +405,14 @@ const ACTION_LABELS = {
 
 // Fungsi simpan hak akses ke database (hanya satu, di luar komponen)
 async function saveRoleAccessToDb(role, accessState) {
-  console.log('🔄 Saving role permissions...');
-  console.log('Role:', role);
-  console.log('Access State:', accessState);
-  
   try {
     // 1. Hapus permissions lama
-    console.log('🗑️ Deleting old permissions for role:', role);
-    const { error: deleteError } = await supabase
-      .from('role_permissions')
-      .delete()
-      .eq('role', role);
+    await databaseService.delete('role_permissions', { where: { role } });
     
     if (deleteError) {
       console.error('❌ Error deleting old permissions:', deleteError);
       throw deleteError;
     }
-    console.log('✅ Old permissions deleted');
     
     // 2. Prepare new permissions
   const newPermissions = [];
@@ -389,35 +424,25 @@ async function saveRoleAccessToDb(role, accessState) {
     });
   });
     
-    console.log('📋 New permissions to insert:', newPermissions);
-    
     // 3. Insert new permissions
   if (newPermissions.length > 0) {
-      console.log('💾 Inserting new permissions...');
-      const { error: insertError } = await supabase
-        .from('role_permissions')
-        .insert(newPermissions);
+      for (const permission of newPermissions) {
+        await databaseService.create('role_permissions', permission);
+      }
       
       if (insertError) {
         console.error('❌ Error inserting new permissions:', insertError);
         throw insertError;
       }
-      console.log('✅ New permissions inserted successfully');
-    } else {
-      console.log('⚠️ No permissions to insert');
     }
     
     // 4. Verify save
-    console.log('🔍 Verifying saved permissions...');
-    const { data: verifyData, error: verifyError } = await supabase
-      .from('role_permissions')
-      .select('*')
-      .eq('role', role);
+    const verifyData = await databaseService.query('role_permissions', {
+        where: { role }
+      });
     
     if (verifyError) {
       console.error('❌ Error verifying permissions:', verifyError);
-    } else {
-      console.log('✅ Verified permissions in database:', verifyData);
     }
     
   } catch (error) {
@@ -457,20 +482,28 @@ export const UserSettings = () => {
   const [userToDelete, setUserToDelete] = useState<any>(null);
 
   React.useEffect(() => {
-    supabase.from('positions').select('*').order('name').then(({ data }) => {
+    databaseService.query('positions', {
+        orderBy: { column: 'name', direction: 'asc' }
+      }).then((data) => {
       setPositions(data || []);
     });
   }, []);
 
   // Ambil data employees dari Supabase
   React.useEffect(() => {
-    supabase.from('employees').select('id, nama, username, role, status, password').order('nama').then(({ data }) => {
+    databaseService.query('employees', {
+        select: 'id, nama, username, role, status, password',
+        orderBy: { column: 'nama', direction: 'asc' }
+      }).then((data) => {
       setEmployees(data || []);
     });
   }, []);
 
   React.useEffect(() => {
-    supabase.from('roles').select('id, name').order('name').then(({ data }) => {
+    databaseService.query('roles', {
+        select: 'id, name',
+        orderBy: { column: 'name', direction: 'asc' }
+      }).then((data) => {
       setRoles(data || []);
     });
   }, []);
@@ -490,22 +523,18 @@ export const UserSettings = () => {
 
   // Load permissions untuk user berdasarkan role-nya
   const loadUserRolePermissions = async (userRole: string) => {
-    console.log('🔄 Loading permissions for user role:', userRole);
     
     try {
-      const { data, error } = await supabase
-        .from('role_permissions')
-        .select('menu, action, allowed')
-        .eq('role', userRole)
-        .eq('allowed', true);
+      const data = await databaseService.query('role_permissions', {
+        select: 'menu, action, allowed',
+        where: { role: userRole, allowed: true }
+      });
 
       if (error) {
         console.error('❌ Error loading user permissions:', error);
         setAccessState({});
         return;
       }
-
-      console.log('✅ Loaded user permissions from database:', data);
 
       // Convert array format ke object format untuk UI
       const accessStateObject: any = {};
@@ -516,7 +545,6 @@ export const UserSettings = () => {
         accessStateObject[permission.menu][permission.action] = permission.allowed;
       });
 
-      console.log('🔄 Converted user permissions to accessState format:', accessStateObject);
       setAccessState(accessStateObject);
 
     } catch (error) {
@@ -553,11 +581,16 @@ export const UserSettings = () => {
     // Hash password
     const hashedPassword = await bcrypt.hash(newUser.password, 10);
     // Update employee di Supabase
-    const { error } = await supabase.from('employees').update({
+    try {
+        await databaseService.update('employees', employee.id, {
       username: newUser.username,
       role: newUser.role,
       password: hashedPassword
-    }).eq('id', employee.id);
+    });
+      } catch (error) {
+        console.error('Error updating employee:', error);
+        throw error;
+      }
     if (error) {
       toast({ title: 'Gagal menambah user', description: error.message, variant: 'destructive' });
       return;
@@ -565,7 +598,10 @@ export const UserSettings = () => {
             toast({ title: 'User Ditambahkan', description: `User ${employee.nama} berhasil ditambahkan.` });
     setNewUser({ name: '', username: '', role: '', password: '' });
     // Refresh data employees
-    const { data } = await supabase.from('employees').select('id, nama, username, role, status, password').order('nama');
+    const data = await databaseService.query('employees', {
+      select: 'id, nama, username, role, status, password',
+      orderBy: { column: 'nama', direction: 'asc' }
+    });
     setEmployees(data || []);
   };
 
@@ -614,7 +650,12 @@ export const UserSettings = () => {
   // Fungsi hapus user (set username, role, password = null)
   const handleDeleteUser = async () => {
     if (!userToDelete) return;
-    const { error } = await supabase.from('employees').update({ username: null, role: null, password: null }).eq('id', userToDelete.id);
+    try {
+        await databaseService.update('employees', userToDelete.id, { username: null, role: null, password: null });
+      } catch (error) {
+        console.error('Error updating employee:', error);
+        throw error;
+      }
     if (error) {
       toast({ title: 'Gagal menghapus user', description: error.message, variant: 'destructive' });
       setDeleteDialogOpen(false);
@@ -624,7 +665,10 @@ export const UserSettings = () => {
     setDeleteDialogOpen(false);
     setUserToDelete(null);
     // Refresh data employees
-    const { data } = await supabase.from('employees').select('id, nama, username, role, status, password').order('nama');
+    const data = await databaseService.query('employees', {
+      select: 'id, nama, username, role, status, password',
+      orderBy: { column: 'nama', direction: 'asc' }
+    });
     setEmployees(data || []);
   };
 
@@ -1006,7 +1050,12 @@ export const UserSettings = () => {
                   if (editUserData.password && editUserData.password.length < 50) {
                     updateData.password = await bcrypt.hash(editUserData.password, 10);
                   }
-                  const { error } = await supabase.from('employees').update(updateData).eq('id', editUserData.id);
+                  try {
+                    await databaseService.update('employees', editUserData.id, updateData);
+                  } catch (error) {
+                    console.error('Error updating employee:', error);
+                    throw error;
+                  }
                   if (error) {
                     toast({ title: 'Gagal update user', description: error.message, variant: 'destructive' });
                     return;
@@ -1014,7 +1063,10 @@ export const UserSettings = () => {
                   toast({ title: 'User Diperbarui', description: `User ${editUserData.nama} berhasil diperbarui.` });
                   setEditUserOverlayOpen(false);
                   // Refresh data employees
-                  const { data } = await supabase.from('employees').select('id, nama, username, role, status, password').order('nama');
+                  const data = await databaseService.query('employees', {
+      select: 'id, nama, username, role, status, password',
+      orderBy: { column: 'nama', direction: 'asc' }
+    });
                   setEmployees(data || []);
                 }} className="bg-blue-700 hover:bg-blue-900 text-white">Simpan</Button>
               </div>
@@ -1039,22 +1091,18 @@ function RoleAccessTable({ role, menuActions, onClose }: { role: string, menuAct
 
   // Load permissions dari database untuk role yang dipilih
   const loadRolePermissionsFromDb = async (roleName: string) => {
-    console.log('🔄 Loading permissions for role:', roleName);
     
     try {
-      const { data, error } = await supabase
-        .from('role_permissions')
-        .select('menu, action, allowed')
-        .eq('role', roleName)
-        .eq('allowed', true);
+      const data = await databaseService.query('role_permissions', {
+        select: 'menu, action, allowed',
+        where: { role: roleName, allowed: true }
+      });
 
       if (error) {
         console.error('❌ Error loading permissions:', error);
         setAccessState({});
         return;
       }
-
-      console.log('✅ Loaded permissions from database:', data);
 
       // Convert array format ke object format untuk UI
       const accessStateObject: any = {};
@@ -1065,7 +1113,6 @@ function RoleAccessTable({ role, menuActions, onClose }: { role: string, menuAct
         accessStateObject[permission.menu][permission.action] = permission.allowed;
       });
 
-      console.log('🔄 Converted to accessState format:', accessStateObject);
       setAccessState(accessStateObject);
 
     } catch (error) {

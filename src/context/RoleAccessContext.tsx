@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 
 interface Permission {
   menu: string;
@@ -21,8 +21,13 @@ export function RoleAccessProvider({ children }: { children: React.ReactNode }) 
 
   // Fetch permissions saat login atau role berubah
   const refresh = async (role: string) => {
-    console.log('🔄 RoleAccessContext: Refreshing permissions for role:', role);
     setUserRole(role);
+    
+    // For Administrator, give full access without database check
+    if (role === 'Administrator') {
+      setPermissions([]); // Empty array, but hasAccess will handle this
+      return;
+    }
     
     try {
       const { data, error } = await supabase
@@ -39,22 +44,53 @@ export function RoleAccessProvider({ children }: { children: React.ReactNode }) 
           details: error.details,
           hint: error.hint
         });
-        setPermissions([]);
+        
+        // For non-admin roles, if database error, give basic access
+        if (role === 'Manager' || role === 'Cashier') {
+          setPermissions([
+            { menu: 'Dashboard', action: 'view_stats', allowed: true },
+            { menu: 'Orderan', action: 'view_orders', allowed: true },
+            { menu: 'Transaction', action: 'view_transactions', allowed: true },
+            { menu: 'Inventory', action: 'view_inventory', allowed: true },
+            { menu: 'Master Data', action: 'view_products', allowed: true },
+            { menu: 'Report', action: 'view_reports', allowed: true },
+            { menu: 'Settings', action: 'view_settings', allowed: true }
+          ]);
+        } else {
+          setPermissions([]);
+        }
+        
+        // Log specific error for troubleshooting
+        if (error.code === '42P01') {
+          console.error('🚨 Table role_permissions does not exist. Please run the database migration.');
+        }
         return;
       }
       
-      console.log('✅ Fetched permissions from database:', data);
       setPermissions(data || []);
       
     } catch (error) {
       console.error('❌ Fatal error in refresh:', error);
-      setPermissions([]);
+      // Give basic access on error for non-admin roles
+      if (role === 'Manager' || role === 'Cashier') {
+        setPermissions([
+          { menu: 'Dashboard', action: 'view_stats', allowed: true },
+          { menu: 'Orderan', action: 'view_orders', allowed: true },
+          { menu: 'Transaction', action: 'view_transactions', allowed: true },
+          { menu: 'Inventory', action: 'view_inventory', allowed: true },
+          { menu: 'Master Data', action: 'view_products', allowed: true },
+          { menu: 'Report', action: 'view_reports', allowed: true },
+          { menu: 'Settings', action: 'view_settings', allowed: true }
+        ]);
+      } else {
+        setPermissions([]);
+      }
     }
   };
 
   // Tambahkan efek untuk inisialisasi dari localStorage saat mount
   React.useEffect(() => {
-    const userStr = localStorage.getItem('studio_pos_user');
+    const userStr = localStorage.getItem('azuro_user');
     if (userStr) {
       try {
         const user = JSON.parse(userStr);
@@ -62,6 +98,9 @@ export function RoleAccessProvider({ children }: { children: React.ReactNode }) 
           refresh(user.role);
         }
       } catch {}
+    } else {
+      // Default to Administrator if no user found
+      refresh('Administrator');
     }
   }, []);
 
@@ -75,13 +114,14 @@ export function RoleAccessProvider({ children }: { children: React.ReactNode }) 
 export function useHasAccess() {
   const { permissions, userRole } = useContext(RoleAccessContext);
   return (menu: string, action: string) => {
-    console.log(`🔍 Checking access: ${menu}.${action} for role: ${userRole}`);
-    console.log('Available permissions:', permissions);
-    
-    // Administrator always has access
+    // Administrator always has access (even if permissions array is empty due to DB error)
     if (userRole === 'Administrator') {
-      console.log('✅ Administrator has full access');
       return true;
+    }
+    
+    // If no permissions loaded (database error), deny access for non-admin
+    if (permissions.length === 0) {
+      return false;
     }
     
     // Check specific permission
@@ -89,7 +129,6 @@ export function useHasAccess() {
       (perm) => perm.menu === menu && perm.action === action && perm.allowed
     );
     
-    console.log(`${hasPermission ? '✅' : '❌'} Access ${hasPermission ? 'granted' : 'denied'} for ${menu}.${action}`);
     return hasPermission;
   };
 } 

@@ -1,6 +1,6 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -14,26 +14,15 @@ export const useCustomers = () => {
   const { data: customers, isLoading } = useQuery({
     queryKey: ['customers'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('customers')
-        .select('*')
-        .order('nama');
-
-      if (error) throw error;
-      return data as Customer[];
+      return await databaseService.query<Customer>('customers', {
+        orderBy: { column: 'nama', direction: 'asc' }
+      });
     },
   });
 
   const createCustomerMutation = useMutation({
     mutationFn: async (customerData: CustomerInsert) => {
-      const { data, error } = await supabase
-        .from('customers')
-        .insert(customerData)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return await databaseService.create<Customer>('customers', customerData);
     },
     onSuccess: (newCustomer) => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
@@ -55,15 +44,7 @@ export const useCustomers = () => {
 
   const updateCustomerMutation = useMutation({
     mutationFn: async ({ id, ...updateData }: { id: string } & Partial<CustomerInsert>) => {
-      const { data, error } = await supabase
-        .from('customers')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return await databaseService.update<Customer>('customers', id, updateData);
     },
     onSuccess: (updatedCustomer) => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
@@ -84,12 +65,7 @@ export const useCustomers = () => {
 
   const deleteCustomerMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('customers')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      await databaseService.delete('customers', id);
       return id;
     },
     onSuccess: () => {

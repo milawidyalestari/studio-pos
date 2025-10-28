@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { database, Transaction, Category, FinancialSummary } from '@/lib/database';
 import { initializeDatabase } from '@/services/databaseInitService';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 import type { Database } from '@/integrations/supabase/types';
 
 type Order = Database['public']['Tables']['orders']['Row'];

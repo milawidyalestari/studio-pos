@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup Users - Studio POS</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2962FF;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .user-card {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #2962FF;
+        }
+        .user-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .user-details {
+            flex: 1;
+        }
+        .user-role {
+            background: #2962FF;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        button {
+            background: #2962FF;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #1e53e5;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            border: 1px solid #f5c6cb;
+        }
+        .test-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #e9ecef;
+        }
+        .test-form {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            flex: 1;
+        }
+        .test-button {
+            background: #28a745;
+        }
+        .test-button:hover {
+            background: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Studio POS - User Setup</h1>
+        
+        <div id="status"></div>
+        
+        <h2>📋 Available Users</h2>
+        <div id="users-list"></div>
+        
+        <div style="text-align: center; margin: 30px 0;">
+            <button onclick="setupUsers()">🚀 Setup Users</button>
+            <button onclick="checkUsers()">🔍 Check Users</button>
+            <button onclick="clearUsers()">🗑️ Clear Users</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>🧪 Test Login</h2>
+            <div class="test-form">
+                <input type="text" id="test-username" placeholder="Username" value="admin">
+                <input type="password" id="test-password" placeholder="Password" value="admin123">
+                <button class="test-button" onclick="testLogin()">🔐 Test Login</button>
+            </div>
+            <div id="test-result"></div>
+        </div>
+    </div>
+
+    <script>
+        const users = [
+            {
+                id: 'admin',
+                username: 'admin',
+                password: 'admin123',
+                email: 'admin@studio-pos.com',
+                role: 'Administrator',
+                full_name: 'Administrator',
+                is_active: true,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            },
+            {
+                id: 'kasir1',
+                username: 'kasir1',
+                password: 'kasir123',
+                email: 'kasir1@studio-pos.com',
+                role: 'Kasir',
+                full_name: 'Kasir Satu',
+                is_active: true,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            },
+            {
+                id: 'kasir2',
+                username: 'kasir2',
+                password: 'kasir123',
+                email: 'kasir2@studio-pos.com',
+                role: 'Kasir',
+                full_name: 'Kasir Dua',
+                is_active: true,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            },
+            {
+                id: 'manager',
+                username: 'manager',
+                password: 'manager123',
+                email: 'manager@studio-pos.com',
+                role: 'Manager',
+                full_name: 'Manager',
+                is_active: true,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            }
+        ];
+
+        function setupUsers() {
+            try {
+                localStorage.setItem('studio_pos_users', JSON.stringify(users));
+                showStatus('✅ Users successfully set up!', 'success');
+                checkUsers();
+            } catch (error) {
+                showStatus('❌ Error setting up users: ' + error.message, 'error');
+            }
+        }
+
+        function checkUsers() {
+            try {
+                const usersData = localStorage.getItem('studio_pos_users');
+                if (!usersData) {
+                    showStatus('⚠️ No users found in localStorage', 'error');
+                    document.getElementById('users-list').innerHTML = '<p>No users found. Click "Setup Users" to add users.</p>';
+                    return;
+                }
+
+                const storedUsers = JSON.parse(usersData);
+                let html = '';
+                storedUsers.forEach((user, index) => {
+                    html += `
+                        <div class="user-card">
+                            <div class="user-info">
+                                <div class="user-details">
+                                    <strong>${user.username}</strong> (${user.full_name})<br>
+                                    <small>${user.email}</small>
+                                </div>
+                                <div class="user-role">${user.role}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                document.getElementById('users-list').innerHTML = html;
+                showStatus(`📋 Found ${storedUsers.length} users in localStorage`, 'success');
+            } catch (error) {
+                showStatus('❌ Error checking users: ' + error.message, 'error');
+            }
+        }
+
+        function clearUsers() {
+            try {
+                localStorage.removeItem('studio_pos_users');
+                showStatus('🗑️ Users cleared from localStorage', 'success');
+                document.getElementById('users-list').innerHTML = '<p>No users found. Click "Setup Users" to add users.</p>';
+            } catch (error) {
+                showStatus('❌ Error clearing users: ' + error.message, 'error');
+            }
+        }
+
+        function testLogin() {
+            const username = document.getElementById('test-username').value;
+            const password = document.getElementById('test-password').value;
+            
+            try {
+                const usersData = localStorage.getItem('studio_pos_users');
+                if (!usersData) {
+                    showTestResult('❌ No users found. Please setup users first.', 'error');
+                    return;
+                }
+
+                const users = JSON.parse(usersData);
+                const user = users.find(u => 
+                    u.username === username && 
+                    u.password === password && 
+                    u.is_active
+                );
+
+                if (user) {
+                    showTestResult(`✅ Login successful! Welcome ${user.full_name} (${user.role})`, 'success');
+                } else {
+                    showTestResult('❌ Invalid username or password', 'error');
+                }
+            } catch (error) {
+                showTestResult('❌ Login test failed: ' + error.message, 'error');
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+
+        function showTestResult(message, type) {
+            const resultDiv = document.getElementById('test-result');
+            resultDiv.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+
+        // Check users on page load
+        window.onload = function() {
+            checkUsers();
+        };
+    </script>
+</body>
+</html>
+

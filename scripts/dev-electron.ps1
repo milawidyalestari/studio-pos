@@ -1,7 +1,7 @@
-# Studio POS Electron Development Script
+# Azuro Electron Development Script
 # PowerShell version
 
-Write-Host "🚀 Starting Studio POS Electron Development..." -ForegroundColor Green
+Write-Host "🚀 Starting Azuro Electron Development..." -ForegroundColor Green
 Write-Host ""
 
 # Check if Node.js is installed

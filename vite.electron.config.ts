@@ -35,8 +35,9 @@ export default defineConfig({
     },
     // Optimized for Electron
     target: 'esnext',
-    minify: false, // Disable minification for development
-    sourcemap: true,
+    minify: process.env.NODE_ENV === 'production',
+    sourcemap: process.env.NODE_ENV === 'development',
+    emptyOutDir: true,
   },
   // Electron-specific optimizations
   define: {

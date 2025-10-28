@@ -22,4 +22,12 @@ export default defineConfig(({ mode }) => ({
   optimizeDeps: {
     exclude: ['lovable-tagger'], // Exclude from optimization
   },
+  build: {
+    outDir: 'dist',
+    rollupOptions: {
+      external: ['lovable-tagger'],
+    },
+    emptyOutDir: true,
+  },
+  base: './',
 }))

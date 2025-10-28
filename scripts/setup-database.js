@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-console.log('🚀 Studio POS - Database Setup Guide');
+console.log('🚀 Azuro - Database Setup Guide');
 console.log('=====================================\n');
 
 // Check if .env.local exists
@@ -17,7 +17,7 @@ if (!fs.existsSync(envLocalPath)) {
   console.log('⚠️  No .env.local file found');
   console.log('📝 Creating .env.local template...\n');
   
-  const envTemplate = `# Database Configuration for Studio POS
+  const envTemplate = `# Database Configuration for Azuro
 VITE_USE_SUPABASE=false
 VITE_SUPABASE_URL=your_supabase_project_url_here
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here

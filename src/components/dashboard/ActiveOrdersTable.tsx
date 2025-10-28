@@ -32,9 +32,9 @@ const ActiveOrdersTable: React.FC<ActiveOrdersTableProps> = ({
   const filteredOrders = (orders || [])
     .filter(order => {
       // Pastikan status tersedia
+      // Exclude hanya status Done dan Selesai-diambil (Export tetap ditampilkan)
       const statusName = order.order_statuses?.name || '';
-      return statusName.toLowerCase() !== 'export' && 
-             statusName.toLowerCase() !== 'done' && 
+      return statusName.toLowerCase() !== 'done' && 
              statusName.toLowerCase() !== 'selesai-diambil';
     })
     .filter(order => {

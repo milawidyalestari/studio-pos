@@ -8,7 +8,7 @@ import { calculateProductPrice } from '@/services/productPricing';
 import { formatCurrency } from '@/services/masterData';
 import ProductSelectionModal from './ProductSelectionModal';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 import { ProductForm } from '@/components/ProductForm';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 
@@ -69,9 +69,10 @@ const ItemFormSection = ({
   const { data: materials = [], isLoading: materialsLoading, error: materialsError, refetch: refetchMaterials } = useQuery({
     queryKey: ['materials'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('materials').select('id, kode, nama, satuan, stok_akhir, stok_opname, lebar_maksimum');
-      if (error) throw error;
-      return data || [];
+      const result = await databaseService.query('materials', {
+        select: 'id, kode, nama, satuan, stok_akhir, stok_opname, lebar_maksimum'
+      });
+      return result || [];
     },
   });
 
@@ -136,7 +137,7 @@ const ItemFormSection = ({
   const allProducts = products || [];
 
   // Cari produk item dan bahan secara independen
-  const selectedItemProduct = products?.find(p => p.kode === currentItem.item);
+  const selectedItemProduct = products?.find(p => p.kode === currentItem.item || p.nama === currentItem.item);
   const selectedMaterial = materials.find((m: any) => m.kode === currentItem.bahan);
 
   const handleProductSelect = (productCode: string) => {
@@ -211,11 +212,11 @@ const ItemFormSection = ({
         <div>
           <Label htmlFor="kodeItem" className="text-sm font-medium">Nama Item</Label>
           <Input
-              id="namaItem"
-              value={selectedItemProduct?.nama || ''}
-              className="bg-blue-50 border-blue-200 h-8"
-              readOnly
-            />
+            id="namaItem"
+            value={selectedItemProduct?.nama || currentItem.item || ''}
+            className="bg-blue-50 border-blue-200 h-8"
+            readOnly
+          />
         </div>
         
         <div>

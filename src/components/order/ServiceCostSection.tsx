@@ -24,21 +24,34 @@ interface ServiceCostSectionProps {
   admins: Employee[];
   loadingAdmins?: boolean;
   isEditingItem?: boolean;
+  isEditMode?: boolean;
 }
 
-const ServiceCostSection = ({ formData, totalPrice, onFormDataChange, designers, loadingDesigners, admins, loadingAdmins, isEditingItem }: ServiceCostSectionProps) => {
+const ServiceCostSection = ({ formData, totalPrice, onFormDataChange, designers, loadingDesigners, admins, loadingAdmins, isEditingItem, isEditMode = false }: ServiceCostSectionProps) => {
+  const getDisplayValue = (value: string) => {
+    if (!value) return '';
+    const numericValue = Number(value);
+    if (!numericValue || Number.isNaN(numericValue)) {
+      return '';
+    }
+    return formatCurrency(numericValue);
+  };
+
+  const handleCurrencyChange = (field: keyof ServiceCostSectionFormData, inputValue: string) => {
+    const rawValue = inputValue.replace(/[^\d]/g, '');
+    const sanitized = rawValue.replace(/^0+/, '');
+    onFormDataChange(field, sanitized);
+  };
+
   return (
     <>
-      <div className="grid grid-cols-3 gap-4 mb-4">
+      <div className="grid grid-cols-3 gap-3 mb-3">
         <div>
           <Label htmlFor="jasaDesain" className="text-sm font-medium">Biaya Desain</Label>
           <Input
             id="jasaDesain"
-            value={formData.jasaDesain ? `IDR ${parseFloat(formData.jasaDesain).toLocaleString('id-ID')}` : ''}
-            onChange={(e) => {
-              const rawValue = e.target.value.replace(/[^\d]/g, '');
-              onFormDataChange('jasaDesain', rawValue);
-            }}
+            value={getDisplayValue(formData.jasaDesain)}
+            onChange={(e) => handleCurrencyChange('jasaDesain', e.target.value)}
             placeholder="IDR 0"
             className={`mt-1 h-8 ${isEditingItem ? 'bg-gray-100 cursor-not-allowed' : ''}`}
             disabled={isEditingItem}
@@ -48,11 +61,8 @@ const ServiceCostSection = ({ formData, totalPrice, onFormDataChange, designers,
           <Label htmlFor="biayaLain" className="text-sm font-medium">Biaya Lain</Label>
           <Input
             id="biayaLain"
-            value={formData.biayaLain ? `IDR ${parseFloat(formData.biayaLain).toLocaleString('id-ID')}` : ''}
-            onChange={(e) => {
-              const rawValue = e.target.value.replace(/[^\d]/g, '');
-              onFormDataChange('biayaLain', rawValue);
-            }}
+            value={getDisplayValue(formData.biayaLain)}
+            onChange={(e) => handleCurrencyChange('biayaLain', e.target.value)}
             placeholder="IDR 0"
             className={`mt-1 h-8 ${isEditingItem ? 'bg-gray-100 cursor-not-allowed' : ''}`}
             disabled={isEditingItem}
@@ -69,7 +79,7 @@ const ServiceCostSection = ({ formData, totalPrice, onFormDataChange, designers,
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-3 gap-3 mb-4">
         <div>
           <Label htmlFor="admin" className="text-sm font-medium">Admin</Label>
           <Select value={formData.admin} onValueChange={(value) => onFormDataChange('admin', value)} disabled={isEditingItem}>

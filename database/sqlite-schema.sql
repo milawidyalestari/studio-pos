@@ -1,4 +1,4 @@
--- Studio POS - SQLite Database Schema
+-- Azuro - SQLite Database Schema
 -- Compatible with SQLite for Electron app
 
 -- Create transactions table
@@ -76,6 +76,8 @@ CREATE TABLE IF NOT EXISTS customers (
     kode TEXT NOT NULL UNIQUE,
     nama TEXT NOT NULL,
     whatsapp TEXT,
+    email TEXT,
+    address TEXT,
     level TEXT CHECK (level IN ('Premium', 'Regular', 'VIP')) DEFAULT 'Regular',
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
@@ -106,6 +108,19 @@ CREATE TABLE IF NOT EXISTS employees (
     updated_at TEXT DEFAULT (datetime('now'))
 );
 
+-- Create users table
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL,
+    email TEXT,
+    role TEXT CHECK (role IN ('admin', 'user', 'cashier', 'manager')) DEFAULT 'user',
+    full_name TEXT,
+    is_active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type);
@@ -131,9 +146,17 @@ CREATE INDEX IF NOT EXISTS idx_suppliers_name ON suppliers(name);
 CREATE INDEX IF NOT EXISTS idx_employees_kode ON employees(kode);
 CREATE INDEX IF NOT EXISTS idx_employees_nama ON employees(nama);
 
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+
 -- Insert default categories
 INSERT OR IGNORE INTO categories (id, name, type, color) VALUES 
     (hex(randomblob(16)), 'Penjualan', 'income', '#10b981'),
     (hex(randomblob(16)), 'Jasa', 'income', '#059669'),
     (hex(randomblob(16)), 'Bahan Baku', 'expense', '#ef4444'),
     (hex(randomblob(16)), 'Operasional', 'expense', '#dc2626');
+
+-- Insert default admin user
+INSERT OR IGNORE INTO users (id, username, password, email, role, full_name, is_active) VALUES 
+    ('admin', 'admin', 'admin123', 'admin@studio-pos.com', 'admin', 'Administrator', 1);

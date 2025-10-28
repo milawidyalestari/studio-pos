@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route } from "react-router-dom";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { AppProvider } from "@/context/AppContext";
 import Layout from "./components/Layout";
@@ -16,10 +16,10 @@ import MasterData from "./pages/MasterData";
 import Settings from "./pages/Settings";
 import Cashier from "./pages/Cashier";
 import Finance from "./pages/Finance";
+import Accounting from "./pages/Accounting";
 import Suppliers from "./pages/Suppliers";
 import NotFound from "./pages/NotFound";
 import Login from './pages/Login';
-import PrintDemo from './components/PrintDemo';
 import React from 'react';
 import { RoleAccessProvider } from '@/context/RoleAccessContext';
 import { useDatabaseInit } from '@/hooks/use-database-init';
@@ -39,7 +39,7 @@ const queryClient = new QueryClient({
 
 // Komponen proteksi route
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  const isLoggedIn = Boolean(localStorage.getItem('studio_pos_user'));
+  const isLoggedIn = Boolean(localStorage.getItem('azuro_user'));
   if (!isLoggedIn) {
     window.location.replace('/login');
     return null;
@@ -118,7 +118,7 @@ const App = () => {
               <Sonner />
               
               <DatabaseInitializer>
-                <BrowserRouter>
+                <HashRouter>
                   <Routes>
                     <Route path="/login" element={<Login />} />
                     <Route
@@ -138,8 +138,8 @@ const App = () => {
                                 <Route path="/settings" element={<Settings />} />
                                 <Route path="/cashier" element={<Cashier />} />
                                 <Route path="/finance" element={<Finance />} />
+                                <Route path="/accounting" element={<Accounting />} />
                                 <Route path="/suppliers" element={<Suppliers />} />
-                                <Route path="/print-demo" element={<PrintDemo />} />
                                 <Route path="/no-access" element={<NoAccessPage />} />
                                 <Route path="*" element={<NotFound />} />
                               </Routes>
@@ -149,7 +149,7 @@ const App = () => {
                       }
                     />
                   </Routes>
-                </BrowserRouter>
+                </HashRouter>
               </DatabaseInitializer>
             </TooltipProvider>
           </RoleAccessProvider>

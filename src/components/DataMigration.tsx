@@ -29,7 +29,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { MigrationService } from '@/services/migrationService';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 import { DatabaseFactory } from '@/lib/database';
 
 interface MigrationStatus {
@@ -118,25 +118,30 @@ export const DataMigration = () => {
 
   const loadDatabaseInfo = async () => {
     try {
-      // Get current database info
-      const { data: tables, error } = await supabase
-        .from('information_schema.tables')
-        .select('table_name')
-        .eq('table_schema', 'public');
+      // Get current database info by checking a known table
+      const { data: testData, error } = await supabase
+        .from('orders')
+        .select('id')
+        .limit(1);
 
-      if (!error && tables) {
-        const currentDb: DatabaseInfo = {
-          name: 'Current Database',
-          type: 'supabase',
-          status: 'connected',
-          tables: tables.length,
-          records: 0, // Would need to count records from each table
-          lastBackup: new Date()
-        };
-        setDatabaseInfo([currentDb]);
-      }
+      const currentDb: DatabaseInfo = {
+        name: 'Current Database',
+        type: 'supabase',
+        status: error ? 'error' : 'connected',
+        tables: error ? 0 : 1, // Simplified - just indicate connection status
+        records: 0,
+        lastBackup: new Date()
+      };
+      setDatabaseInfo([currentDb]);
     } catch (error) {
       console.error('Error loading database info:', error);
+      setDatabaseInfo([{
+        name: 'Current Database',
+        type: 'supabase',
+        status: 'error',
+        tables: 0,
+        records: 0
+      }]);
     }
   };
 

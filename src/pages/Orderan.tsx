@@ -12,10 +12,11 @@ import { formatCurrency } from '@/services/masterData';
 import { useToast } from '@/hooks/use-toast';
 import { deleteOrderFromDatabase } from '@/services/deleteOrderService';
 import { Order, OrderWithItems, Employee } from '@/types';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 import { useHasAccess } from '@/context/RoleAccessContext';
 import { useProducts } from '@/hooks/useProducts';
 import { PrintOverlay } from '@/components/PrintOverlay';
+import { clearToastsWithDelay } from '@/utils/toastCleanup';
 
 const Orderan = () => {
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
@@ -25,6 +26,7 @@ const Orderan = () => {
   const [tempEditingOrder, setTempEditingOrder] = useState<OrderWithItems | null>(null);
   const [showPrintOverlay, setShowPrintOverlay] = useState(false);
   const [printOrderData, setPrintOrderData] = useState<OrderWithItems | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const { orders: dbOrders, isLoading, isFetching, updateOrder, deleteOrder, refetch } = useOrders({ enableAutoRefresh: false }); // disable auto polling
   
   // Filter orders untuk table view - sembunyikan order dengan status "Selesai-Diambil"
@@ -34,8 +36,41 @@ const Orderan = () => {
     return statusName !== 'Selesai-Diambil';
   });
   
+  // Filter berdasarkan search query
+  const searchFilteredOrders = (ordersToFilter: OrderWithItems[]) => {
+    if (!searchQuery.trim()) return ordersToFilter;
+    
+    const query = searchQuery.toLowerCase();
+    return ordersToFilter.filter(order => {
+      // Search by order number
+      if (order.order_number?.toLowerCase().includes(query)) return true;
+      
+      // Search by customer name
+      if (order.customer_name?.toLowerCase().includes(query)) return true;
+      
+      // Search by status
+      if (order.order_statuses?.name?.toLowerCase().includes(query)) return true;
+      
+      // Search by designer name
+      if (order.desainer?.nama?.toLowerCase().includes(query)) return true;
+      
+      // Search by admin name
+      if (order.admin?.nama?.toLowerCase().includes(query)) return true;
+      
+      // Search by items
+      if (order.order_items?.some(item => 
+        item.item_name?.toLowerCase().includes(query)
+      )) return true;
+      
+      return false;
+    });
+  };
+  
   // Untuk kanban view, gunakan semua orders (tidak difilter)
-  const orders = viewMode === 'table' ? filteredOrdersForTable : allOrders;
+  // Untuk table view, filter berdasarkan status dan search query
+  const orders = viewMode === 'table' 
+    ? searchFilteredOrders(filteredOrdersForTable) 
+    : allOrders;
   const { toast } = useToast();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [fadeReload, setFadeReload] = useState(false);
@@ -43,30 +78,78 @@ const Orderan = () => {
   const { data: products } = useProducts();
   
   React.useEffect(() => {
-    supabase
-      .from('employees')
-      .select('id, nama, kode, posisi, status')
-      .then(({ data }) => {
-        setEmployees(data || []);
-      });
+    const fetchEmployees = async () => {
+      try {
+        await databaseService.initialize();
+        const employees = await databaseService.query<Employee>('employees', {
+          select: 'id, nama, kode, posisi, status'
+        });
+        setEmployees(employees || []);
+      } catch (error) {
+        console.error('Error fetching employees:', error);
+        setEmployees([]);
+      }
+    };
+
+    fetchEmployees();
   }, []);
+
+  // Handle browser tab close/refresh to clean up print overlay state
+  React.useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (showPrintOverlay) {
+        setShowPrintOverlay(false);
+        setPrintOrderData(null);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [showPrintOverlay]);
 
   // Realtime WebSocket: subscribe ke perubahan tabel orders
   React.useEffect(() => {
-    const channel = supabase
-      .channel('orders-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders' },
-        (payload) => {
-          // Bisa cek payload.eventType: 'INSERT' | 'UPDATE' | 'DELETE'
-          refetch();
+    let channel: any = null;
+    
+    const setupRealtime = async () => {
+      try {
+        // Check if Supabase is available for realtime
+        const { isSupabaseAvailable, getSupabaseClient } = await import('@/integrations/supabase/client');
+        
+        if (isSupabaseAvailable()) {
+          const supabase = getSupabaseClient();
+          if (supabase) {
+            channel = supabase
+              .channel('orders-changes')
+              .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'orders' },
+                (payload) => {
+                  // Bisa cek payload.eventType: 'INSERT' | 'UPDATE' | 'DELETE'
+                  refetch();
+                }
+              )
+              .subscribe();
+          }
         }
-      )
-      .subscribe();
+      } catch (error) {
+        console.warn('Realtime subscription not available:', error);
+      }
+    };
+
+    setupRealtime();
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) {
+        try {
+          // Channel cleanup is handled by the database service
+          console.log('Cleaning up real-time channel');
+        } catch (error) {
+          console.warn('Error removing channel:', error);
+        }
+      }
     };
   }, [refetch]);
 
@@ -123,6 +206,10 @@ const Orderan = () => {
   };
 
   const handleOrderClick = (order: OrderWithItems) => {
+    // Prevent click if print overlay is open
+    if (showPrintOverlay) {
+      return;
+    }
     setSelectedOrder(order);
   };
 
@@ -148,6 +235,8 @@ const Orderan = () => {
   const handlePrintOverlayClose = () => {
     setShowPrintOverlay(false);
     setPrintOrderData(null);
+    // Clear any pending toast notifications that might interfere with UI
+    clearToastsWithDelay(100);
   };
 
   const handlePrintSuccess = async () => {
@@ -157,6 +246,10 @@ const Orderan = () => {
           title: 'Berhasil',
           description: 'Nota berhasil dicetak',
         });
+        // Close print overlay after successful print
+        setTimeout(() => {
+          handlePrintOverlayClose();
+        }, 1000);
       } catch (error) {
         toast({
           title: 'Gagal',
@@ -194,13 +287,18 @@ const Orderan = () => {
           <p className="text-gray-600">Manajemen order dan request pelanggan</p>
         </div>
         <div className="flex items-center space-x-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Cari Orderan"
-              className="pl-10 w-80"
-            />
-          </div>
+          {/* Search bar - hanya tampil di table view */}
+          {viewMode === 'table' && (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Cari order, customer, status..."
+                className="pl-10 w-80"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          )}
           <div className="flex items-center space-x-2">
             {/* Tombol Refresh */}
             <Button
@@ -359,6 +457,7 @@ const Orderan = () => {
           onPrint={handlePrintSuccess}
           title="Print Nota"
           printType="nota"
+          preventCloseOnOutsideClick={true}
           orderData={{
             orderNumber: printOrderData.order_number,
             customerName: printOrderData.customer_name,
@@ -366,6 +465,7 @@ const Orderan = () => {
             desain: printOrderData.biaya_lain || 0,
             biayaLainnya: printOrderData.biaya_lain || 0,
             downPayment: printOrderData.down_payment || 0,
+            pelunasan: printOrderData.pelunasan || 0,
             estimasi: printOrderData.estimasi,
             estimasiWaktu: printOrderData.waktu,
             komputer: printOrderData.admin?.nama,

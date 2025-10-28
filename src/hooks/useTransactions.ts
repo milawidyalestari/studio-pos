@@ -1,6 +1,6 @@
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 
 export interface Transaction {
   id: string;
@@ -22,31 +22,14 @@ export const useTransactions = () => {
     queryFn: async () => {
       console.log('Fetching all transactions from database...');
       
-      const { data, error } = await supabase
-        .from('transactions')
-        .select(`
-          *,
-          orders!transactions_order_id_fkey (
-            order_number
-          )
-        `)
-        .order('transaction_date', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching transactions:', error);
-        throw error;
-      }
+      const data = await databaseService.query<Transaction>('transactions', {
+        orderBy: { column: 'transaction_date', direction: 'desc' }
+      });
 
       console.log('Transactions fetched successfully:', data);
       console.log('Total transactions found:', data?.length || 0);
       
-      // Transform the data to flatten the order_number
-      const transformedData = data?.map(transaction => ({
-        ...transaction,
-        order_number: transaction.orders?.order_number || null
-      })) || [];
-      
-      return transformedData as Transaction[];
+      return data;
     },
     staleTime: 30000, // 30 seconds
     refetchOnMount: true,

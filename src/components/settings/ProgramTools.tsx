@@ -6,7 +6,7 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { Download, Upload, RefreshCw, Trash2, Database, FileText, AlertTriangle, CheckCircle, Loader2, Settings, Monitor, HardDrive, Network, Shield } from 'lucide-react';
 import { exportService } from '@/services/exportService';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -90,7 +90,7 @@ export const ProgramTools = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `studio-pos-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `azuro-backup-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -282,7 +282,7 @@ export const ProgramTools = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `studio-pos-export-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `azuro-export-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

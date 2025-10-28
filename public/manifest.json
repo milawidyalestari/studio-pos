@@ -1,7 +1,7 @@
 {
-  "name": "Studio POS - Digital Print Control",
+  "name": "Studio POS",
   "short_name": "Studio POS",
-  "description": "Sistem Point of Sale untuk Digital Printing Studio",
+  "description": "Sistem POS Terintergrasi Untuk Bisnis Percetakan Anda",
   "start_url": "/",
   "display": "standalone",
   "theme_color": "#1E88E5",

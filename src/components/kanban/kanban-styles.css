@@ -1,0 +1,90 @@
+/* Custom placeholder styling for react-beautiful-dnd */
+.react-beautiful-dnd-placeholder {
+  background: #e0f2fe;
+  border: 2px dashed #0ea5e9;
+  border-radius: 8px;
+  height: 4px;
+  opacity: 0.8;
+  animation: kanban-pulse 1.5s ease-in-out infinite;
+  margin: 8px 0;
+}
+
+@keyframes kanban-pulse {
+  0%, 100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* Smooth transitions for cards */
+.kanban-card {
+  transition: all 0.15s ease-out;
+}
+
+.kanban-card:hover {
+  box-shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.kanban-card.dragging {
+  box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.15);
+  opacity: 0.6;
+  transform: rotate(2deg) scale(1.02);
+}
+
+.kanban-card.optimistically-moved {
+  --tw-ring-color: rgba(59, 130, 246, 0.6);
+  --tw-ring-width: 2px;
+  background-color: rgba(239, 246, 255, 0.3);
+  border-color: #3b82f6;
+}
+
+/* Notion-style drag over effect */
+.kanban-column-drag-over {
+  background-color: rgba(59, 130, 246, 0.05);
+  border: 2px dashed #3b82f6;
+  border-radius: 8px;
+}
+
+/* Enhanced droppable area for entire column */
+.kanban-droppable-area {
+  min-height: 400px;
+  transition: all 0.2s ease-in-out;
+}
+
+.kanban-droppable-area.dragging-over {
+  background-color: rgba(59, 130, 246, 0.1);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* Hide scrollbars for kanban columns */
+.kanban-column-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.kanban-column-scroll {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Enhanced scrollbar styling for main container */
+.kanban-scroll-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.kanban-scroll-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.kanban-scroll-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.kanban-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

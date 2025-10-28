@@ -1,12 +1,13 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 
 export interface PaymentType {
   id: string;
   code: string;
   type: string;
   payment_method: string;
+  account_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -17,18 +18,12 @@ export const usePaymentTypes = () => {
     queryFn: async () => {
       console.log('Fetching payment types from database...');
       
-      const { data, error } = await supabase
-        .from('payment_types')
-        .select('*')
-        .order('type', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching payment types:', error);
-        throw error;
-      }
+      const data = await databaseService.query<PaymentType>('payment_types', {
+        orderBy: { column: 'type', direction: 'asc' }
+      });
 
       console.log('Payment types fetched successfully:', data);
-      return data as PaymentType[];
+      return data;
     },
   });
 };
@@ -38,14 +33,7 @@ export const useCreatePaymentType = () => {
   
   return useMutation({
     mutationFn: async (paymentTypeData: Omit<PaymentType, 'id' | 'created_at' | 'updated_at'>) => {
-      const { data, error } = await supabase
-        .from('payment_types')
-        .insert([paymentTypeData])
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return await databaseService.create<PaymentType>('payment_types', paymentTypeData as Omit<PaymentType, 'id'>);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payment-types'] });
@@ -58,15 +46,7 @@ export const useUpdatePaymentType = () => {
   
   return useMutation({
     mutationFn: async ({ id, ...paymentTypeData }: Partial<PaymentType> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('payment_types')
-        .update(paymentTypeData)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return await databaseService.update('payment_types', id, paymentTypeData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payment-types'] });
@@ -79,12 +59,7 @@ export const useDeletePaymentType = () => {
   
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('payment_types')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      await databaseService.delete('payment_types', id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payment-types'] });

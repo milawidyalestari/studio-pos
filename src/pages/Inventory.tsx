@@ -21,7 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ProductForm } from '@/components/ProductForm';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 import { useMaterials } from '@/hooks/useMaterials';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label as ShadLabel } from '@/components/ui/label';
@@ -105,16 +105,18 @@ const Inventory = () => {
   // Fetch log mutasi stok seluruh bahan
   const fetchLogs = async (page = 1) => {
     setLogsLoading(true);
-    const from = (page - 1) * LOGS_PER_PAGE;
-    const to = from + LOGS_PER_PAGE - 1;
-    const { data, error, count } = await supabase
-      .from('inventory_movements')
-      .select('*, material:materials(nama)', { count: 'exact' })
-      .order('tanggal', { ascending: false })
-      .range(from, to);
-    if (!error && data) {
+    try {
+      const from = (page - 1) * LOGS_PER_PAGE;
+      const data = await databaseService.query('inventory_movements', {
+        orderBy: { column: 'tanggal', direction: 'desc' },
+        limit: LOGS_PER_PAGE,
+        offset: from
+      });
       setLogs(data);
-      setLogTotal(count || 0);
+      // Note: count is not directly available in databaseService, using data.length as approximation
+      setLogTotal(data.length);
+    } catch (error) {
+      console.error('Error fetching inventory logs:', error);
     }
     setLogsLoading(false);
   };
@@ -125,21 +127,25 @@ const Inventory = () => {
 
   // Fungsi untuk generate kode otomatis
   const generateKodeBahan = async () => {
-    // Ambil kode terakhir dari tabel materials
-    const { data, error } = await supabase
-      .from('materials')
-      .select('kode')
-      .order('kode', { ascending: false })
-      .limit(1);
-    let nextNumber = 1;
-    if (data && data.length > 0 && data[0].kode) {
-      const match = data[0].kode.match(/^BHN(\d{4})$/);
-      if (match) {
-        nextNumber = parseInt(match[1], 10) + 1;
+    try {
+      // Ambil kode terakhir dari tabel materials
+      const data = await databaseService.query('materials', {
+        select: 'kode',
+        orderBy: { column: 'kode', direction: 'desc' },
+        limit: 1
+      });
+      let nextNumber = 1;
+      if (data && data.length > 0 && data[0].kode) {
+        const match = data[0].kode.match(/^BHN(\d{4})$/);
+        if (match) {
+          nextNumber = parseInt(match[1], 10) + 1;
+        }
       }
+      const newKode = `BHN${nextNumber.toString().padStart(4, '0')}`;
+      setAddForm(prev => ({ ...prev, kode: newKode }));
+    } catch (error) {
+      console.error('Error generating kode bahan:', error);
     }
-    const newKode = `BHN${nextNumber.toString().padStart(4, '0')}`;
-    setAddForm(prev => ({ ...prev, kode: newKode }));
   };
 
   useEffect(() => {
@@ -199,11 +205,17 @@ const Inventory = () => {
 
   const { data: units = [], isLoading: unitsLoading, error: unitsError } = useUnits();
 
-  // Ambil data kategori dari Supabase
+  // Ambil data kategori dari database
   useEffect(() => {
     const fetchCategories = async () => {
-      const { data, error } = await supabase.from('categories').select('id, category_name');
-      if (!error && data) setCategories(data);
+      try {
+        const data = await databaseService.query('categories', {
+          select: 'id, category_name'
+        });
+        setCategories(data);
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      }
     };
     fetchCategories();
   }, []);
@@ -268,15 +280,14 @@ const Inventory = () => {
     
 
     
-    const { data: inserted, error } = await supabase.from('materials').insert([payload]).select();
-    setAddLoading(false);
-    if (error) {
-      toast({ title: 'Error', description: 'Gagal menambah item', variant: 'destructive' });
-    } else {
+    try {
+      const inserted = await databaseService.create('materials', payload);
+      setAddLoading(false);
+      
       // Catat mutasi stok awal jika ada
-      if (payload.stok_awal > 0 && inserted && inserted[0]) {
-        await supabase.from('inventory_movements').insert({
-          material_id: inserted[0].id,
+      if (payload.stok_awal > 0 && inserted) {
+        await databaseService.create('inventory_movements', {
+          material_id: inserted.id,
           tanggal: dayjs().toISOString(),
           tipe_mutasi: 'stok_awal',
           jumlah: payload.stok_awal,
@@ -289,6 +300,9 @@ const Inventory = () => {
       setAddForm({ kode: '', nama: '', satuan: '', lebar_maksimum: '', stok_awal: '', stok_masuk: '', stok_keluar: '', stok_akhir: '', stok_opname: '', stok_aktif: false, stok_minimum: '', kategori: '' });
       setErrors({});
       refetch();
+    } catch (error) {
+      setAddLoading(false);
+      toast({ title: 'Error', description: 'Gagal menambah item', variant: 'destructive' });
     }
   };
 
@@ -327,20 +341,20 @@ const Inventory = () => {
     
 
     
-    const { error } = await supabase.from('materials').update(payload).eq('id', editingMaterial.id);
-    if (error) {
-      toast({ title: 'Error', description: 'Gagal update item', variant: 'destructive' });
-    } else {
+    try {
+      await databaseService.update('materials', editingMaterial.id, payload);
       toast({ title: 'Success', description: 'Item berhasil diupdate' });
       setIsEditFormOpen(false);
       setEditingMaterial(null);
       refetch();
+    } catch (error) {
+      toast({ title: 'Error', description: 'Gagal update item', variant: 'destructive' });
     }
     // Koreksi stok_awal
     const prevStokAwal = editingMaterial.stok_awal;
     const newStokAwal = payload.stok_awal;
     if (prevStokAwal !== undefined && newStokAwal !== undefined && prevStokAwal !== newStokAwal) {
-      await supabase.from('inventory_movements').insert({
+      await databaseService.create('inventory_movements', {
         material_id: editingMaterial.id,
         tanggal: dayjs().toISOString(),
         tipe_mutasi: 'koreksi',
@@ -353,7 +367,7 @@ const Inventory = () => {
     const prevStokAkhir = editingMaterial.stok_akhir;
     const newStokAkhir = payload.stok_akhir;
     if (prevStokAkhir !== undefined && newStokAkhir !== undefined && prevStokAkhir !== newStokAkhir) {
-      await supabase.from('inventory_movements').insert({
+      await databaseService.create('inventory_movements', {
         material_id: editingMaterial.id,
         tanggal: dayjs().toISOString(),
         tipe_mutasi: 'koreksi',
@@ -366,7 +380,7 @@ const Inventory = () => {
     const prevStokMasuk = editingMaterial.stok_masuk;
     const newStokMasuk = payload.stok_masuk;
     if (prevStokMasuk !== undefined && newStokMasuk !== undefined && prevStokMasuk !== newStokMasuk) {
-      await supabase.from('inventory_movements').insert({
+      await databaseService.create('inventory_movements', {
         material_id: editingMaterial.id,
         tanggal: dayjs().toISOString(),
         tipe_mutasi: 'koreksi',
@@ -379,7 +393,7 @@ const Inventory = () => {
     const prevStokKeluar = editingMaterial.stok_keluar;
     const newStokKeluar = payload.stok_keluar;
     if (prevStokKeluar !== undefined && newStokKeluar !== undefined && prevStokKeluar !== newStokKeluar) {
-      await supabase.from('inventory_movements').insert({
+      await databaseService.create('inventory_movements', {
         material_id: editingMaterial.id,
         tanggal: dayjs().toISOString(),
         tipe_mutasi: 'koreksi',
@@ -393,7 +407,11 @@ const Inventory = () => {
   // Handler hapus item
   const handleDeleteMaterial = async (id: string) => {
     if (!window.confirm('Yakin ingin menghapus item ini?')) return;
-    const { error } = await supabase.from('materials').delete().eq('id', id);
+    try {
+      await databaseService.delete('materials', id);
+    } catch (error) {
+      console.error('Error deleting material:', error);
+    }
     if (error) {
       toast({ title: 'Error', description: 'Gagal menghapus item', variant: 'destructive' });
     } else {
@@ -405,7 +423,7 @@ const Inventory = () => {
   const handleBackup = async () => {
     setBackupLoading(true);
     try {
-      const { data, error } = await supabase.from('materials').select('*');
+      const data = await databaseService.query('materials');
       if (error) throw error;
       const json = JSON.stringify(data, null, 2);
       const blob = new Blob([json], { type: 'application/json' });
@@ -432,7 +450,11 @@ const Inventory = () => {
       const data = JSON.parse(text);
       if (!Array.isArray(data)) throw new Error('Format file tidak valid');
       // Upsert data ke tabel materials
-      const { error } = await supabase.from('materials').upsert(data, { onConflict: 'id' });
+      try {
+      await databaseService.upsert('materials', data);
+    } catch (error) {
+      console.error('Error upserting materials:', error);
+    }
       if (error) throw error;
       toast({ title: 'Restore berhasil', description: 'Data stok berhasil direstore.' });
       setIsSettingOpen(false);
@@ -492,7 +514,11 @@ const Inventory = () => {
       }
       if (!Array.isArray(data) || data.length === 0) throw new Error('File kosong atau format tidak valid');
       // Upsert ke tabel materials
-      const { error } = await supabase.from('materials').upsert(data, { onConflict: 'id' });
+      try {
+      await databaseService.upsert('materials', data);
+    } catch (error) {
+      console.error('Error upserting materials:', error);
+    }
       if (error) throw error;
       toast({ title: 'Import berhasil', description: 'Data stok berhasil diimport.' });
       refetch();
@@ -1009,7 +1035,7 @@ const Inventory = () => {
                 }
                 updatePayload.stok_akhir = newStokAkhir;
               }
-              await supabase.from('materials').update(updatePayload).eq('id', material.id);
+              await databaseService.update('materials', material.id, updatePayload);
               setInputStokLoading(false);
               setIsInputStokOpen(false);
               setInputStokForm({ materialId: '', stok_masuk: '', stok_opname: '' });
@@ -1017,7 +1043,7 @@ const Inventory = () => {
               refetch();
               // Catat mutasi stok
               if (inputStokMode === 'input') {
-                await supabase.from('inventory_movements').insert({
+                await databaseService.create('inventory_movements', {
                   material_id: material.id,
                   tanggal: dayjs().toISOString(),
                   tipe_mutasi: stokOpname !== null ? 'opname' : 'masuk',
@@ -1026,7 +1052,7 @@ const Inventory = () => {
                   user_id: null,
                 });
               } else if (inputStokMode === 'usage') {
-                await supabase.from('inventory_movements').insert({
+                await databaseService.create('inventory_movements', {
                   material_id: material.id,
                   tanggal: dayjs().toISOString(),
                   tipe_mutasi: stokOpname !== null ? 'opname' : 'keluar',

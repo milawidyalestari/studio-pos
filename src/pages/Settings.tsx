@@ -21,7 +21,7 @@ const Settings = () => {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6 space-y-6">
       <SettingsTabs />
     </div>
   );

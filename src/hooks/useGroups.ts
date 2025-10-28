@@ -1,6 +1,6 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 
 export interface Group {
   id: string;
@@ -16,18 +16,12 @@ export const useGroups = () => {
     queryFn: async () => {
       console.log('Fetching groups from database...');
       
-      const { data, error } = await supabase
-        .from('groups')
-        .select('*')
-        .order('name', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching groups:', error);
-        throw error;
-      }
+      const data = await databaseService.query<Group>('groups', {
+        orderBy: { column: 'name', direction: 'asc' }
+      });
 
       console.log('Groups fetched successfully:', data);
-      return data as Group[];
+      return data;
     },
   });
 };
@@ -37,14 +31,7 @@ export const useCreateGroup = () => {
   
   return useMutation({
     mutationFn: async (groupData: Omit<Group, 'id' | 'created_at' | 'updated_at'>) => {
-      const { data, error } = await supabase
-        .from('groups')
-        .insert([groupData])
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return await databaseService.create<Group>('groups', groupData as Omit<Group, 'id'>);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['groups'] });
@@ -57,15 +44,7 @@ export const useUpdateGroup = () => {
   
   return useMutation({
     mutationFn: async ({ id, ...groupData }: Partial<Group> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('groups')
-        .update(groupData)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return await databaseService.update('groups', id, groupData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['groups'] });
@@ -78,12 +57,7 @@ export const useDeleteGroup = () => {
   
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('groups')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      await databaseService.delete('groups', id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['groups'] });

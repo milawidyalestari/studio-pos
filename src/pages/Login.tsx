@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { supabase } from '@/integrations/supabase/client';
-import bcrypt from 'bcryptjs';
+import { authService } from '@/services/authService';
 import { RoleAccessContext } from '@/context/RoleAccessContext';
 
 const DUMMY_USERS = [
@@ -22,36 +21,41 @@ const Login = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Ambil employee dari Supabase berdasarkan username
-    const { data, error } = await supabase
-      .from('employees')
-      .select('id, nama, username, password, role, status')
-      .eq('username', username)
-      .single();
-    if (error || !data) {
-      setError('Username tidak ditemukan');
+    
+    if (!username.trim() || !password.trim()) {
+      setError('Username dan password harus diisi');
       return;
     }
-    if (data.status !== 'Active') {
-      setError('Akun Anda tidak aktif');
-      return;
+
+    try {
+      setError('');
+      
+      // Use authService for authentication
+      const result = await authService.login({ username, password });
+      
+      if (!result.success) {
+        setError(result.error || 'Login gagal');
+        return;
+      }
+
+      if (!result.user) {
+        setError('User data tidak ditemukan');
+        return;
+      }
+
+      // Save user to session
+      authService.saveUser(result.user);
+      
+      // Refresh role permissions
+      await refresh(result.user.role);
+      
+      // Navigate to dashboard
+      navigate('/');
+      
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('Terjadi kesalahan saat login');
     }
-    const passwordMatch = await bcrypt.compare(password, data.password);
-    if (!passwordMatch) {
-      setError('Password salah');
-      return;
-    }
-    // Simpan user ke localStorage
-    localStorage.setItem('studio_pos_user', JSON.stringify({
-      id: data.id,
-      nama: data.nama,
-      username: data.username,
-      role: data.role,
-      status: data.status
-    }));
-    setError('');
-    await refresh(data.role); // fetch permissions dari database
-    navigate('/');
   };
 
   return (

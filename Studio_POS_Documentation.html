@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Studio POS - Dokumentasi Lengkap</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #fff;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            margin-top: 30px;
+        }
+        
+        h2 {
+            color: #34495e;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 5px;
+            margin-top: 25px;
+        }
+        
+        h3 {
+            color: #7f8c8d;
+            margin-top: 20px;
+        }
+        
+        h4 {
+            color: #95a5a6;
+            margin-top: 15px;
+        }
+        
+        code {
+            background: #f8f9fa;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            color: #e74c3c;
+        }
+        
+        pre {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        
+        pre code {
+            background: none;
+            color: #ecf0f1;
+            padding: 0;
+        }
+        
+        blockquote {
+            border-left: 4px solid #3498db;
+            margin: 20px 0;
+            padding: 10px 20px;
+            background: #f8f9fa;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        
+        th {
+            background: #3498db;
+            color: white;
+        }
+        
+        tr:nth-child(even) {
+            background: #f2f2f2;
+        }
+        
+        ul, ol {
+            margin: 10px 0;
+            padding-left: 30px;
+        }
+        
+        li {
+            margin: 5px 0;
+        }
+        
+        .toc {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        
+        .toc h2 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        
+        .toc ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        
+        .toc li {
+            margin: 8px 0;
+        }
+        
+        .toc a {
+            text-decoration: none;
+            color: #3498db;
+        }
+        
+        .toc a:hover {
+            text-decoration: underline;
+        }
+        
+        .highlight {
+            background: #fff3cd;
+            padding: 10px;
+            border-left: 4px solid #ffc107;
+            margin: 10px 0;
+        }
+        
+        .success {
+            background: #d4edda;
+            padding: 10px;
+            border-left: 4px solid #28a745;
+            margin: 10px 0;
+        }
+        
+        .warning {
+            background: #f8d7da;
+            padding: 10px;
+            border-left: 4px solid #dc3545;
+            margin: 10px 0;
+        }
+        
+        .info {
+            background: #d1ecf1;
+            padding: 10px;
+            border-left: 4px solid #17a2b8;
+            margin: 10px 0;
+        }
+        
+        @media print {
+            body {
+                max-width: none;
+                margin: 0;
+                padding: 15px;
+            }
+            
+            h1, h2, h3, h4 {
+                page-break-after: avoid;
+            }
+            
+            pre, blockquote {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>📊 Studio POS - Sistem Point of Sale untuk Digital Printing</h1>
+    <h2>Dokumentasi Lengkap Program</h2>
+
+    <div class="toc">
+        <h2>📋 Daftar Isi</h2>
+        <ul>
+            <li><a href="#overview-program">1. Overview Program</a></li>
+            <li><a href="#fitur-utama">2. Fitur Utama</a></li>
+            <li><a href="#arsitektur-sistem">3. Arsitektur Sistem</a></li>
+            <li><a href="#setup--instalasi">4. Setup & Instalasi</a></li>
+            <li><a href="#integrasi-akuntansi">5. Integrasi Akuntansi</a></li>
+            <li><a href="#panduan-penggunaan">6. Panduan Penggunaan</a></li>
+            <li><a href="#api--services">7. API & Services</a></li>
+            <li><a href="#database-schema">8. Database Schema</a></li>
+            <li><a href="#troubleshooting">9. Troubleshooting</a></li>
+            <li><a href="#maintenance">10. Maintenance</a></li>
+        </ul>
+    </div>
+
+    <h1 id="overview-program">🎯 Overview Program</h1>
+
+    <h2>Deskripsi</h2>
+    <p>Studio POS adalah sistem Point of Sale (POS) yang dirancang khusus untuk bisnis digital printing. Sistem ini terintegrasi penuh dengan sistem akuntansi double-entry dan mendukung berbagai mode operasi (web, desktop, native).</p>
+
+    <h2>Informasi Program</h2>
+    <ul>
+        <li><strong>Nama</strong>: Studio POS</li>
+        <li><strong>Versi</strong>: 1.0.0</li>
+        <li><strong>Platform</strong>: Web, Desktop (Electron), Native</li>
+        <li><strong>Database</strong>: PostgreSQL, SQLite, Local Storage</li>
+        <li><strong>Framework</strong>: React + TypeScript + Vite</li>
+        <li><strong>Author</strong>: Studio POS Team</li>
+    </ul>
+
+    <h2>Teknologi yang Digunakan</h2>
+    <ul>
+        <li><strong>Frontend</strong>: React 18, TypeScript, Tailwind CSS</li>
+        <li><strong>Backend</strong>: Supabase, PostgreSQL</li>
+        <li><strong>Desktop</strong>: Electron</li>
+        <li><strong>Database</strong>: PostgreSQL, SQLite</li>
+        <li><strong>UI Components</strong>: Radix UI, Lucide React</li>
+        <li><strong>State Management</strong>: React Query, Context API</li>
+    </ul>
+
+    <h1 id="fitur-utama">🚀 Fitur Utama</h1>
+
+    <h2>1. Manajemen Order</h2>
+    <ul>
+        <li>✅ Pembuatan order dengan berbagai tipe pembayaran</li>
+        <li>✅ Kanban board untuk tracking status order</li>
+        <li>✅ Drag & drop interface untuk mengubah status</li>
+        <li>✅ Detail order dengan customer dan produk</li>
+        <li>✅ Support untuk partial payment (DP)</li>
+    </ul>
+
+    <h2>2. Manajemen Produk & Inventory</h2>
+    <ul>
+        <li>✅ Master data produk</li>
+        <li>✅ Kategori produk</li>
+        <li>✅ Stok management</li>
+        <li>✅ Harga dan margin tracking</li>
+    </ul>
+
+    <h2>3. Manajemen Customer</h2>
+    <ul>
+        <li>✅ Database customer</li>
+        <li>✅ History transaksi per customer</li>
+        <li>✅ Piutang tracking</li>
+    </ul>
+
+    <h2>4. Sistem Akuntansi Terintegrasi</h2>
+    <ul>
+        <li>✅ Double-entry accounting</li>
+        <li>✅ Auto-create journal entries</li>
+        <li>✅ Real-time cash balance update</li>
+        <li>✅ Outstanding receivables tracking</li>
+        <li>✅ Expense recording</li>
+    </ul>
+
+    <h2>5. Reporting & Analytics</h2>
+    <ul>
+        <li>✅ Dashboard dengan metrics real-time</li>
+        <li>✅ Sales summary</li>
+        <li>✅ Cash flow analysis</li>
+        <li>✅ Outstanding receivables report</li>
+    </ul>
+
+    <h2>6. Multi-Platform Support</h2>
+    <ul>
+        <li>✅ Web application</li>
+        <li>✅ Desktop application (Electron)</li>
+        <li>✅ Native mode dengan auto-detection</li>
+    </ul>
+
+    <h1 id="arsitektur-sistem">🏗️ Arsitektur Sistem</h1>
+
+    <h2>1. Frontend Layer</h2>
+    <pre><code>src/
+├── components/          # UI Components
+│   ├── kanban/         # Kanban board components
+│   ├── accounting/     # Accounting components
+│   └── common/         # Shared components
+├── pages/              # Page components
+├── services/           # API services
+├── hooks/              # Custom React hooks
+├── context/            # React context
+├── types/              # TypeScript types
+└── utils/              # Utility functions</code></pre>
+
+    <h2>2. Backend Layer</h2>
+    <pre><code>supabase/
+├── migrations/         # Database migrations
+├── functions/          # Edge functions
+└── config.toml         # Supabase config
+
+database/
+├── sqlite-schema.sql   # SQLite schema
+└── supabase-setup.sql  # Supabase setup</code></pre>
+
+    <h2>3. Desktop Layer</h2>
+    <pre><code>electron/
+├── main.js            # Main process
+├── preload.js         # Preload script
+└── assets/            # Electron assets</code></pre>
+
+    <h2>4. Service Layer</h2>
+    <ul>
+        <li><strong>POSAccountingService</strong>: Integrasi POS-Accounting</li>
+        <li><strong>AccountingService</strong>: Manajemen akuntansi</li>
+        <li><strong>PaymentMethodAccountService</strong>: Mapping pembayaran</li>
+        <li><strong>NativeDatabaseService</strong>: Database detection & setup</li>
+    </ul>
+
+    <h1 id="setup--instalasi">⚙️ Setup & Instalasi</h1>
+
+    <h2>Prerequisites</h2>
+    <ul>
+        <li>Node.js 18+</li>
+        <li>npm atau yarn</li>
+        <li>PostgreSQL (opsional)</li>
+        <li>Git</li>
+    </ul>
+
+    <h2>1. Clone Repository</h2>
+    <pre><code>git clone &lt;repository-url&gt;
+cd studio-pos</code></pre>
+
+    <h2>2. Install Dependencies</h2>
+    <pre><code>npm install</code></pre>
+
+    <h2>3. Environment Setup</h2>
+    <pre><code># Copy environment template
+cp .env.example .env
+
+# Edit .env dengan konfigurasi yang sesuai
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key</code></pre>
+
+    <h2>4. Database Setup</h2>
+
+    <h3>Option A: Supabase (Recommended)</h3>
+    <ol>
+        <li>Buka Supabase Dashboard</li>
+        <li>Buat project baru</li>
+        <li>Jalankan migration:
+            <pre><code>-- Copy & paste: scripts/setup-pos-accounting-integration.sql
+-- Klik Run</code></pre>
+        </li>
+    </ol>
+
+    <h3>Option B: Local PostgreSQL</h3>
+    <pre><code># Setup local database
+npm run setup:db</code></pre>
+
+    <h3>Option C: SQLite (Native Mode)</h3>
+    <pre><code># Aplikasi akan auto-detect dan setup SQLite
+npm run electron:dev</code></pre>
+
+    <h2>5. Run Application</h2>
+
+    <h3>Development Mode</h3>
+    <pre><code># Web mode
+npm run dev
+
+# Desktop mode
+npm run electron:dev
+
+# Native mode
+npm run native:dev</code></pre>
+
+    <h3>Production Build</h3>
+    <pre><code># Web build
+npm run build
+
+# Desktop build
+npm run electron:build
+
+# Native build
+npm run native:build</code></pre>
+
+    <h1 id="integrasi-akuntansi">💰 Integrasi Akuntansi</h1>
+
+    <h2>Konsep Dasar</h2>
+    <p>Sistem menggunakan <strong>prinsip double-entry accounting</strong> yang terintegrasi penuh dengan transaksi penjualan. Setiap transaksi POS otomatis menghasilkan jurnal akuntansi yang seimbang (debit = credit).</p>
+
+    <h2>Alur Kerja Akuntansi</h2>
+
+    <h3>1. Penjualan Tunai</h3>
+    <pre><code>Order (Status: Done) 
+    ↓
+Trigger: create_journal_entry_on_order_completion
+    ↓
+Jurnal: Debit Kas (1110), Credit Pendapatan (4100)
+    ↓
+Update Saldo Kas Real-time</code></pre>
+
+    <h3>2. Penjualan Kredit</h3>
+    <pre><code>Order (Status: Done) 
+    ↓
+Jurnal: Debit Piutang (1130), Credit Pendapatan (4100)
+    ↓
+Update Piutang Outstanding</code></pre>
+
+    <h3>3. Partial Payment</h3>
+    <pre><code>Order (Status: Done) 
+    ↓
+Jurnal: Debit Kas (1110) + Debit Piutang (1130), Credit Pendapatan (4100)
+    ↓
+Update Kas + Piutang</code></pre>
+
+    <h2>Chart of Accounts</h2>
+    <pre><code>Assets (1xxx):
+├── 1110 - Kas
+├── 1120 - Bank
+├── 1130 - Piutang Usaha
+└── 1140 - Persediaan
+
+Income (4xxx):
+└── 4100 - Pendapatan Penjualan
+
+Expenses (5xxx):
+├── 5100 - Harga Pokok Penjualan
+├── 5210 - Biaya Gaji
+├── 5220 - Biaya Sewa
+└── 5230 - Biaya Listrik</code></pre>
+
+    <h2>Database Functions</h2>
+    <ul>
+        <li><code>create_journal_entry_from_order()</code> - Auto-create jurnal dari order</li>
+        <li><code>record_payment_receipt()</code> - Catat pelunasan piutang</li>
+        <li><code>record_expense()</code> - Catat pengeluaran</li>
+        <li><code>validate_journal_entry()</code> - Validasi keseimbangan</li>
+    </ul>
+
+    <h1 id="panduan-penggunaan">📖 Panduan Penggunaan</h1>
+
+    <h2>1. Login & Setup Awal</h2>
+
+    <h3>Default Credentials</h3>
+    <ul>
+        <li><strong>Username</strong>: admin</li>
+        <li><strong>Password</strong>: admin123</li>
+        <li><strong>Role</strong>: admin</li>
+    </ul>
+
+    <h3>First Run Setup</h3>
+    <ol>
+        <li>Aplikasi akan auto-detect database</li>
+        <li>Setup otomatis jika first run</li>
+        <li>Login dengan credentials default</li>
+    </ol>
+
+    <h2>2. Manajemen Order</h2>
+
+    <h3>Membuat Order Baru</h3>
+    <ol>
+        <li>Buka halaman "Orderan"</li>
+        <li>Klik "Tambah Order"</li>
+        <li>Isi detail customer dan produk</li>
+        <li>Pilih tipe pembayaran</li>
+        <li>Simpan order</li>
+    </ol>
+
+    <h3>Mengubah Status Order</h3>
+    <ol>
+        <li>Drag & drop order di kanban board</li>
+        <li>Atau klik tombol status di detail order</li>
+        <li>Status "Done" akan trigger jurnal akuntansi</li>
+    </ol>
+
+    <h2>3. Manajemen Akuntansi</h2>
+
+    <h3>Dashboard Akuntansi</h3>
+    <ul>
+        <li>Saldo kas real-time</li>
+        <li>Total penjualan hari ini</li>
+        <li>Piutang outstanding</li>
+        <li>Cash flow summary</li>
+    </ul>
+
+    <h3>Catat Pelunasan Piutang</h3>
+    <ol>
+        <li>Buka tabel "Outstanding Receivables"</li>
+        <li>Klik "Catat Bayar" untuk order yang dilunasi</li>
+        <li>Input jumlah dan metode pembayaran</li>
+        <li>Simpan</li>
+    </ol>
+
+    <h3>Catat Pengeluaran</h3>
+    <ol>
+        <li>Buka dialog "Record Expense"</li>
+        <li>Pilih kategori biaya</li>
+        <li>Input jumlah dan deskripsi</li>
+        <li>Simpan</li>
+    </ol>
+
+    <h2>4. Monitoring & Reporting</h2>
+
+    <h3>Dashboard Metrics</h3>
+    <ul>
+        <li>Real-time monitoring saldo kas</li>
+        <li>Penjualan harian</li>
+        <li>Piutang yang perlu ditagih</li>
+        <li>Order status tracking</li>
+    </ul>
+
+    <h3>Laporan Akuntansi</h3>
+    <ul>
+        <li>Trial Balance</li>
+        <li>Balance Sheet</li>
+        <li>Profit & Loss</li>
+        <li>Cash Flow Statement</li>
+    </ul>
+
+    <h1 id="api--services">🔧 API & Services</h1>
+
+    <h2>POSAccountingService</h2>
+    <pre><code>class POSAccountingService {
+  // Catat pelunasan piutang
+  async recordPaymentReceipt(data: PaymentReceiptData): Promise&lt;ApiResponse&gt;
+  
+  // Catat pengeluaran
+  async recordExpense(data: ExpenseData): Promise&lt;ApiResponse&gt;
+  
+  // Get journal entries per order
+  async getOrderJournalEntries(orderId: string): Promise&lt;ApiResponse&gt;
+  
+  // Get sales summary
+  async getSalesSummary(startDate: string, endDate: string): Promise&lt;ApiResponse&gt;
+  
+  // Get outstanding receivables
+  async getOutstandingReceivables(): Promise&lt;ApiResponse&gt;
+  
+  // Get cash flow
+  async getCashFlow(startDate: string, endDate: string): Promise&lt;ApiResponse&gt;
+  
+  // Get account balance
+  async getAccountBalance(accountCode: string): Promise&lt;ApiResponse&gt;
+}</code></pre>
+
+    <h2>React Hooks</h2>
+    <pre><code>// Main accounting hook
+const { data, loading, error } = usePOSAccounting();
+
+// Cash balance hook
+const { balance, loading } = useCashBalance();
+
+// Total receivables hook
+const { total, loading } = useTotalReceivables();
+
+// Accounting metrics hook
+const { metrics, loading } = useAccountingMetrics();</code></pre>
+
+    <h1 id="database-schema">🗄️ Database Schema</h1>
+
+    <h2>Core Tables</h2>
+    <pre><code>-- Orders table
+CREATE TABLE orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_number VARCHAR(50) UNIQUE NOT NULL,
+  customer_id UUID REFERENCES customers(id),
+  total_amount DECIMAL(15,2) NOT NULL,
+  payment_type VARCHAR(20) NOT NULL,
+  status VARCHAR(20) DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Chart of accounts
+CREATE TABLE chart_of_accounts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_code VARCHAR(10) UNIQUE NOT NULL,
+  account_name VARCHAR(100) NOT NULL,
+  account_type VARCHAR(20) NOT NULL,
+  is_active BOOLEAN DEFAULT true
+);
+
+-- Journal entries
+CREATE TABLE journal_entries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entry_number VARCHAR(50) UNIQUE NOT NULL,
+  entry_date DATE NOT NULL,
+  description TEXT,
+  total_debit DECIMAL(15,2) NOT NULL,
+  total_credit DECIMAL(15,2) NOT NULL,
+  status VARCHAR(20) DEFAULT 'draft',
+  reference_id UUID,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Journal entry lines
+CREATE TABLE journal_entry_lines (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  journal_entry_id UUID REFERENCES journal_entries(id),
+  account_id UUID REFERENCES chart_of_accounts(id),
+  debit_amount DECIMAL(15,2) DEFAULT 0,
+  credit_amount DECIMAL(15,2) DEFAULT 0,
+  description TEXT
+);</code></pre>
+
+    <h2>Views</h2>
+    <pre><code>-- Order journal entries view
+CREATE VIEW v_order_journal_entries AS
+SELECT o.*, je.*, je.entry_number
+FROM orders o
+LEFT JOIN journal_entries je ON je.reference_id = o.id;
+
+-- Outstanding receivables view
+CREATE VIEW v_outstanding_receivables AS
+SELECT o.*, 
+       o.total_amount - COALESCE(SUM(p.amount), 0) as remaining_payment,
+       CURRENT_DATE - o.created_at::date as days_outstanding
+FROM orders o
+LEFT JOIN payment_receipts p ON p.order_id = o.id
+WHERE o.payment_type = 'credit' 
+  AND o.status = 'done'
+  AND o.total_amount > COALESCE(SUM(p.amount), 0)
+GROUP BY o.id;</code></pre>
+
+    <h1 id="troubleshooting">🛠️ Troubleshooting</h1>
+
+    <h2>Common Issues</h2>
+
+    <h3>1. Database Connection Error</h3>
+    <p><strong>Problem</strong>: Aplikasi tidak bisa connect ke database</p>
+    <p><strong>Solution</strong>:</p>
+    <pre><code># Cek koneksi database
+npm run setup:db
+
+# Reset database
+npm run migrate:full</code></pre>
+
+    <h3>2. Journal Entry Tidak Terbuat Otomatis</h3>
+    <p><strong>Problem</strong>: Order status "Done" tapi jurnal tidak terbuat</p>
+    <p><strong>Solution</strong>:</p>
+    <pre><code>-- Cek trigger aktif
+SELECT * FROM information_schema.triggers 
+WHERE trigger_name = 'create_journal_entry_on_order_completion';
+
+-- Jika tidak ada, jalankan setup ulang
+-- scripts/setup-pos-accounting-integration.sql</code></pre>
+
+    <h3>3. Saldo Kas Tidak Update</h3>
+    <p><strong>Problem</strong>: Transaksi tercatat tapi saldo kas tidak berubah</p>
+    <p><strong>Solution</strong>:</p>
+    <pre><code>-- Update manual saldo kas
+UPDATE cash_accounts 
+SET current_balance = (
+  SELECT SUM(debit_amount - credit_amount) 
+  FROM journal_entry_lines jel
+  JOIN journal_entries je ON jel.journal_entry_id = je.id
+  WHERE jel.account_id = (SELECT id FROM chart_of_accounts WHERE account_code = '1110')
+  AND je.status = 'posted'
+)
+WHERE is_primary = true;</code></pre>
+
+    <h3>4. Login Issues</h3>
+    <p><strong>Problem</strong>: Tidak bisa login dengan credentials default</p>
+    <p><strong>Solution</strong>:</p>
+    <pre><code># Clear localStorage
+localStorage.clear()
+
+# Restart aplikasi
+npm run electron:dev</code></pre>
+
+    <h2>Error Codes</h2>
+    <ul>
+        <li><strong>E001</strong>: Database connection failed</li>
+        <li><strong>E002</strong>: Required accounting accounts not found</li>
+        <li><strong>E003</strong>: Journal entry validation failed</li>
+        <li><strong>E004</strong>: Insufficient permissions</li>
+        <li><strong>E005</strong>: Invalid payment method</li>
+    </ul>
+
+    <h1 id="maintenance">🔄 Maintenance</h1>
+
+    <h2>Daily Tasks</h2>
+    <ul>
+        <li>✅ Cek saldo kas vs kas fisik</li>
+        <li>✅ Review outstanding receivables</li>
+        <li>✅ Verifikasi transaksi hari ini</li>
+        <li>✅ Backup data harian</li>
+    </ul>
+
+    <h2>Weekly Tasks</h2>
+    <ul>
+        <li>✅ Generate trial balance</li>
+        <li>✅ Review expense accounts</li>
+        <li>✅ Backup accounting data</li>
+        <li>✅ Update product prices</li>
+    </ul>
+
+    <h2>Monthly Tasks</h2>
+    <ul>
+        <li>✅ Generate profit & loss statement</li>
+        <li>✅ Generate balance sheet</li>
+        <li>✅ Review dan close period</li>
+        <li>✅ Archive old data</li>
+    </ul>
+
+    <h2>Backup Strategy</h2>
+    <pre><code># Database backup
+pg_dump studio_pos > backup_$(date +%Y%m%d).sql
+
+# Application backup
+tar -czf studio_pos_backup_$(date +%Y%m%d).tar.gz studio-pos/</code></pre>
+
+    <h1>📞 Support & Contact</h1>
+
+    <h2>Documentation</h2>
+    <ul>
+        <li><strong>Main Docs</strong>: <code>POS_ACCOUNTING_INTEGRATION.md</code></li>
+        <li><strong>Quick Start</strong>: <code>QUICK_START_ACCOUNTING.md</code></li>
+        <li><strong>Setup Guide</strong>: <code>NATIVE_SETUP_GUIDE.md</code></li>
+        <li><strong>Implementation</strong>: <code>IMPLEMENTATION_CHECKLIST.md</code></li>
+    </ul>
+
+    <h2>File Structure</h2>
+    <pre><code>studio-pos/
+├── src/                    # Source code
+├── electron/               # Desktop app
+├── database/               # Database schemas
+├── scripts/                # Setup scripts
+├── supabase/               # Supabase config
+├── docs/                   # Documentation
+└── build-output/           # Build artifacts</code></pre>
+
+    <h2>Version History</h2>
+    <ul>
+        <li><strong>v1.0.0</strong> (2025-01-18): Initial release
+            <ul>
+                <li>Auto-create journal entries from orders</li>
+                <li>Support cash, credit, and partial payment</li>
+                <li>Payment receipt recording</li>
+                <li>Expense recording</li>
+                <li>Real-time cash account updates</li>
+                <li>Reporting views</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h1>🎉 Kesimpulan</h1>
+
+    <p>Studio POS adalah sistem Point of Sale yang lengkap dan terintegrasi dengan sistem akuntansi double-entry. Sistem ini dirancang khusus untuk bisnis digital printing dengan fitur-fitur:</p>
+
+    <h2>Keunggulan</h2>
+    <ul>
+        <li>✅ <strong>Otomatis</strong> - Jurnal otomatis terbuat saat order selesai</li>
+        <li>✅ <strong>Akurat</strong> - Double-entry accounting compliant</li>
+        <li>✅ <strong>Fleksibel</strong> - Support berbagai tipe pembayaran</li>
+        <li>✅ <strong>Traceable</strong> - Audit trail lengkap</li>
+        <li>✅ <strong>User-friendly</strong> - Interface yang mudah digunakan</li>
+        <li>✅ <strong>Scalable</strong> - Mudah dikembangkan</li>
+    </ul>
+
+    <h2>Target Pengguna</h2>
+    <ul>
+        <li>Bisnis digital printing</li>
+        <li>Toko retail dengan sistem akuntansi</li>
+        <li>E-commerce dengan integrasi POS</li>
+        <li>Usaha yang membutuhkan tracking piutang</li>
+    </ul>
+
+    <h2>Next Steps</h2>
+    <ol>
+        <li>Setup database sesuai panduan</li>
+        <li>Test integrasi dengan data sample</li>
+        <li>Training staff untuk penggunaan</li>
+        <li>Deploy ke production environment</li>
+        <li>Monitoring dan maintenance regular</li>
+    </ol>
+
+    <div class="info">
+        <h3>📄 Cara Mengkonversi ke PDF</h3>
+        <p>Untuk mengkonversi file HTML ini ke PDF:</p>
+        <ol>
+            <li>Buka file <code>Studio_POS_Documentation.html</code> di browser</li>
+            <li>Tekan <strong>Ctrl+P</strong> (Windows) atau <strong>Cmd+P</strong> (Mac)</li>
+            <li>Pilih "Save as PDF" sebagai destination</li>
+            <li>Atur margin dan pengaturan lainnya sesuai kebutuhan</li>
+            <li>Klik "Save" untuk menyimpan sebagai PDF</li>
+        </ol>
+        <p><strong>Alternatif:</strong> Gunakan online HTML to PDF converter seperti:</p>
+        <ul>
+            <li>https://html-pdf-converter.com/</li>
+            <li>https://www.ilovepdf.com/html_to_pdf</li>
+            <li>https://smallpdf.com/html-to-pdf</li>
+        </ul>
+    </div>
+
+    <hr>
+
+    <p><strong>Studio POS - Solusi POS Terintegrasi untuk Bisnis Digital Printing</strong> 🚀</p>
+
+    <hr>
+
+    <p><em>Dokumentasi ini dibuat pada: 18 Januari 2025</em><br>
+    <em>Versi: 1.0.0</em><br>
+    <em>Author: Studio POS Team</em></p>
+</body>
+</html>
+
+
+

@@ -866,11 +866,9 @@ const Report = () => {
       return { name: product.nama || product.kode, category: 'Kategori Tidak Diketahui' };
     }
     
-    // Product not found, return item_name with unknown category
     return { name: itemName, category: 'Kategori Tidak Diketahui' };
   };
 
-  // Calculate real sales data from filtered orders
   const calculateSalesData = () => {
     const filteredSalesOrders = getFilteredData.sales;
     
@@ -898,17 +896,13 @@ const Report = () => {
 
 
 
-    // Apply additional filtering based on search term and filter field for sales tab
     let filteredProductSales = Object.entries(productSales);
     
-    // Get current search term and filter for sales tab
     const currentSearchTerm = searchTerm.sales;
     const currentFilterField = filterField.sales;
     const currentFilterValue = filterValue.sales;
     
 
-    
-    // Apply search term filtering (global search for sales tab)
     if (currentSearchTerm && currentSearchTerm.trim() !== '') {
       const searchLower = currentSearchTerm.toLowerCase();
       filteredProductSales = filteredProductSales.filter(([product, data]) => {
@@ -921,7 +915,6 @@ const Report = () => {
 
     }
     
-    // Apply field-specific filtering
     if (currentFilterValue && currentFilterValue.trim() !== '') {
       const filterLower = currentFilterValue.toLowerCase();
       
@@ -959,7 +952,6 @@ const Report = () => {
     filterValue.sales
   ]);
 
-  // Calculate totals for summary cards based on filtered data
   const calculateTotals = () => {
     const dailyOrdersTotal = getFilteredData.dailyOrders.length;
     const salesTotal = getFilteredData.sales.length;
@@ -992,7 +984,6 @@ const Report = () => {
 
   const totals = calculateTotals();
 
-  // Helper function to format date range display
   const formatDateRange = () => {
     if (dateFilter === 'custom' && customDateRange.from) {
       if (customDateRange.to) {
@@ -1086,7 +1077,7 @@ const Report = () => {
       })(),
       downPayment: Number(order.down_payment) || 0,
       pelunasan: Number(order.pelunasan) || 0,
-      total: (order.total_amount || 0).toLocaleString('id-ID'),
+      total: Number(order.total_amount || 0),
       // Tambahkan informasi tanggal order asli vs tanggal pembayaran
       orderDate: order.created_at ? new Date(order.created_at).toLocaleDateString('id-ID') : 'N/A',
       paymentDate: order.payment_update ? new Date(order.payment_update).toLocaleDateString('id-ID') : 'N/A',
@@ -1096,8 +1087,11 @@ const Report = () => {
   const transactionsReportTotalRevenue = useMemo(() => {
     try {
       return transactionData.reduce((sum, tx) => {
-        const numeric = Number(String(tx.total).replace(/[^\d]/g, '')) || 0;
-        return sum + numeric;
+        // Handle both string and number types
+        const totalValue = typeof tx.total === 'string' 
+          ? Number(tx.total.replace(/[^\d.-]/g, '')) 
+          : Number(tx.total);
+        return sum + (isNaN(totalValue) ? 0 : totalValue);
       }, 0);
     } catch {
       return 0;
@@ -1462,7 +1456,7 @@ const Report = () => {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-gray-900 mb-2">Total Pendapatan</p>
-                      <p className="text-2xl font-bold text-gray-900">IDR {totals.dailyOrders.totalRevenue.toLocaleString('id-ID')}</p>
+                      <p className="text-2xl font-bold text-gray-900">IDR {Number(totals.dailyOrders.totalRevenue).toLocaleString('id-ID')}</p>
                     </div>
                     <Receipt className="h-5 w-5 text-blue-600 mt-1" />
                   </div>
@@ -1714,7 +1708,7 @@ const Report = () => {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-gray-900 mb-2">Total Pendapatan</p>
-                      <p className="text-2xl font-bold text-gray-900">IDR {totals.sales.totalRevenue.toLocaleString('id-ID')}</p>
+                      <p className="text-2xl font-bold text-gray-900">IDR {Number(totals.sales.totalRevenue).toLocaleString('id-ID')}</p>
                     </div>
                     <Receipt className="h-5 w-5 text-blue-600 mt-1" />
                   </div>
@@ -1906,7 +1900,7 @@ const Report = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.product}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.category}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.quantity}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[#0050C8]">IDR {item.revenue}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[#0050C8]">IDR {Number(item.revenue || 0).toLocaleString('id-ID')}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">{item.growth}</td>
                         </tr>
                       ))}
@@ -1972,7 +1966,7 @@ const Report = () => {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-gray-900 mb-2">Total Pendapatan</p>
-                      <p className="text-2xl font-bold text-gray-900">IDR {transactionsReportTotalRevenue.toLocaleString('id-ID')}</p>
+                      <p className="text-2xl font-bold text-gray-900">IDR {Number(transactionsReportTotalRevenue).toLocaleString('id-ID')}</p>
                     </div>
                     <BarChart3 className="h-5 w-5 text-blue-600 mt-1" />
                   </div>
@@ -2171,7 +2165,7 @@ const Report = () => {
                               )}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[#0050C8]">IDR {transaction.total}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[#0050C8]">IDR {Number(transaction.total || 0).toLocaleString('id-ID')}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -2249,7 +2243,7 @@ const Report = () => {
                     <div>
                       <span className="font-medium text-gray-700">Total Amount:</span>
                       <p className="text-gray-900 font-semibold">
-                        IDR {selectedOrderForItems.total_amount?.toLocaleString('id-ID') || '0'}
+                        IDR {Number(selectedOrderForItems.total_amount || 0).toLocaleString('id-ID')}
                       </p>
                     </div>
                   </div>
@@ -2281,7 +2275,7 @@ const Report = () => {
                                 {item.quantity}
                               </td>
                               <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">
-                                IDR {item.sub_total?.toLocaleString('id-ID') || '0'}
+                                IDR {Number(item.sub_total || 0).toLocaleString('id-ID')}
                               </td>
                             </tr>
                           ))

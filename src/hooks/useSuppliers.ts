@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -14,26 +14,15 @@ export const useSuppliers = () => {
   const { data: suppliers, isLoading } = useQuery({
     queryKey: ['suppliers'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('suppliers')
-        .select('*')
-        .order('name');
-
-      if (error) throw error;
-      return data as Supplier[];
+      return await databaseService.query<Supplier>('suppliers', {
+        orderBy: { column: 'name', direction: 'asc' }
+      });
     },
   });
 
   const createSupplierMutation = useMutation({
     mutationFn: async (supplierData: SupplierInsert) => {
-      const { data, error } = await supabase
-        .from('suppliers')
-        .insert(supplierData)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return await databaseService.create<Supplier>('suppliers', supplierData);
     },
     onSuccess: (newSupplier) => {
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
@@ -55,15 +44,7 @@ export const useSuppliers = () => {
 
   const updateSupplierMutation = useMutation({
     mutationFn: async ({ id, ...updateData }: { id: string } & SupplierUpdate) => {
-      const { data, error } = await supabase
-        .from('suppliers')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return await databaseService.update<Supplier>('suppliers', id, updateData);
     },
     onSuccess: (updatedSupplier) => {
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
@@ -84,12 +65,7 @@ export const useSuppliers = () => {
 
   const deleteSupplierMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('suppliers')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      await databaseService.delete('suppliers', id);
       return id;
     },
     onSuccess: () => {

@@ -1,9 +1,10 @@
 {
-  "appId": "com.studiopos.app",
+  "appId": "com.studio-pos.app",
   "productName": "Studio POS",
   "directories": {
-    "output": "dist-electron"
+    "output": "build-output"
   },
+  "icon": "electron/assets/icon.png",
   "files": [
     "dist/**/*",
     "electron/**/*",
@@ -17,50 +18,18 @@
     }
   ],
   "win": {
-    "target": [
-      {
-        "target": "nsis",
-        "arch": ["x64"]
-      }
-    ],
-    "icon": "electron/assets/icon.svg"
+    "icon": "electron/assets/icon.ico",
+    "requestedExecutionLevel": "asInvoker",
+    "artifactName": "${productName}-${version}-${arch}.${ext}"
   },
   "mac": {
-    "target": [
-      {
-        "target": "dmg",
-        "arch": ["x64", "arm64"]
-      }
-    ],
-    "icon": "electron/assets/icon.svg"
+    "icon": "electron/assets/icon.icns"
   },
   "linux": {
-    "target": [
-      {
-        "target": "AppImage",
-        "arch": ["x64"]
-      }
-    ],
-    "icon": "electron/assets/icon.svg"
+    "icon": "electron/assets/icon.png"
   },
   "nsis": {
-    "oneClick": false,
-    "allowToChangeInstallationDirectory": true,
-    "createDesktopShortcut": true,
-    "createStartMenuShortcut": true
-  },
-  "dmg": {
-    "contents": [
-      {
-        "x": 130,
-        "y": 220
-      },
-      {
-        "x": 410,
-        "y": 220,
-        "type": "link",
-        "path": "/Applications"
-      }
-    ]
+    "installerIcon": "electron/assets/icon.ico",
+    "uninstallerIcon": "electron/assets/icon.ico"
   }
 }

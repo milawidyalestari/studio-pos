@@ -2,9 +2,54 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import Window Animations */
+@import './styles/window-animations.css';
+
+/* Ensure proper scaling and responsiveness */
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+#root {
+  width: 100%;
+  height: 100vh;
+  min-height: 600px;
+  min-width: 1024px;
+  background: transparent;
+}
+
+/* Prevent content from being too small */
+* {
+  box-sizing: border-box;
+}
+
+/* Ensure minimum font sizes for readability */
+body {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Responsive text scaling */
+@media (max-width: 1200px) {
+  body {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 1024px) {
+  body {
+    font-size: 12px;
+  }
+}
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 0 0% 100% / 0;
     --foreground: 222.2 84% 4.9%;
 
     --card: 0 0% 100%;

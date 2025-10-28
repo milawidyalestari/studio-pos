@@ -16,7 +16,7 @@ import PriceSummarySection from './order/PriceSummarySection';
 import OrderActionButtons from './order/OrderActionButtons';
 import { Order } from '@/types';
 import { useOrderStatus, OrderStatus as DBOrderStatus } from '@/hooks/useOrderStatus';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 import { Employee } from '@/types';
 import { usePrintOverlay } from '@/hooks/usePrintOverlay';
 import { PrintOverlay } from '@/components/PrintOverlay';
@@ -27,12 +27,37 @@ import { X } from 'lucide-react';
 
 type PaymentType = string;
 
+// Helper function to get today's date in local timezone as YYYY-MM-DD
+const getLocalDateString = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Helper function to get current time in local timezone as HH:MM
+const getLocalTimeString = () => {
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+};
+
+const formatItemCode = (value: number | string): string => {
+  const numericValue = Number(value);
+  if (Number.isNaN(numericValue)) {
+    return String(value);
+  }
+  return numericValue.toString().padStart(3, '0');
+};
+
 const initialFormData = {
   orderNumber: '',
   customer: '',
   customerId: '',
-  tanggal: new Date().toISOString().split('T')[0],
-  waktu: new Date().toTimeString().slice(0, 5),
+  tanggal: getLocalDateString(),
+  waktu: getLocalTimeString(),
   estimasi: '',
   estimasiWaktu: '',
   outdoor: false,
@@ -82,12 +107,18 @@ interface RequestOrderModalProps {
   onReopen?: (editingOrder?: Order | null) => void;
 }
 
-// Helper to safely parse and format a date string, defaulting to today if missing/invalid
+// Helper to safely parse and format a date string in local timezone, defaulting to today if missing/invalid
 function safeDateString(dateValue: unknown): string {
-  const today = new Date().toISOString().split('T')[0];
-  if (!dateValue) return today;
+  if (!dateValue) return getLocalDateString();
+  
   const d = new Date(dateValue as string);
-  return isNaN(d.getTime()) ? today : d.toISOString().split('T')[0];
+  if (isNaN(d.getTime())) return getLocalDateString();
+  
+  // Convert to local date string in YYYY-MM-DD format
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: RequestOrderModalProps) => {
@@ -98,9 +129,17 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
   const { data: materials = [], refetch: refetchMaterials } = useQuery({
     queryKey: ['materials'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('materials').select('id, kode, nama, satuan, lebar_maksimum');
-      if (error) throw error;
-      return data || [];
+      try {
+        const { databaseService } = await import('@/services/databaseService');
+        await databaseService.initialize();
+        const data = await databaseService.query('materials', {
+          select: 'id, kode, nama, satuan, lebar_maksimum'
+        });
+        return data || [];
+      } catch (error) {
+        console.error('Error fetching materials:', error);
+        throw error;
+      }
     },
   });
   const { data: statuses, isLoading: statusesLoading } = useOrderStatus();
@@ -119,6 +158,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
     orderNumber: '',
   });
   const [orderNumberLoading, setOrderNumberLoading] = useState(false);
+  const [orderNumberGenerated, setOrderNumberGenerated] = useState(false); // Track if order number already generated
 
   const [currentItem, setCurrentItem] = useState({
     id: '',
@@ -153,11 +193,11 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
 
   const generateNextItemId = () => {
     const nextNumber = orderList.length + 1;
-    return nextNumber.toString().padStart(3, '0');
+    return formatItemCode(nextNumber);
   };
 
   useEffect(() => {
-    const total = orderList.reduce((sum, item) => sum + item.subTotal, 0);
+    const total = orderList.reduce((sum, item) => sum + Number(item.subTotal || 0), 0);
     setTotalPrice(total);
     
     // Set hasItemsAdded berdasarkan apakah ada item di orderList
@@ -381,7 +421,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
     ppn?: number,
     taxChecked?: boolean
   ) => {
-    let itemsTotal = items.reduce((sum, item) => sum + (item.subTotal || 0), 0);
+    const itemsTotal = items.reduce((sum, item) => sum + Number(item.subTotal || 0), 0);
     let total = itemsTotal;
 
     if (typeof jasaDesain !== 'undefined' && Number(jasaDesain) > 0) {
@@ -686,35 +726,57 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
     onClose(); // This will trigger the parent to reopen the modal
   };
 
-  const handlePrintNota = () => {
-    // Create order data for print overlay
-    const totalCalculation = calculateOrderTotal(orderList, parseFloat(formData.jasaDesain || '0'), parseFloat(formData.biayaLain || '0'), formData.discount, formData.ppn, formData.taxChecked);
-    const orderData = {
-      orderNumber: formData.orderNumber,
-      customerName: formData.customer,
-      totalAmount: totalCalculation.total,
-      desain: parseFloat(formData.jasaDesain || '0'),
-      biayaLainnya: parseFloat(formData.biayaLain || '0'),
-      downPayment: parseFloat(formData.downPayment || '0'),
-      estimasi: formData.estimasi,
-      estimasiWaktu: formData.estimasiWaktu,
-      komputer: formData.komputer,
-      desainer: formData.desainer,
-    };
+  const handlePrintNota = async () => {
+    try {
+      // Auto-save data before opening print overlay
+      await handleSave();
+      
+      // Wait a moment for save to complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Create order data for print overlay
+      const totalCalculation = calculateOrderTotal(orderList, parseFloat(formData.jasaDesain || '0'), parseFloat(formData.biayaLain || '0'), formData.discount, formData.ppn, formData.taxChecked);
+      const orderData = {
+        orderNumber: formData.orderNumber,
+        customerName: formData.customer,
+        totalAmount: totalCalculation.total,
+        desain: parseFloat(formData.jasaDesain || '0'),
+        biayaLainnya: parseFloat(formData.biayaLain || '0'),
+        downPayment: parseFloat(formData.downPayment || '0'),
+        pelunasan: parseFloat(formData.pelunasan || '0'),
+        estimasi: formData.estimasi,
+        estimasiWaktu: formData.estimasiWaktu,
+        komputer: formData.komputer,
+        desainer: formData.desainer,
+      };
 
-    const orderListForPrint = orderList.map(item => ({
-      id: item.id,
-      item: item.item,
-      quantity: item.quantity,
-      subTotal: item.subTotal,
-      ukuran: item.ukuran,
-      description: item.notes || '',
-      finishing: item.finishing,
-    }));
+      const orderListForPrint = orderList.map(item => {
+        // Convert product code to product name
+        const product = products?.find(p => p.kode === item.item);
+        const productName = product?.nama || item.item; // Fallback to code if name not found
+        
+        return {
+          id: item.id,
+          item: productName, // Use product name instead of code
+          quantity: item.quantity,
+          subTotal: item.subTotal,
+          ukuran: item.ukuran,
+          description: item.notes || '',
+          finishing: item.finishing,
+        };
+      });
 
-    // Pause modal instead of closing it
-    setIsModalPaused(true);
-    openPrintOverlay('nota', { orderList: orderListForPrint, orderData });
+      // Pause modal instead of closing it
+      setIsModalPaused(true);
+      openPrintOverlay('nota', { orderList: orderListForPrint, orderData });
+    } catch (error) {
+      console.error('Error saving before print nota:', error);
+      toast({
+        title: 'Error',
+        description: 'Gagal menyimpan data sebelum print. Silakan coba lagi.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const resetForm = async () => {
@@ -722,7 +784,9 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
     const designStatus = statuses?.find(s => s.name.toLowerCase() === 'design');
     if (designStatus) defaultStatusId = designStatus.id;
     setOrderNumberLoading(true);
+    console.log('🔄 Resetting form and generating new order number...');
     const num = await fetchNextOrderNumber();
+    console.log('✅ New order number for next order:', num);
     setFormData({
       ...initialFormData,
       orderNumber: num,
@@ -740,6 +804,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
     setInitialFormDataSnapshot(null);
     setIsConfirmed(false); // Reset confirmed state
     setIsModalPaused(false); // Reset modal pause state
+    setOrderNumberGenerated(true); // Mark as generated for next order
     setOrderNumberLoading(false);
   };
 
@@ -804,7 +869,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
           ukuran: { panjang: String(item.panjang), lebar: String(item.lebar) },
           quantity: item.quantity?.toString() || '',
           finishing: item.finishing,
-          subTotal: item.sub_total || 0,
+          subTotal: Number(item.sub_total) || 0,
           notes: item.description || ''
         }));
         setOrderList(realItems);
@@ -839,15 +904,24 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
   // Fetch a new order number when opening the modal for a new order
   useEffect(() => {
     const fetchOrderNumber = async () => {
+      // Only generate order number once when modal opens for new order
+      if (orderNumberGenerated) {
+        console.log('⏭️ Order number already generated, skipping...');
+        return;
+      }
+      
       setOrderNumberLoading(true);
+      console.log('🔢 Generating new order number...');
       const num = await fetchNextOrderNumber();
+      console.log('✅ Order number generated:', num);
       setFormData(prev => ({ ...prev, orderNumber: num }));
+      setOrderNumberGenerated(true); // Mark as generated
       setOrderNumberLoading(false);
     };
     if (open && !editingOrder) {
       fetchOrderNumber();
     }
-  }, [open, editingOrder]);
+  }, [open, editingOrder, orderNumberGenerated]);
 
   // Fungsi untuk update item saja, tanpa menutup modal utama
   const handleUpdateItem = () => {
@@ -872,24 +946,47 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
 
   useEffect(() => {
     if (!open) return;
-    setLoadingEmployees(true);
-    supabase
-      .from('employees')
-      .select('*')
-      .eq('posisi', 'Desainer')
-      .then(({ data, error }) => {
-        if (!error && data) setEmployees(data as Employee[]);
+    
+    const fetchEmployees = async () => {
+      try {
+        setLoadingEmployees(true);
+        setLoadingAdmins(true);
+        const { databaseService } = await import('@/services/databaseService');
+        await databaseService.initialize();
+        
+        // Fetch all active employees
+        const allEmployees = await databaseService.query<Employee>('employees', {
+          where: { status: 'Aktif' },
+          orderBy: { column: 'nama', direction: 'asc' }
+        });
+        
+        console.log('All employees fetched:', allEmployees);
+        
+        // Filter designers and admins from all employees
+        const designers = allEmployees.filter(emp => 
+          emp.posisi?.toLowerCase().includes('desain') || 
+          emp.posisi?.toLowerCase().includes('design')
+        );
+        const admins = allEmployees.filter(emp => 
+          emp.posisi?.toLowerCase().includes('admin')
+        );
+        
+        console.log('Designers:', designers);
+        console.log('Admins:', admins);
+        
+        setEmployees(designers);
+        setAdmins(admins);
+        
         setLoadingEmployees(false);
-      });
-    setLoadingAdmins(true);
-    supabase
-      .from('employees')
-      .select('*')
-      .eq('posisi', 'Admin')
-      .then(({ data, error }) => {
-        if (!error && data) setAdmins(data as Employee[]);
         setLoadingAdmins(false);
-      });
+      } catch (error) {
+        console.error('Error fetching employees:', error);
+        setLoadingEmployees(false);
+        setLoadingAdmins(false);
+      }
+    };
+    
+    fetchEmployees();
   }, [open]);
 
   // Function to handle modal close with unsaved changes check
@@ -898,6 +995,8 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
       // Always allow closing if not paused (user explicitly wants to close)
       if (!isModalPaused) {
         // Reset all states when closing
+        console.log('🚪 Modal closing, resetting order number flag...');
+        setOrderNumberGenerated(false); // Reset flag so next open will generate new number
         resetForm();
         onClose();
       }
@@ -929,8 +1028,8 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
           e.preventDefault();
         }}
       >
-        <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
-          <DialogTitle className="text-xl font-bold text-left">
+        <DialogHeader className="px-4 py-3 border-b flex-shrink-0">
+          <DialogTitle className="text-lg font-bold text-left">
             {editingOrder
               ? `Edit Order${formData.orderNumber ? ` ${formData.orderNumber}` : ''}`
               : `Request Order${formData.orderNumber ? ` ${formData.orderNumber}` : ''}`}
@@ -942,7 +1041,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
             <div className="flex-1 flex overflow-hidden">
               <div className="w-1/2 border-r flex flex-col">
                 <ScrollArea className="flex-1">
-                  <div className="p-6">
+                  <div className="p-4">
                     <CustomerInfoSection 
                       formData={formData}
                       onFormDataChange={handleFormDataChange}
@@ -969,7 +1068,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
 
               <div className="w-1/2 flex flex-col">
                 <ScrollArea className="flex-1">
-                  <div className="p-6">
+                  <div className="p-4">
                     <OrderListSection
                       orderList={orderList}
                       onEditItem={editOrderItem}
@@ -998,7 +1097,7 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
                     taxChecked: formData.taxChecked,
                   }}
                   totalPrice={totalPrice}
-                  subtotal={orderList.reduce((sum, item) => sum + item.subTotal, 0)}
+                  subtotal={orderList.reduce((sum, item) => sum + Number(item.subTotal || 0), 0)}
                   onFormDataChange={handleFormDataChange}
                 />
               </div>
@@ -1056,20 +1155,21 @@ const RequestOrderModal = ({ open, onClose, onSubmit, editingOrder, onReopen }: 
         orderList={printData.orderList}
         orderData={printData.orderData}
         printType={printType}
+        preventCloseOnOutsideClick={true}
         onCloseAndReopenRequestOrder={(printType === 'spk' || printType === 'nota') ? () => {
           // Resume modal when PrintOverlay is closed
           console.log('PrintOverlay closed, resuming RequestOrderModal for type:', printType);
           console.log('Current isModalPaused state:', isModalPaused);
+          
+          // Force modal to be visible by setting isModalPaused to false
           setIsModalPaused(false);
           
-          // Ensure modal is visible by forcing a re-render
+          // Ensure modal is fully visible by forcing a re-render
           setTimeout(() => {
-            if (isModalPaused) {
-              console.log('Modal still paused, forcing resume');
-              setIsModalPaused(false);
-            }
             console.log('Modal resume completed, isModalPaused:', isModalPaused);
-          }, 100);
+            // Force another update to ensure modal is visible
+            setIsModalPaused(false);
+          }, 50);
         } : undefined}
       />
 

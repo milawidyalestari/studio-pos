@@ -1,6 +1,6 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 
 export interface Product {
   id: string;
@@ -23,18 +23,12 @@ export const useProducts = () => {
     queryFn: async () => {
       console.log('Fetching products from database...');
       
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .order('nama', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching products:', error);
-        throw error;
-      }
+      const data = await databaseService.query<Product>('products', {
+        orderBy: { column: 'nama', direction: 'asc' }
+      });
 
       console.log('Products fetched successfully:', data);
-      return data as Product[];
+      return data;
     },
   });
 };
@@ -47,19 +41,13 @@ export const useProductByCode = (productCode: string) => {
       
       console.log('Fetching product by code:', productCode);
       
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('kode', productCode)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error fetching product:', error);
-        throw error;
-      }
+      const data = await databaseService.query<Product>('products', {
+        where: { kode: productCode },
+        limit: 1
+      });
 
       console.log('Product fetched:', data);
-      return data as Product | null;
+      return data.length > 0 ? data[0] : null;
     },
     enabled: !!productCode,
   });
@@ -72,16 +60,7 @@ export const useCreateProduct = () => {
     mutationFn: async (productData: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
       console.log('Creating product:', productData);
       
-      const { data, error } = await supabase
-        .from('products')
-        .insert([productData])
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error creating product:', error);
-        throw error;
-      }
+      const data = await databaseService.create<Product>('products', productData);
 
       console.log('Product created successfully:', data);
       return data;
@@ -99,17 +78,7 @@ export const useUpdateProduct = () => {
     mutationFn: async ({ id, ...productData }: Partial<Product> & { id: string }) => {
       console.log('Updating product:', id, productData);
       
-      const { data, error } = await supabase
-        .from('products')
-        .update(productData)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error updating product:', error);
-        throw error;
-      }
+      const data = await databaseService.update<Product>('products', id, productData);
 
       console.log('Product updated successfully:', data);
       return data;
@@ -127,15 +96,7 @@ export const useDeleteProduct = () => {
     mutationFn: async (id: string) => {
       console.log('Deleting product:', id);
       
-      const { error } = await supabase
-        .from('products')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
-        console.error('Error deleting product:', error);
-        throw error;
-      }
+      await databaseService.delete('products', id);
 
       console.log('Product deleted successfully');
     },

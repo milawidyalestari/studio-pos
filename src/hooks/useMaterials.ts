@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 import { useToast } from '@/hooks/use-toast';
 
 export interface Material {
@@ -29,18 +29,13 @@ export const useMaterials = () => {
     queryKey: ['materials'],
     queryFn: async () => {
       console.log('Fetching materials from database...');
-      const { data, error } = await supabase
-        .from('materials')
-        .select('id, kode, nama, satuan, lebar_maksimum, harga_per_meter, stok_awal, stok_masuk, stok_keluar, stok_akhir, stok_opname, stok_minimum, created_at, updated_at, stok_aktif, kategori')
-        .order('nama');
-      
-      if (error) {
-        console.error('Error fetching materials:', error);
-        throw error;
-      }
+      const data = await databaseService.query<Material>('materials', {
+        select: 'id, kode, nama, satuan, lebar_maksimum, harga_per_meter, stok_awal, stok_masuk, stok_keluar, stok_akhir, stok_opname, stok_minimum, created_at, updated_at, stok_aktif, kategori',
+        orderBy: { column: 'nama', direction: 'asc' }
+      });
       
       console.log('Materials fetched successfully:', data);
-      return data as Material[];
+      return data;
     },
     staleTime: 0, // Always consider data stale
     gcTime: 0, // Don't cache for long
@@ -53,14 +48,7 @@ export const useMaterials = () => {
 
   const createMaterial = useMutation({
     mutationFn: async (materialData: Omit<Material, 'id' | 'created_at' | 'updated_at'>) => {
-      const { data, error } = await supabase
-        .from('materials')
-        .insert([materialData])
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return data;
+      return await databaseService.create<Material>('materials', materialData as Omit<Material, 'id'>);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['materials'] });
@@ -78,15 +66,7 @@ export const useMaterials = () => {
 
   const updateMaterial = useMutation({
     mutationFn: async ({ id, ...materialData }: Partial<Material> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('materials')
-        .update(materialData)
-        .eq('id', id)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return data;
+      return await databaseService.update('materials', id, materialData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['materials'] });
@@ -104,12 +84,7 @@ export const useMaterials = () => {
 
   const deleteMaterial = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('materials')
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
+      await databaseService.delete('materials', id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['materials'] });

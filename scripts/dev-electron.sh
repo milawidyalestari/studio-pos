@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Studio POS Electron Development Script
+# Azuro Electron Development Script
 # macOS/Linux version
 
-echo "🚀 Starting Studio POS Electron Development..."
+echo "🚀 Starting Azuro Electron Development..."
 echo ""
 
 # Check if Node.js is installed

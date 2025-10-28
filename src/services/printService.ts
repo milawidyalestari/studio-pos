@@ -462,7 +462,7 @@ export class PrintService {
         success = await this.printWithWebAPI(job);
       }
 
-      // 4. Fallback to browser print
+      // 4. Fallback to browser print - TEMPORARILY ENABLED
       if (!success) {
         console.log('All native methods failed, using browser print...');
         success = await this.printWithBrowser(job);
@@ -871,7 +871,7 @@ export class PrintService {
 </head>
 <body>
   <div class="header">RECEIPT</div>
-  <div style="text-align: center; font-size: 10px; margin-bottom: 10px;">Studio POS System</div>
+  <div style="text-align: center; font-size: 10px; margin-bottom: 10px;">Azuro System</div>
   <div style="text-align: center; font-size: 10px; margin-bottom: 15px;">${new Date().toLocaleDateString('id-ID')}</div>
 
   <div class="info-row">

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 import { OrderWithItems } from '@/types';
@@ -19,6 +19,33 @@ interface OrderWithItemsExtended extends OrderWithItems {
   payment_update?: string | null; // Add payment_update field
 }
 
+// Helper function to create notification
+const createNotification = async (
+  type: 'order_created' | 'order_deleted' | 'order_updated' | 'order_processing' | 'order_completed',
+  message: string,
+  orderId?: string,
+  orderData?: any
+) => {
+  try {
+    // Get current user info
+    const { authService } = await import('@/services/authService');
+    const currentUser = authService.getCurrentUser();
+    const userName = currentUser?.nama || currentUser?.username || 'System';
+    
+    await databaseService.create('notifications', {
+      type,
+      message,
+      order_id: orderId,
+      order_data: orderData,
+      user_name: userName,
+      timestamp: new Date().toISOString(),
+      is_read: false
+    });
+  } catch (error) {
+    console.error('Error creating notification:', error);
+  }
+};
+
 export const useOrders = (options?: { enableAutoRefresh?: boolean }) => {
   const { enableAutoRefresh = false } = options || {};
   const { toast } = useToast();
@@ -27,20 +54,62 @@ export const useOrders = (options?: { enableAutoRefresh?: boolean }) => {
   const { data: orders, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['orders'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (*),
-          order_statuses (id, name),
-          admin:admin_id (id, nama),
-          desainer:desainer_id (id, nama),
-          payment_types (id, type, payment_method)
-        `)
-        .order('created_at', { ascending: false });
+      try {
+        await databaseService.initialize();
+        
+        // Get orders with related data
+        const ordersData = await databaseService.query('orders', {
+          orderBy: { column: 'created_at', direction: 'desc' }
+        });
 
-      if (error) throw error;
-      return data as OrderWithItemsExtended[];
+        // Get order items for each order
+        const ordersWithItems = await Promise.all(
+          ordersData.map(async (order: any) => {
+            const orderItems = await databaseService.query('order_items', {
+              where: { order_id: order.id }
+            });
+
+            // Get related data
+            const orderStatus = order.status_id ? 
+              await databaseService.query('order_statuses', {
+                where: { id: order.status_id },
+                limit: 1
+              }) : [];
+
+            const admin = order.admin_id ? 
+              await databaseService.query('employees', {
+                where: { id: order.admin_id },
+                limit: 1
+              }) : [];
+
+            const desainer = order.desainer_id ? 
+              await databaseService.query('employees', {
+                where: { id: order.desainer_id },
+                limit: 1
+              }) : [];
+
+            const paymentType = order.payment_type_id ? 
+              await databaseService.query('payment_types', {
+                where: { id: order.payment_type_id },
+                limit: 1
+              }) : [];
+
+            return {
+              ...order,
+              order_items: orderItems,
+              order_statuses: orderStatus[0] || null,
+              admin: admin[0] || null,
+              desainer: desainer[0] || null,
+              payment_types: paymentType[0] || null
+            };
+          })
+        );
+
+        return ordersWithItems as OrderWithItemsExtended[];
+      } catch (error) {
+        console.error('Error fetching orders:', error);
+        return [];
+      }
     },
     refetchInterval: enableAutoRefresh ? 3000 : false, // conditional polling
     refetchOnWindowFocus: enableAutoRefresh, // conditional refetch on focus
@@ -48,37 +117,45 @@ export const useOrders = (options?: { enableAutoRefresh?: boolean }) => {
 
   const createOrderMutation = useMutation({
     mutationFn: async ({ orderData, items }: { orderData: OrderInsert; items: OrderItemInsert[] }) => {
-      // Add payment_update timestamp when creating order
-      const orderDataWithPaymentUpdate = {
-        ...orderData,
-        payment_update: new Date().toISOString()
-      };
+      try {
+        await databaseService.initialize();
+        
+        // Add payment_update timestamp when creating order
+        const orderDataWithPaymentUpdate = {
+          ...orderData,
+          payment_update: new Date().toISOString()
+        };
 
-      // First create the order
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert(orderDataWithPaymentUpdate)
-        .select()
-        .single();
+        // First create the order
+        const order = await databaseService.create('orders', orderDataWithPaymentUpdate);
 
-      if (orderError) throw orderError;
+        // Then create the order items
+        const orderItems = items.map(item => ({
+          ...item,
+          order_id: order.id
+        }));
 
-      // Then create the order items
-      const orderItems = items.map(item => ({
-        ...item,
-        order_id: order.id
-      }));
+        for (const item of orderItems) {
+          await databaseService.create('order_items', item);
+        }
 
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItems);
-
-      if (itemsError) throw itemsError;
-
-      return order;
+        return order;
+      } catch (error) {
+        console.error('Error creating order:', error);
+        throw error;
+      }
     },
-    onSuccess: () => {
+    onSuccess: async (order) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['today-order-stats'] });
+      
+      // Create notification for new order
+      await createNotification(
+        'order_created',
+        `Orderan baru ditambahkan dengan nomor ${order.nomor_order || order.id}`,
+        order.id,
+        { nomor_order: order.nomor_order }
+      );
     },
     onError: (error) => {
       console.error('Error creating order:', error);
@@ -92,69 +169,80 @@ export const useOrders = (options?: { enableAutoRefresh?: boolean }) => {
 
   const updateOrderMutation = useMutation({
     mutationFn: async ({ orderId, orderData, items }: { orderId: string; orderData: OrderUpdate; items?: OrderItemInsert[] }) => {
-      // Check if this update involves payment fields (down_payment or pelunasan)
-      // Only update payment_update if there's an actual meaningful change in payment values
-      const hasDownPaymentChange = orderData.hasOwnProperty('down_payment');
-      const hasPelunasanChange = orderData.hasOwnProperty('pelunasan');
-      
-      let updateData = { ...orderData };
-      
-      // Only add payment_update if there's a meaningful payment change
-      if (hasDownPaymentChange || hasPelunasanChange) {
-        const newDownPayment = orderData.down_payment || 0;
-        const newPelunasan = orderData.pelunasan || 0;
+      try {
+        await databaseService.initialize();
         
-        // Only update payment_update if the new payment values are meaningful (> 0)
-        if (newDownPayment > 0 || newPelunasan > 0) {
-          updateData.payment_update = new Date().toISOString();
-        }
-      }
-
-      const { data: updatedOrder, error: orderError } = await supabase
-        .from('orders')
-        .update(updateData)
-        .eq('id', orderId)
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      // Only update order items if items is provided and not empty
-      if (items && items.length > 0) {
-        const { error: deleteError } = await supabase
-          .from('order_items')
-          .delete()
-          .eq('order_id', orderId);
-
-        if (deleteError) {
-          // Optional: Handle case where deletion fails but order was updated
-          console.error('Failed to delete old items, but order was updated. Manual cleanup may be required.');
-          throw deleteError;
+        // Get original order to compare status
+        const originalOrders = await databaseService.query('orders', {
+          where: { id: orderId },
+          limit: 1
+        });
+        const originalOrder = originalOrders[0];
+        
+        if (!originalOrder) {
+          throw new Error('Order not found');
         }
         
-        const newItems = items.map(item => ({
-          ...item,
-          order_id: updatedOrder.id
-        }));
+        // Don't manually set payment_update here - let the database trigger handle it
+        // The trigger will only update payment_update when down_payment or pelunasan actually changes
+        const updateData = { ...orderData };
 
-        if(newItems.length > 0) {
-          const { error: itemsError } = await supabase
-            .from('order_items')
-            .insert(newItems);
-    
-          if (itemsError) throw itemsError;
+        // Update the order
+        const updatedOrder = await databaseService.update('orders', orderId, updateData);
+
+        // Only update order items if items is provided and not empty
+        if (items && items.length > 0) {
+          // Delete existing order items
+          const existingItems = await databaseService.query('order_items', {
+            where: { order_id: orderId }
+          });
+          
+          for (const item of existingItems) {
+            await databaseService.delete('order_items', item.id);
+          }
+          
+          // Insert new items
+          const newItems = items.map(item => ({
+            ...item,
+            order_id: updatedOrder.id
+          }));
+
+          if (newItems.length > 0) {
+            for (const item of newItems) {
+              await databaseService.create('order_items', item);
+            }
+          }
         }
-      }
 
-      return updatedOrder;
+        return { updatedOrder, originalOrder, statusChanged: originalOrder?.status_id !== orderData.status_id };
+      } catch (error) {
+        console.error('Error updating order:', error);
+        throw error;
+      }
     },
 
-    onSuccess: () => {
+    onSuccess: async ({ updatedOrder, originalOrder, statusChanged }) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
-      // toast({
-      //   title: "Order updated successfully",
-      //   description: "The order has been updated in the database.",
-      // });
+      queryClient.invalidateQueries({ queryKey: ['today-order-stats'] });
+      
+      // Create notification based on what changed
+      if (statusChanged && updatedOrder.status_id) {
+        // Status changed notification
+        await createNotification(
+          'order_processing',
+          `Status orderan ${updatedOrder.nomor_order || originalOrder?.nomor_order} telah diubah`,
+          updatedOrder.id,
+          { nomor_order: updatedOrder.nomor_order, status_id: updatedOrder.status_id }
+        );
+      } else {
+        // General update notification
+        await createNotification(
+          'order_updated',
+          `Orderan ${updatedOrder.nomor_order || originalOrder?.nomor_order} telah diperbarui`,
+          updatedOrder.id,
+          { nomor_order: updatedOrder.nomor_order }
+        );
+      }
     },
 
     onError: (error) => {
@@ -169,13 +257,30 @@ export const useOrders = (options?: { enableAutoRefresh?: boolean }) => {
 
   const deleteOrderMutation = useMutation({
     mutationFn: async (orderId: string) => {
+      // Get order info before deleting
+      const orderToDelete = await databaseService.query('orders', {
+        where: { id: orderId },
+        select: 'nomor_order',
+        limit: 1
+      });
+      
       // Use the deleteOrderFromDatabase service which handles stock restoration
       const { deleteOrderFromDatabase } = await import('@/services/deleteOrderService');
       await deleteOrderFromDatabase(orderId);
+      
+      return orderToDelete;
     },
-    onSuccess: () => {
+    onSuccess: async (orderToDelete) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
-      // Removed toast notification for delete as requested
+      queryClient.invalidateQueries({ queryKey: ['today-order-stats'] });
+      
+      // Create notification for deleted order
+      await createNotification(
+        'order_deleted',
+        `Orderan ${orderToDelete?.nomor_order || 'telah'} dihapus`,
+        undefined,
+        { nomor_order: orderToDelete?.nomor_order }
+      );
     },
     onError: (error) => {
       toast({
@@ -211,18 +316,29 @@ export const useTodayOrderStats = (options?: { enableAutoRefresh?: boolean }) =>
       const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
       const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
       
-      // Ambil semua order hari ini berdasarkan created_at
-      const { data, error } = await supabase
-        .from('orders')
-        .select('total_amount, desainer_id')
-        .gte('created_at', todayStart)
-        .lt('created_at', todayEnd);
-      if (error) throw error;
-      const orders = data || [];
+      // Ambil semua order hari ini berdasarkan created_at untuk pendapatan dan transaksi
+      const todayOrders = await databaseService.query('orders', {
+        select: 'total_amount, desainer_id',
+        where: {
+          created_at_gte: todayStart,
+          created_at_lt: todayEnd
+        }
+      });
+      
+      const orders = todayOrders || [];
+      
+      // Ambil SEMUA order yang belum memiliki designer (belum diproses)
+      // Tidak peduli kapan dibuat atau apakah deadline sudah lewat
+      const unprocessedOrders = await databaseService.query('orders', {
+        select: 'id',
+        where: { desainer_id: null }
+      });
+      
       // Hitung statistik
       const totalPendapatan = orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
       const totalTransaksi = orders.length;
-      const belumDiproses = orders.filter(o => !o.desainer_id).length;
+      const belumDiproses = (unprocessedOrders || []).length; // Semua orderan tanpa designer
+      
       return { totalPendapatan, totalTransaksi, belumDiproses };
     },
     refetchInterval: enableAutoRefresh ? 3000 : false,

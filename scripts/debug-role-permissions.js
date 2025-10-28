@@ -92,7 +92,7 @@ ON CONFLICT (name) DO NOTHING;
   console.log('🔍 Browser Console Debug:');
   console.log('─'.repeat(50));
   console.log('// Check localStorage');
-  console.log('console.log(JSON.parse(localStorage.getItem("studio_pos_user")));');
+  console.log('console.log(JSON.parse(localStorage.getItem("azuro_user")));');
   console.log('');
   console.log('// Check RoleAccessContext permissions');
   console.log('// Add this to any component:');

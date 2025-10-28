@@ -29,14 +29,16 @@ import { usePaymentTypes, useCreatePaymentType, useUpdatePaymentType, useDeleteP
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, Product } from '@/hooks/useProducts';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useSuppliers } from '@/hooks/useSuppliers';
+import { useAccounting } from '@/hooks/useAccounting';
 import { ProductForm } from '@/components/ProductForm';
 import CustomerModal from '@/components/CustomerModal';
 import { useToast } from '@/hooks/use-toast';
 import { useMasterDataState } from '@/hooks/useMasterDataState';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 import SupplierModal from '@/components/SupplierModal';
 import type { Supplier } from '@/types';
 import { useHasAccess } from '@/context/RoleAccessContext';
+import { supabase } from '@/integrations/supabase/client';
 
 // Import refactored components
 import { MasterDataHeader } from '@/components/master-data/MasterDataHeader';
@@ -62,6 +64,9 @@ const MasterData = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<any>(null);
+  const [deleteCustomerId, setDeleteCustomerId] = useState<string | null>(null);
+  const [deleteSupplierId, setDeleteSupplierId] = useState<string | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingProductMaterials, setEditingProductMaterials] = useState<string[]>([]);
   const [editingProductMaterialData, setEditingProductMaterialData] = useState<Array<{material_id: string, quantity_per_unit: number}>>([]);
@@ -99,6 +104,9 @@ const MasterData = () => {
   const createPaymentTypeMutation = useCreatePaymentType();
   const updatePaymentTypeMutation = useUpdatePaymentType();
   const deletePaymentTypeMutation = useDeletePaymentType();
+  
+  // Accounting hooks
+  const { chartOfAccounts } = useAccounting();
   
   // Customers hooks
   const { customers = [], isLoading: customersLoading, createCustomer, updateCustomer, deleteCustomer } = useCustomers();
@@ -141,8 +149,14 @@ const MasterData = () => {
   const [positions, setPositions] = useState<{ id: number, name: string }[]>([]);
   // Fetch positions
   const fetchPositions = async () => {
-    const { data, error } = await supabase.from('positions').select('*').order('name');
-    if (!error && data) setPositions(data);
+    try {
+      const data = await databaseService.query<{ id: number, name: string }>('positions', {
+        orderBy: { column: 'name', direction: 'asc' }
+      });
+      setPositions(data || []);
+    } catch (error) {
+      console.error('Error fetching positions:', error);
+    }
   };
   React.useEffect(() => { fetchPositions(); }, []);
 
@@ -218,7 +232,13 @@ const MasterData = () => {
       // Update relasi product_materials dengan quantity_per_unit
       if (productId && Array.isArray(materialData)) {
         console.log('Processing materialData:', materialData);
-        await supabase.from('product_materials').delete().eq('product_id', productId);
+        // Delete old relations
+        const oldRelations = await databaseService.query('product_materials', {
+          where: { product_id: productId }
+        });
+        for (const rel of oldRelations) {
+          await databaseService.delete('product_materials', (rel as any).id);
+        }
         console.log('Deleted old product_materials relations');
         if (materialData.length > 0) {
           const inserts = materialData.map((item: any) => ({
@@ -227,7 +247,9 @@ const MasterData = () => {
             quantity_per_unit: item.quantity_per_unit > 0 ? item.quantity_per_unit : 1
           }));
           console.log('Inserting new product_materials relations:', inserts);
-          await supabase.from('product_materials').insert(inserts);
+          for (const insert of inserts) {
+            await databaseService.create('product_materials', insert as any);
+          }
           console.log('Successfully inserted product_materials relations');
         }
       } else {
@@ -349,14 +371,19 @@ const MasterData = () => {
           columns: [
             { key: 'code', label: 'Kode' },
             { key: 'type', label: 'Tipe' },
-            { key: 'payment_method', label: 'Tipe Pembayaran' }
+            { key: 'payment_method', label: 'Tipe Pembayaran' },
+            { key: 'account_name', label: 'Akun Pendapatan' }
           ],
           data: paymentTypes.map(payment => ({
             id: payment.id,
             kode: payment.code,
             code: payment.code,
             type: payment.type,
-            payment_method: payment.payment_method
+            payment_method: payment.payment_method,
+            account_id: payment.account_id,
+            account_name: payment.account_id ? 
+              chartOfAccounts.chartOfAccounts.find(acc => acc.id === payment.account_id)?.account_name || 'Tidak dipilih' : 
+              'Tidak dipilih'
           })),
           formFields: [
             { key: 'code', label: 'Kode', type: 'text' as const, required: true },
@@ -365,7 +392,16 @@ const MasterData = () => {
               { value: 'Card', label: 'Card' },
               { value: 'Tunai', label: 'Tunai' }
             ]},
-            { key: 'payment_method', label: 'Tipe Pembayaran', type: 'text' as const, required: true }
+            { key: 'payment_method', label: 'Tipe Pembayaran', type: 'text' as const, required: true },
+            { 
+              key: 'account_id', 
+              label: 'Akun Pendapatan', 
+              type: 'select' as const, 
+              required: false, 
+              options: chartOfAccounts.chartOfAccounts
+                .filter(acc => acc.account_type === 'income' && acc.is_active)
+                .map(acc => ({ value: acc.id, label: `${acc.account_code} - ${acc.account_name}` }))
+            }
           ]
         };
         break;
@@ -522,18 +558,33 @@ const MasterData = () => {
           description: "Tipe pembayaran berhasil dibuat",
         });
       } else if (overlayConfig.type === 'positions') {
-        await supabase.from('positions').insert([{ name: item.name }]);
+        await databaseService.create('positions', { name: item.name } as any);
         toast({ title: 'Success', description: 'Posisi berhasil ditambahkan' });
       } else if (overlayConfig.type === 'customers') {
         // Generate customer code automatically
-        const { data: customerCode } = await supabase.rpc('generate_customer_code');
+        const customers = await databaseService.query('customers', {
+          orderBy: { column: 'kode', direction: 'desc' },
+          limit: 1
+        });
+        let nextNumber = 1;
+        if (customers.length > 0) {
+          const lastCode = (customers[0] as any).kode;
+          if (lastCode && lastCode.startsWith('CUST')) {
+            const numberPart = lastCode.replace('CUST', '');
+            const lastNumber = parseInt(numberPart, 10);
+            if (!isNaN(lastNumber)) {
+              nextNumber = lastNumber + 1;
+            }
+          }
+        }
+        const customerCode = `CUST${nextNumber.toString().padStart(4, '0')}`;
         await createCustomer({
           kode: customerCode,
           nama: item.nama as string,
           email: item.email as string || null,
           whatsapp: item.whatsapp as string || null,
           address: item.address as string || null,
-          level: item.level as 'Regular' | 'Premium' | 'VIP' || 'Regular'
+          level: item.level as 'Reguler' | 'VIP' | 'Vendor' | 'Organisasi' || 'Reguler'
         });
         return;
       } else if (overlayConfig.type === 'suppliers') {
@@ -607,7 +658,9 @@ const MasterData = () => {
             }));
           }
         } else if (overlayConfig.type === 'positions') {
-          const { data: freshPositions } = await supabase.from('positions').select('*').order('name');
+          const freshPositions = await databaseService.query<{ id: number, name: string }>('positions', {
+            orderBy: { column: 'name', direction: 'asc' }
+          });
           if (freshPositions) {
             setOverlayConfig(prev => ({
               ...prev,
@@ -681,7 +734,7 @@ const MasterData = () => {
           description: "Tipe pembayaran berhasil diperbarui",
         });
       } else if (overlayConfig.type === 'positions') {
-        await supabase.from('positions').update({ name: item.name }).eq('id', parseInt(item.id));
+        await databaseService.update('positions', item.id, { name: item.name });
         toast({ title: 'Success', description: 'Posisi berhasil diupdate' });
       }
       
@@ -744,7 +797,9 @@ const MasterData = () => {
             }));
           }
         } else if (overlayConfig.type === 'positions') {
-          const { data: freshPositions } = await supabase.from('positions').select('*').order('name');
+          const freshPositions = await databaseService.query<{ id: number, name: string }>('positions', {
+            orderBy: { column: 'name', direction: 'asc' }
+          });
           if (freshPositions) {
             setOverlayConfig(prev => ({
               ...prev,
@@ -821,7 +876,7 @@ const MasterData = () => {
           description: "Tipe pembayaran berhasil dihapus",
         });
       } else if (overlayConfig.type === 'positions') {
-        await supabase.from('positions').delete().eq('id', parseInt(id));
+        await databaseService.delete('positions', id);
         toast({ title: 'Success', description: 'Posisi berhasil dihapus' });
       }
       
@@ -884,7 +939,9 @@ const MasterData = () => {
             }));
           }
         } else if (overlayConfig.type === 'positions') {
-          const { data: freshPositions } = await supabase.from('positions').select('*').order('name');
+          const freshPositions = await databaseService.query<{ id: number, name: string }>('positions', {
+            orderBy: { column: 'name', direction: 'asc' }
+          });
           if (freshPositions) {
             setOverlayConfig(prev => ({
               ...prev,
@@ -920,10 +977,25 @@ const MasterData = () => {
     if (action === 'add') {
       // Determine which type of data to add based on current tab
       if (activeTab === 'customers') {
+        setEditingCustomer(null);
         setIsCustomerModalOpen(true);
       } else if (activeTab === 'suppliers') {
         setEditingSupplier(null);
         setIsSupplierModalOpen(true);
+      }
+    } else if (action === 'edit') {
+      if (activeTab === 'customers' && item) {
+        setEditingCustomer(item);
+        setIsCustomerModalOpen(true);
+      } else if (activeTab === 'suppliers' && item) {
+        setEditingSupplier(item);
+        setIsSupplierModalOpen(true);
+      }
+    } else if (action === 'delete') {
+      if (activeTab === 'customers' && item) {
+        setDeleteCustomerId(item.id);
+      } else if (activeTab === 'suppliers' && item) {
+        setDeleteSupplierId(item.id);
       }
     }
   };
@@ -934,6 +1006,38 @@ const MasterData = () => {
       title: "Berhasil",
       description: "Customer berhasil dibuat",
     });
+    setIsCustomerModalOpen(false);
+    setEditingCustomer(null);
+  };
+
+  const handleCustomerUpdated = (customer: any) => {
+    console.log('Customer updated:', customer);
+    toast({
+      title: "Berhasil",
+      description: "Customer berhasil diperbarui",
+    });
+    setIsCustomerModalOpen(false);
+    setEditingCustomer(null);
+  };
+
+  const handleDeleteCustomer = async () => {
+    if (deleteCustomerId) {
+      try {
+        await deleteCustomer(deleteCustomerId);
+        toast({
+          title: "Berhasil",
+          description: "Customer berhasil dihapus",
+        });
+      } catch (error) {
+        console.error('Error deleting customer:', error);
+        toast({
+          title: "Error",
+          description: "Gagal menghapus customer",
+          variant: "destructive",
+        });
+      }
+      setDeleteCustomerId(null);
+    }
   };
 
   const handleSupplierCreated = () => {
@@ -941,24 +1045,48 @@ const MasterData = () => {
     // Refresh supplier list if needed (handled by react-query or hook)
   };
 
-  // Fungsi untuk menambah supplier ke database
-  const handleSaveSupplier = async (supplierData: Omit<Supplier, 'id'>) => {
+  // Fungsi untuk menambah atau mengupdate supplier
+  const handleSaveSupplier = async (supplierData: any) => {
     try {
       // mapping ke snake_case sesuai definisi tabel
       const dbSupplier = {
         name: supplierData.name,
-        contact_person: supplierData.contactPerson,
-        email: supplierData.email,
-        phone: supplierData.phone,
-        address: supplierData.address,
-        payment_terms: supplierData.paymentTerms,
-        outstanding_balance: supplierData.outstandingBalance,
+        contact_person: supplierData.contact_person || null,
+        email: supplierData.email || null,
+        phone: supplierData.phone || null,
+        address: supplierData.address || null,
+        payment_terms: supplierData.payment_terms || null,
+        outstanding_balance: supplierData.outstanding_balance || 0,
       };
-      await createSupplier(dbSupplier);
+
+      if (editingSupplier && editingSupplier.id) {
+        // Update existing supplier
+        await updateSupplier({ id: editingSupplier.id, ...dbSupplier });
+        toast({ 
+          title: 'Berhasil', 
+          description: 'Supplier berhasil diperbarui',
+          variant: 'default'
+        });
+      } else {
+        // Create new supplier
+        await createSupplier(dbSupplier);
+        toast({ 
+          title: 'Berhasil', 
+          description: 'Supplier berhasil ditambahkan',
+          variant: 'default'
+        });
+      }
+      
       setIsSupplierModalOpen(false);
-      toast({ title: 'Success', description: 'Supplier berhasil ditambahkan' });
+      setEditingSupplier(null);
     } catch (error) {
-      toast({ title: 'Error', description: 'Gagal menambah supplier', variant: 'destructive' });
+      console.error('Error saving supplier:', error);
+      const isUpdate = !!editingSupplier?.id;
+      toast({ 
+        title: 'Error', 
+        description: isUpdate ? 'Gagal memperbarui supplier' : 'Gagal menambah supplier', 
+        variant: 'destructive' 
+      });
     }
   };
 
@@ -1090,8 +1218,13 @@ const MasterData = () => {
       {/* Customer Modal */}
       <CustomerModal
         open={isCustomerModalOpen}
-        onClose={() => setIsCustomerModalOpen(false)}
+        onClose={() => {
+          setIsCustomerModalOpen(false);
+          setEditingCustomer(null);
+        }}
         onCustomerCreated={handleCustomerCreated}
+        onCustomerUpdated={handleCustomerUpdated}
+        editingCustomer={editingCustomer}
       />
 
       {/* Supplier Modal */}
@@ -1118,6 +1251,44 @@ const MasterData = () => {
               className="bg-red-600 hover:bg-red-700"
             >
               Delete Product
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog 
+        open={!!deleteCustomerId || !!deleteSupplierId} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteCustomerId(null);
+            setDeleteSupplierId(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus {deleteCustomerId ? 'Pelanggan' : 'Supplier'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Apakah Anda yakin ingin menghapus {deleteCustomerId ? 'pelanggan' : 'supplier'} ini? Tindakan ini tidak dapat dibatalkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (deleteCustomerId) {
+                  deleteCustomer(deleteCustomerId);
+                  setDeleteCustomerId(null);
+                } else if (deleteSupplierId) {
+                  deleteSupplier(deleteSupplierId);
+                  setDeleteSupplierId(null);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteCustomer.isPending || (deleteSupplier && deleteSupplier.isPending)}
+            >
+              {(deleteCustomer.isPending || (deleteSupplier && deleteSupplier.isPending)) ? 'Menghapus...' : 'Hapus'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

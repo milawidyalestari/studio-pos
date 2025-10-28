@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 import { Notification } from '@/hooks/useNotifications';
 
 export class NotificationService {

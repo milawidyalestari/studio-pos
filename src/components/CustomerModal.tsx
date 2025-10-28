@@ -1,24 +1,28 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCustomers } from '@/hooks/useCustomers';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
+import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 
-type CustomerLevel = Database['public']['Enums']['customer_level'];
+type CustomerLevel = 'Reguler' | 'VIP' | 'Vendor' | 'Organisasi';
 
 interface CustomerModalProps {
   open: boolean;
   onClose: () => void;
   onCustomerCreated?: (customer: any) => void;
+  onCustomerUpdated?: (customer: any) => void;
+  editingCustomer?: any;
 }
 
-const CustomerModal = ({ open, onClose, onCustomerCreated }: CustomerModalProps) => {
-  const { createCustomer, isCreatingCustomer } = useCustomers();
+const CustomerModal = ({ open, onClose, onCustomerCreated, onCustomerUpdated, editingCustomer }: CustomerModalProps) => {
+  const { createCustomer, updateCustomer, isCreatingCustomer, isUpdatingCustomer } = useCustomers();
+  const { toast } = useToast();
   
   const [formData, setFormData] = useState({
     kode: '',
@@ -29,23 +33,80 @@ const CustomerModal = ({ open, onClose, onCustomerCreated }: CustomerModalProps)
     level: 'Regular' as CustomerLevel
   });
 
+  // Populate form when editing
+  useEffect(() => {
+    if (editingCustomer) {
+      setFormData({
+        kode: editingCustomer.kode || '',
+        nama: editingCustomer.nama || '',
+        whatsapp: editingCustomer.whatsapp || '',
+        email: editingCustomer.email || '',
+        address: editingCustomer.address || '',
+        level: editingCustomer.level || 'Reguler'
+      });
+    } else {
+      setFormData({
+        kode: '',
+        nama: '',
+        whatsapp: '',
+        email: '',
+        address: '',
+        level: 'Reguler'
+      });
+    }
+  }, [editingCustomer, open]);
+
   const generateCustomerCode = async () => {
     try {
-      const { data, error } = await supabase.rpc('generate_customer_code');
-      if (error) throw error;
-      return data;
+      // Get existing customers to find the next available code
+      const existingCustomers = await databaseService.query('customers', {
+        select: 'kode',
+        orderBy: { column: 'kode', direction: 'desc' },
+        limit: 1
+      });
+
+      let nextNumber = 1;
+      if (existingCustomers.length > 0) {
+        const lastCode = existingCustomers[0].kode;
+        if (lastCode && lastCode.startsWith('CUST')) {
+          const numberPart = lastCode.replace('CUST', '');
+          const lastNumber = parseInt(numberPart, 10);
+          if (!isNaN(lastNumber)) {
+            nextNumber = lastNumber + 1;
+          }
+        }
+      }
+
+      return `CUST${nextNumber.toString().padStart(4, '0')}`;
     } catch (error) {
       console.error('Error generating customer code:', error);
-      throw error;
+      // Fallback to timestamp-based code if query fails
+      return `CUST${Date.now().toString().slice(-6)}`;
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validate required fields
+    if (!formData.nama.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Customer name is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     let customerCode = formData.kode;
-    if (!customerCode) {
-      customerCode = await generateCustomerCode();
+    if (!customerCode && !editingCustomer) {
+      try {
+        customerCode = await generateCustomerCode();
+      } catch (error) {
+        console.error('Failed to generate customer code:', error);
+        // Use a fallback code
+        customerCode = `CUST${Date.now().toString().slice(-6)}`;
+      }
     }
 
     const customerData = {
@@ -54,13 +115,27 @@ const CustomerModal = ({ open, onClose, onCustomerCreated }: CustomerModalProps)
     };
 
     try {
-      await createCustomer(customerData);
-      if (onCustomerCreated) {
-        onCustomerCreated(customerData);
+      if (editingCustomer) {
+        // Update existing customer
+        await updateCustomer({ id: editingCustomer.id, ...customerData });
+        if (onCustomerUpdated) {
+          onCustomerUpdated({ ...editingCustomer, ...customerData });
+        }
+      } else {
+        // Create new customer
+        const newCustomer = await createCustomer(customerData);
+        if (onCustomerCreated) {
+          onCustomerCreated(newCustomer);
+        }
       }
       handleClose();
     } catch (error) {
-      console.error('Error creating customer:', error);
+      console.error('Error saving customer:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save customer. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -71,7 +146,7 @@ const CustomerModal = ({ open, onClose, onCustomerCreated }: CustomerModalProps)
       whatsapp: '',
       email: '',
       address: '',
-      level: 'Regular' as CustomerLevel
+      level: 'Reguler' as CustomerLevel
     });
     onClose();
   };
@@ -84,7 +159,7 @@ const CustomerModal = ({ open, onClose, onCustomerCreated }: CustomerModalProps)
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Tambah Customer Baru</DialogTitle>
+          <DialogTitle>{editingCustomer ? 'Edit Customer' : 'Tambah Customer Baru'}</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -148,9 +223,10 @@ const CustomerModal = ({ open, onClose, onCustomerCreated }: CustomerModalProps)
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Regular">Regular</SelectItem>
-                <SelectItem value="Premium">Premium</SelectItem>
+                <SelectItem value="Reguler">Reguler</SelectItem>
                 <SelectItem value="VIP">VIP</SelectItem>
+                <SelectItem value="Vendor">Vendor</SelectItem>
+                <SelectItem value="Organisasi">Organisasi</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -159,8 +235,8 @@ const CustomerModal = ({ open, onClose, onCustomerCreated }: CustomerModalProps)
             <Button type="button" variant="outline" onClick={handleClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isCreatingCustomer || !formData.nama}>
-              {isCreatingCustomer ? 'Creating...' : 'Create Customer'}
+            <Button type="submit" disabled={(isCreatingCustomer || isUpdatingCustomer) || !formData.nama}>
+              {editingCustomer ? (isUpdatingCustomer ? 'Updating...' : 'Update Customer') : (isCreatingCustomer ? 'Creating...' : 'Create Customer')}
             </Button>
           </div>
         </form>

@@ -249,7 +249,7 @@ export const NotaSettings = () => {
         ` : ''}
         
         <div style="text-align: center; font-size: 9px; margin-top: 5px; color: #666;">
-          Powered by Studio POS
+          Powered by Azuro
         </div>
       </div>
     `;

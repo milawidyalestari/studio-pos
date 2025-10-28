@@ -1,5 +1,6 @@
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 import { NotificationService } from './notificationService';
+import { supabase } from '@/integrations/supabase/client';
 
 // Tambahkan fungsi pembulatan custom
 function customRounding(value: number): number {
@@ -211,24 +212,127 @@ const restoreMaterialStock = async (orderItems: any[]) => {
   }
 };
 
-export const generateOrderNumber = () => {
-  const date = new Date();
-  const year = date.getFullYear().toString().slice(-2);
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const day = date.getDate().toString().padStart(2, '0');
-  const hours = date.getHours().toString().padStart(2, '0');
-  const minutes = date.getMinutes().toString().padStart(2, '0');
-  const seconds = date.getSeconds().toString().padStart(2, '0');
-  const milliseconds = date.getMilliseconds().toString().padStart(3, '0');
-  
-  // Generate a random alphanumeric string for better uniqueness
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let randomSuffix = '';
-  for (let i = 0; i < 4; i++) {
-    randomSuffix += chars.charAt(Math.floor(Math.random() * chars.length));
+// Generate order number using database function (continuous sequence, no daily reset)
+export const generateOrderNumber = async (): Promise<string> => {
+  try {
+    if (supabase && typeof (supabase as any).rpc === 'function') {
+      console.log('🔢 Generating order number from Supabase RPC...');
+      const { data, error } = await (supabase as any).rpc('generate_order_number');
+
+      if (!error && data) {
+        console.log('✅ Order number generated from Supabase RPC:', data);
+        // Keep fallback counter in sync with the last number from Supabase
+        syncFallbackCounter(data as string);
+        return data as string;
+      }
+
+      console.error('❌ Error generating order number from Supabase RPC:', error);
+    } else {
+      console.warn('⚠️ Supabase RPC not available. Using local order number generation');
+    }
+
+    // Fallback to local database-based generation when Supabase RPC is unavailable or fails
+    return await generateOrderNumberLocal();
+  } catch (error) {
+    console.error('❌ Error calling generate_order_number:', error);
+    // Final fallback to in-memory counter if everything else fails
+    return generateOrderNumberFallback();
   }
-  
-  return `ORD${year}${month}${day}${hours}${minutes}${seconds}${milliseconds}${randomSuffix}`;
+};
+
+// Local counter for fallback (stored in memory)
+let fallbackCounter = 0;
+
+const formatOrderNumber = (value: number): string => {
+  return `ORD${value.toString().padStart(6, '0')}`;
+};
+
+const syncFallbackCounter = (orderNumber: string) => {
+  const match = orderNumber.match(/ORD(\d{6})/);
+  if (match) {
+    const numericValue = parseInt(match[1], 10);
+    if (!Number.isNaN(numericValue) && numericValue > fallbackCounter) {
+      fallbackCounter = numericValue;
+    }
+  }
+};
+
+// Fallback function for client-side order number generation
+// Used when database function is not available
+// Uses incremental counter instead of random numbers
+export const generateOrderNumberFallback = (): string => {
+  // Increment counter
+  fallbackCounter++;
+
+  // If counter exceeds 999999, reset to 1
+  if (fallbackCounter > 999999) {
+    fallbackCounter = 1;
+  }
+
+  const formattedNumber = formatOrderNumber(fallbackCounter);
+
+  console.warn('⚠️ FALLBACK: Using client-side order number generation');
+  console.log('📊 Fallback counter:', fallbackCounter);
+
+  return formattedNumber;
+};
+
+const generateOrderNumberLocal = async (): Promise<string> => {
+  try {
+    await databaseService.initialize();
+    const orders = await databaseService.query<any>('orders');
+
+    let maxOrderValue = 0;
+
+    for (const order of orders) {
+      const rawOrderNumber = order?.order_number ?? order?.orderNumber;
+      if (typeof rawOrderNumber === 'string') {
+        const match = rawOrderNumber.match(/ORD(\d{6})/);
+        if (match) {
+          const numericValue = parseInt(match[1], 10);
+          if (!Number.isNaN(numericValue) && numericValue > maxOrderValue) {
+            maxOrderValue = numericValue;
+          }
+        }
+      }
+    }
+
+    const nextValue = maxOrderValue + 1;
+    fallbackCounter = nextValue;
+
+    const formattedNumber = formatOrderNumber(nextValue);
+    console.log('✅ Order number generated from local database:', formattedNumber);
+    return formattedNumber;
+  } catch (error) {
+    console.warn('⚠️ Could not generate order number from local database, using fallback counter', error);
+    return generateOrderNumberFallback();
+  }
+};
+
+// Function to initialize fallback counter from last order number
+export const initializeFallbackCounter = async () => {
+  try {
+    // Try to get the last order number from database
+    const { data, error } = await supabase
+      .from('orders')
+      .select('order_number')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+    
+    if (data && data.order_number) {
+      // Extract number from ORD000000 format
+      const match = data.order_number.match(/ORD(\d{6})/);
+      if (match) {
+        fallbackCounter = parseInt(match[1], 10);
+        console.log('✅ Fallback counter initialized from last order:', fallbackCounter);
+      }
+    }
+  } catch (error) {
+    console.warn('⚠️ Could not initialize fallback counter:', error);
+    // Start from 0 if we can't get last order
+    fallbackCounter = 0;
+  }
 };
 
 export const calculateOrderTotal = (
@@ -239,7 +343,7 @@ export const calculateOrderTotal = (
   ppn?: number,
   taxChecked?: boolean
 ) => {
-  let itemsTotal = items.reduce((sum, item) => sum + (item.subTotal || 0), 0);
+  let itemsTotal = items.reduce((sum, item) => sum + Number(item.subTotal || 0), 0);
   let total = itemsTotal;
 
   if (typeof jasaDesain !== 'undefined' && Number(jasaDesain) > 0) {
@@ -579,10 +683,9 @@ export const saveOrderToDatabase = async (orderData: any) => {
   }
 };
 
-export const fetchNextOrderNumber = async () => {
-  const { data, error } = await supabase.rpc('get_next_order_number');
-  if (error) throw error;
-  return data; // Pastikan data adalah nomor urut yang benar, misal: "ORD-00123"
+// Fetch next order number - now uses the same function as generateOrderNumber
+export const fetchNextOrderNumber = async (): Promise<string> => {
+  return await generateOrderNumber();
 };
 
 // Delete order with notification

@@ -1,5 +1,6 @@
 import React from 'react';
 import { NotaSettingsData } from '../../utils/notaSettings';
+import { getStrukSettings } from '../../utils/strukSettings';
 
 interface PaymentStampProps {
   isLunas: boolean;
@@ -7,7 +8,10 @@ interface PaymentStampProps {
 }
 
 export const PaymentStamp: React.FC<PaymentStampProps> = ({ isLunas, settings }) => {
-  if (!settings.enabled) {
+  const strukSettings = getStrukSettings();
+  
+  // Use struk settings for lunas logo
+  if (!strukSettings.struk.showLunasLogo) {
     return null;
   }
 
@@ -16,7 +20,7 @@ export const PaymentStamp: React.FC<PaymentStampProps> = ({ isLunas, settings })
     return null;
   }
 
-  const imageUrl = settings.lunasImageUrl;
+  const imageUrl = strukSettings.struk.lunasLogo.url;
 
   // Determine position styles
   const getPositionStyles = (position: string) => {
@@ -51,8 +55,8 @@ export const PaymentStamp: React.FC<PaymentStampProps> = ({ isLunas, settings })
     ...positionStyles
   };
 
-  // Only render image stamp if useImage is true and imageUrl is provided
-  if (settings.useImage && imageUrl) {
+  // Only render image stamp if imageUrl is provided from struk settings
+  if (imageUrl && imageUrl.trim() !== '') {
     return (
       <div style={containerStyles}>
         <img
@@ -63,11 +67,15 @@ export const PaymentStamp: React.FC<PaymentStampProps> = ({ isLunas, settings })
             height: `${settings.size}px`,
             objectFit: 'contain'
           }}
+          onError={(e) => {
+            console.error('Lunas stamp failed to load:', imageUrl);
+            e.currentTarget.style.display = 'none';
+          }}
         />
       </div>
     );
   }
 
-  // If no image configured or useImage is false, don't show anything
+  // If no image configured, don't show anything
   return null;
 };

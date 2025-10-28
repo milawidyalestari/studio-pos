@@ -222,7 +222,7 @@ function generateImportReport(result, inputFile) {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const reportPath = path.join(__dirname, `import_report_${timestamp}.txt`);
   
-  let report = `Studio POS Data Import Report\n`;
+  let report = `Azuro Data Import Report\n`;
   report += `=====================================\n\n`;
   report += `Import Date: ${new Date().toISOString()}\n`;
   report += `Source File: ${inputFile}\n`;

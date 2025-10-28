@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Studio POS - Loading</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: transparent;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Background dengan efek blur dan gradient */
+        .bg-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, 
+                rgba(102, 126, 234, 0.1) 0%, 
+                rgba(118, 75, 162, 0.1) 25%,
+                rgba(240, 147, 251, 0.1) 50%,
+                rgba(245, 87, 108, 0.1) 75%,
+                rgba(102, 126, 234, 0.1) 100%);
+            background-size: 400% 400%;
+            animation: gradientShift 8s ease infinite;
+            backdrop-filter: blur(10px);
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Container utama dengan efek glassmorphism */
+        .splash-container {
+            text-align: center;
+            z-index: 10;
+            position: relative;
+            max-width: 450px;
+            padding: 50px 40px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border-radius: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 
+                0 25px 50px rgba(0, 0, 0, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            animation: containerFloat 6s ease-in-out infinite;
+        }
+
+        @keyframes containerFloat {
+            0%, 100% { 
+                transform: translateY(0px) scale(1);
+                box-shadow: 
+                    0 25px 50px rgba(0, 0, 0, 0.1),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            }
+            50% { 
+                transform: translateY(-10px) scale(1.02);
+                box-shadow: 
+                    0 35px 70px rgba(0, 0, 0, 0.15),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            }
+        }
+
+        /* Logo dengan efek glassmorphism */
+        .logo-container {
+            margin-bottom: 30px;
+            position: relative;
+        }
+
+        .logo {
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 
+                0 15px 35px rgba(102, 126, 234, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            animation: logoGlow 4s ease-in-out infinite;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .logo::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(255, 255, 255, 0.2), 
+                transparent);
+            animation: logoShine 3s ease-in-out infinite;
+        }
+
+        @keyframes logoShine {
+            0% { left: -100%; }
+            50% { left: 100%; }
+            100% { left: 100%; }
+        }
+
+        @keyframes logoGlow {
+            0%, 100% { 
+                transform: scale(1);
+                box-shadow: 
+                    0 15px 35px rgba(102, 126, 234, 0.2),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            }
+            50% { 
+                transform: scale(1.05);
+                box-shadow: 
+                    0 20px 40px rgba(102, 126, 234, 0.3),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+            }
+        }
+
+        .logo-icon {
+            font-size: 40px;
+            color: white;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            z-index: 1;
+            position: relative;
+        }
+
+        /* Judul aplikasi */
+        .app-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 15px rgba(0, 0, 0, 0.3);
+            animation: titleFadeIn 1.2s ease-out;
+            background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .app-subtitle {
+            font-size: 1.1rem;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 35px;
+            font-weight: 300;
+            animation: titleFadeIn 1.2s ease-out 0.3s both;
+        }
+
+        @keyframes titleFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Section loading */
+        .loading-section {
+            animation: loadingFadeIn 1.2s ease-out 0.6s both;
+        }
+
+        .loading-text {
+            color: white;
+            font-size: 1rem;
+            margin-bottom: 25px;
+            font-weight: 500;
+            text-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Progress bar dengan efek glassmorphism */
+        .progress-container {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(5px);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, 
+                rgba(79, 172, 254, 0.8) 0%, 
+                rgba(0, 242, 254, 0.8) 50%,
+                rgba(79, 172, 254, 0.8) 100%);
+            background-size: 200% 100%;
+            border-radius: 4px;
+            width: 0%;
+            animation: progressAnimation 4s ease-out forwards, progressShine 2s ease-in-out infinite;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-bar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(255, 255, 255, 0.3), 
+                transparent);
+            animation: progressShine 2s ease-in-out infinite;
+        }
+
+        @keyframes progressAnimation {
+            0% { width: 0%; }
+            15% { width: 25%; }
+            30% { width: 45%; }
+            45% { width: 65%; }
+            60% { width: 80%; }
+            75% { width: 90%; }
+            100% { width: 100%; }
+        }
+
+        @keyframes progressShine {
+            0% { left: -100%; }
+            50% { left: 100%; }
+            100% { left: 100%; }
+        }
+
+        /* Loading dots dengan efek glassmorphism */
+        .loading-dots {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(5px);
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            animation: dotBounce 1.8s ease-in-out infinite;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .dot:nth-child(1) { animation-delay: 0s; }
+        .dot:nth-child(2) { animation-delay: 0.3s; }
+        .dot:nth-child(3) { animation-delay: 0.6s; }
+
+        @keyframes dotBounce {
+            0%, 80%, 100% {
+                transform: scale(0.8) translateY(0);
+                opacity: 0.6;
+            }
+            40% {
+                transform: scale(1.2) translateY(-5px);
+                opacity: 1;
+            }
+        }
+
+        /* Status message */
+        .status-message {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 0.9rem;
+            margin-top: 20px;
+            min-height: 25px;
+            transition: all 0.4s ease;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Version info */
+        .version-info {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.75rem;
+            font-weight: 300;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(5px);
+            padding: 5px 10px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .splash-container {
+                padding: 40px 30px;
+                margin: 20px;
+                max-width: 350px;
+            }
+            
+            .app-title {
+                font-size: 2rem;
+            }
+            
+            .logo {
+                width: 80px;
+                height: 80px;
+            }
+            
+            .logo-icon {
+                font-size: 32px;
+            }
+        }
+
+        /* Efek hover untuk interaktivitas */
+        .splash-container:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 
+                0 30px 60px rgba(0, 0, 0, 0.15),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-overlay"></div>
+    
+    <div class="splash-container">
+        <!-- Logo -->
+        <div class="logo-container">
+            <div class="logo">
+                <div class="logo-icon">📊</div>
+            </div>
+        </div>
+
+        <!-- App Title -->
+        <h1 class="app-title">Studio POS</h1>
+        <p class="app-subtitle">Point of Sale System</p>
+
+        <!-- Loading Section -->
+        <div class="loading-section">
+            <div class="loading-text">Initializing Application...</div>
+            
+            <div class="progress-container">
+                <div class="progress-bar"></div>
+            </div>
+            
+            <div class="loading-dots">
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+            </div>
+            
+            <div class="status-message" id="statusMessage">Loading modules...</div>
+        </div>
+    </div>
+
+    <div class="version-info">v1.0.0</div>
+
+    <script>
+        // Loading simulation dengan pesan yang lebih realistis
+        const statusMessages = [
+            "Loading modules...",
+            "Initializing database...",
+            "Loading user interface...",
+            "Preparing workspace...",
+            "Setting up authentication...",
+            "Almost ready..."
+        ];
+
+        let currentStep = 0;
+        const statusElement = document.getElementById('statusMessage');
+
+        function updateStatus() {
+            if (currentStep < statusMessages.length) {
+                statusElement.textContent = statusMessages[currentStep];
+                statusElement.style.opacity = '0';
+                
+                setTimeout(() => {
+                    statusElement.textContent = statusMessages[currentStep];
+                    statusElement.style.opacity = '1';
+                    currentStep++;
+                }, 200);
+                
+                setTimeout(updateStatus, 1000);
+            } else {
+                statusElement.textContent = "Ready!";
+                statusElement.style.color = "#4ade80";
+                statusElement.style.textShadow = "0 0 10px rgba(74, 222, 128, 0.5)";
+            }
+        }
+
+        // Start the loading animation
+        setTimeout(updateStatus, 800);
+
+        // Tambahkan efek interaktif
+        document.addEventListener('mousemove', (e) => {
+            const container = document.querySelector('.splash-container');
+            const rect = container.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            
+            const rotateX = (y - centerY) / 20;
+            const rotateY = (centerX - x) / 20;
+            
+            container.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-5px) scale(1.02)`;
+        });
+
+        document.addEventListener('mouseleave', () => {
+            const container = document.querySelector('.splash-container');
+            container.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0px) scale(1)';
+        });
+    </script>
+</body>
+</html>

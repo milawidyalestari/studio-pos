@@ -5,7 +5,7 @@ import { Users } from 'lucide-react';
 import { TableHeader } from './TableHeader';
 import { ActionButtons } from './ActionButtons';
 import { getStatusBadge } from '@/utils/masterDataHelpers';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SearchInput } from '@/components/common/SearchInput';
 import { SearchAndFilter } from './SearchAndFilter';
@@ -21,7 +21,7 @@ interface EmployeesTabProps {
 
 interface Position { id: string; name: string; }
 
-const initialForm = { kode: '', nama: '', posisi: '', status: 'Active' };
+const initialForm = { kode: '', nama: '', posisi: '', status: 'Aktif' };
 
 // Helper untuk generate ID karyawan otomatis
 function generateEmployeeId(existing: string[]): string {
@@ -68,14 +68,26 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
 
   const fetchEmployees = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from('employees').select('*').order('kode');
-    if (!error) setEmployees(data || []);
+    try {
+      const data = await databaseService.query<Employee>('employees', {
+        orderBy: { column: 'kode', direction: 'asc' }
+      });
+      setEmployees(data || []);
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+    }
     setLoading(false);
   };
 
   const fetchPositions = async () => {
-    const { data, error } = await supabase.from('positions').select('*').order('name');
-    if (!error && data) setPositions(data as Position[]);
+    try {
+      const data = await databaseService.query<Position>('positions', {
+        orderBy: { column: 'name', direction: 'asc' }
+      });
+      setPositions(data || []);
+    } catch (error) {
+      console.error('Error fetching positions:', error);
+    }
   };
 
   useEffect(() => { fetchEmployees(); fetchPositions(); }, []);
@@ -100,33 +112,28 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
       setError('Semua field wajib diisi');
       return;
     }
-    const status: 'Active' | 'Inactive' = form.status === 'Inactive' ? 'Inactive' : 'Active';
-    if (form.id) {
-      // Edit
-      const { error } = await supabase.from('employees').update({
-        nama: form.nama,
-        posisi: form.posisi,
-        status,
-        updated_at: new Date().toISOString(),
-      }).eq('id', form.id);
-      if (error) {
-        setError('Gagal mengupdate data');
-        return;
+    const status: 'Aktif' | 'Tidak Aktif' = form.status === 'Tidak Aktif' ? 'Tidak Aktif' : 'Aktif';
+    try {
+      if (form.id) {
+        // Edit
+        await databaseService.update('employees', form.id, {
+          nama: form.nama,
+          posisi: form.posisi,
+          status
+        });
+      } else {
+        // Tambah
+        await databaseService.create('employees', {
+          kode: form.kode,
+          nama: form.nama,
+          posisi: form.posisi,
+          status
+        } as any);
       }
-    } else {
-      // Tambah
-      const { error } = await supabase.from('employees').insert([{
-        kode: form.kode,
-        nama: form.nama,
-        posisi: form.posisi,
-        status,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }]);
-      if (error) {
-        setError('Gagal menambah data');
-        return;
-      }
+    } catch (error) {
+      console.error('Error saving employee:', error);
+      setError(form.id ? 'Gagal mengupdate data' : 'Gagal menambah data');
+      return;
     }
     setShowModal(false);
     fetchEmployees();
@@ -149,8 +156,12 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
       setError('');
     } else if (action === 'delete') {
       if (window.confirm(`Yakin ingin menghapus karyawan ${employee.nama}?`)) {
-        await supabase.from('employees').delete().eq('kode', employee.kode);
-        fetchEmployees();
+        try {
+          await databaseService.delete('employees', employee.id);
+          fetchEmployees();
+        } catch (error) {
+          console.error('Error deleting employee:', error);
+        }
       }
     }
   };
@@ -186,12 +197,12 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
   const handleImportData = async () => {
     try {
       for (const row of importedData) {
-        // Ganti dengan createEmployee jika ada, atau insert ke supabase
-        await supabase.from('employees').insert([row]);
+        await databaseService.create('employees', row as any);
       }
       setIsImportOpen(false);
       setImportedData([]);
       setImportError(null);
+      fetchEmployees();
     } catch (err: any) {
       setImportError(err.message || 'Import failed');
     }
@@ -260,8 +271,8 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
                 .filter((employee) => {
                   // Filter by status
                   if (statusFilter === 'all') return true;
-                  if (statusFilter === 'active') return employee.status === 'Active';
-                  if (statusFilter === 'inactive') return employee.status === 'Inactive';
+                  if (statusFilter === 'active') return employee.status === 'Aktif';
+                  if (statusFilter === 'inactive') return employee.status === 'Tidak Aktif';
                   return true;
                 })
                 .filter((employee) => {
@@ -318,8 +329,8 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
               <div>
                 <label className="block text-sm font-medium mb-1">Status</label>
                 <select name="status" value={form.status} onChange={handleFormChange} className="border rounded px-3 py-2 w-full">
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
+                  <option value="Aktif">Aktif</option>
+                  <option value="Tidak Aktif">Tidak Aktif</option>
                 </select>
               </div>
               {error && <div className="text-red-500 text-sm">{error}</div>}

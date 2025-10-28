@@ -1,4 +1,3 @@
-
 import React, { memo } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -16,7 +15,8 @@ import {
   Truck,
   Printer,
   DollarSign,
-  CreditCard
+  CreditCard,
+  BookOpen
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -71,6 +71,12 @@ const menuItems = [
     permission: { menu: 'Finance', action: 'view_finance' }
   },
   { 
+    path: '/accounting', 
+    label: 'Akuntansi', 
+    icon: BookOpen,
+    permission: { menu: 'Accounting', action: 'view_accounting' }
+  },
+  { 
     path: ROUTES.INVENTORY, 
     label: 'Inventory', 
     icon: Package,
@@ -100,12 +106,6 @@ const menuItems = [
     icon: Settings,
     permission: { menu: 'Settings', action: 'view_settings' }
   },
-  { 
-    path: '/print-demo', 
-    label: 'Print Demo', 
-    icon: Printer,
-    permission: { menu: 'Settings', action: 'system_tools' }
-  },
 ];
 
 const Sidebar = memo<SidebarProps>(({ collapsed, onToggle }) => {
@@ -115,31 +115,81 @@ const Sidebar = memo<SidebarProps>(({ collapsed, onToggle }) => {
   const hasAccess = useHasAccess();
 
   const handleLogout = () => {
-    localStorage.removeItem('studio_pos_user');
-    navigate('/login');
+    try {
+      console.log('🔄 Starting logout process...');
+      
+      // Step 1: Clear user data
+      localStorage.removeItem('azuro_user');
+      console.log('✅ User data cleared from localStorage');
+      
+      // Step 2: Clear any other auth-related data
+      sessionStorage.removeItem('current_user');
+      console.log('✅ Session data cleared');
+      
+      // Step 3: Check if running in Electron
+      const isElectron = typeof window !== 'undefined' && 
+        (window as any).electronAPI?.app?.isDev !== undefined;
+      
+      if (isElectron) {
+        // For Electron, reload the page to trigger NativeAppWrapper login flow
+        console.log('🔄 Electron detected, reloading page for login flow');
+        window.location.reload();
+      } else {
+        // For web version, navigate to login
+        navigate('/login');
+        console.log('✅ Navigation to login successful');
+        
+        // Step 4: Force page reload if needed
+        setTimeout(() => {
+          if (window.location.pathname !== '/login') {
+            console.log('🔄 Forcing reload to login page');
+            window.location.href = '/login';
+          }
+        }, 100);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error during logout:', error);
+      
+      // Fallback logout method
+      try {
+        localStorage.removeItem('azuro_user');
+        sessionStorage.clear();
+        window.location.reload();
+      } catch (fallbackError) {
+        console.error('❌ Fallback logout failed:', fallbackError);
+        // Last resort - reload page
+        window.location.reload();
+      }
+    }
   };
 
   return (
     <div className={cn(
-      "bg-white border-r border-gray-200 transition-all duration-300 flex flex-col h-screen",
+      "bg-white border-r border-gray-200 transition-all duration-300 flex flex-col overflow-hidden h-full",
       collapsed ? "w-16" : "w-64"
     )}>
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+      <div className={cn(
+        "flex items-center h-14 px-4 border-b border-gray-200",
+        collapsed ? "justify-center" : "justify-between"
+      )}>
         {!collapsed && (
-          <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <Torus  className="h-7 w-7 text-blue-700" />
+          <h2 className="text-lg font-semibold text-gray-900 whitespace-nowrap">
             {APP_CONFIG.APP_NAME}
-          </h1>
+          </h2>
         )}
         <Button
           variant="ghost"
-          size="sm"
+          size="icon"
           onClick={onToggle}
-          className="p-2"
-          aria-label="Toggle sidebar"
+          className={cn(
+            "h-8 w-8 text-gray-500 hover:bg-gray-100 hover:text-gray-700 flex-shrink-0",
+            !collapsed && "ml-auto"
+          )}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          <Menu className="h-4 w-4 text-blue-700" />
+          <Menu className="h-5 w-5" />
         </Button>
       </div>
 
@@ -151,7 +201,7 @@ const Sidebar = memo<SidebarProps>(({ collapsed, onToggle }) => {
             const isActive = location.pathname === item.path;
             
             return (
-              <li key={item.path}>
+              <li key={item.path} className="relative group">
                 <NavLink
                   to={item.path}
                   className={cn(
@@ -162,8 +212,19 @@ const Sidebar = memo<SidebarProps>(({ collapsed, onToggle }) => {
                   )}
                   aria-current={isActive ? 'page' : undefined}
                 >
-                  <Icon className={cn("h-5 w-5", collapsed ? "mx-auto" : "mr-3", isActive ? "text-white" : "text-blue-700")} />
-                  {!collapsed && <span>{item.label}</span>}
+                  <Icon className={cn(
+                    "h-5 w-5 flex-shrink-0",
+                    isActive ? "text-white" : "text-blue-700",
+                    collapsed ? "mx-auto" : "mr-3"
+                  )} />
+                  {!collapsed && (
+                    <span className="whitespace-nowrap">{item.label}</span>
+                  )}
+                  {collapsed && (
+                    <span className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-opacity z-50">
+                      {item.label}
+                    </span>
+                  )}
                 </NavLink>
               </li>
             );
@@ -176,14 +237,19 @@ const Sidebar = memo<SidebarProps>(({ collapsed, onToggle }) => {
         <AlertDialog open={openLogoutDialog} onOpenChange={setOpenLogoutDialog}>
           <AlertDialogTrigger asChild>
             <button
-              className={cn(
-                "flex items-center w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors",
-                collapsed && "justify-center"
-              )}
+              className="flex items-center w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors relative group"
               aria-label="Logout"
             >
-              <LogOut className={cn("h-5 w-5 text-blue-700", collapsed ? "mx-auto" : "mr-3")} />
+              <LogOut className={cn(
+                "h-5 w-5 flex-shrink-0",
+                collapsed ? "mx-auto" : "mr-3"
+              )} />
               {!collapsed && <span>Logout</span>}
+              {collapsed && (
+                <span className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-opacity z-50">
+                  Logout
+                </span>
+              )}
             </button>
           </AlertDialogTrigger>
           <AlertDialogContent>

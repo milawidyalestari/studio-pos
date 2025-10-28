@@ -1,9 +1,8 @@
 // Check if Supabase connection is available
 const checkSupabaseConnection = async (): Promise<boolean> => {
   try {
-    const { supabase } = await import('@/integrations/supabase/client');
-    const { data, error } = await supabase.from('categories').select('id').limit(1);
-    return !error;
+    const { isSupabaseAvailable } = await import('@/integrations/supabase/client');
+    return isSupabaseAvailable();
   } catch (error) {
     console.log('Supabase not available:', error);
     return false;

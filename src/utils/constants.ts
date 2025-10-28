@@ -1,6 +1,6 @@
 
 export const APP_CONFIG = {
-  APP_NAME: 'Montana',
+  APP_NAME: 'Azuro',
   VERSION: '1.0.0',
   COMPANY_NAME: 'Digital Print Control',
 } as const;
@@ -27,14 +27,15 @@ export const ORDER_STATUS = {
 } as const;
 
 export const CUSTOMER_LEVELS = {
+  REGULER: 'Reguler',
   VIP: 'VIP',
-  PREMIUM: 'Premium',
-  REGULAR: 'Regular',
+  VENDOR: 'Vendor',
+  ORGANISASI: 'Organisasi',
 } as const;
 
 export const EMPLOYEE_STATUS = {
-  ACTIVE: 'Active',
-  INACTIVE: 'Inactive',
+  AKTIF: 'Aktif',
+  TIDAK_AKTIF: 'Tidak Aktif',
 } as const;
 
 export const PAGINATION = {

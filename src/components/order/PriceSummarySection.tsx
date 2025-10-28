@@ -48,22 +48,14 @@ const PriceSummarySection: React.FC<PriceSummarySectionProps> = ({ formData, tot
   const selectedPaymentType = availablePaymentTypes.find(pt => pt.id === selectedPaymentTypeId);
   
   // Calculate total including service costs
-  const designService = parseFloat(formData.jasaDesain) || 0;
-  const otherCosts = parseFloat(formData.biayaLain) || 0;
-  let totalWithServices = subtotal;
-  if (!isNaN(designService) && designService > 0) {
-    totalWithServices += designService;
-  }
-  if (!isNaN(otherCosts) && otherCosts > 0) {
-    totalWithServices += otherCosts;
-  }
+  const designService = formData.jasaDesain ? Number(formData.jasaDesain) : 0;
+  const otherCosts = formData.biayaLain ? Number(formData.biayaLain) : 0;
+  const totalWithServices = subtotal + designService + otherCosts;
 
   // Calculate discount
-  const discountPercent = Number(formData.discount) || 0;
-  let totalAfterDiscount = totalWithServices;
-  if (!isNaN(discountPercent) && discountPercent > 0) {
-    totalAfterDiscount -= (totalWithServices * discountPercent / 100);
-  }
+  const discountPercent = formData.discount ? Number(formData.discount) : 0;
+  const discountAmount = discountPercent > 0 ? (totalWithServices * discountPercent / 100) : 0;
+  const totalAfterDiscount = totalWithServices - discountAmount;
 
   // Tambahkan fungsi pembulatan custom
   function customRounding(value: number): number {
@@ -76,19 +68,17 @@ const PriceSummarySection: React.FC<PriceSummarySectionProps> = ({ formData, tot
   }
 
   // Calculate tax (PPN)
-  const taxPercent = Number(formData.ppn) || 0;
-  let totalAfterTax = totalAfterDiscount;
+  const taxPercent = formData.ppn ? Number(formData.ppn) : 0;
   const isTaxChecked = typeof formData.taxChecked === 'string' ? formData.taxChecked === 'true' : Boolean(formData.taxChecked);
-  if (isTaxChecked && !isNaN(taxPercent) && taxPercent > 0) {
-    totalAfterTax += (totalAfterDiscount * taxPercent / 100);
-  }
+  const taxAmount = (isTaxChecked && taxPercent > 0) ? (totalAfterDiscount * taxPercent / 100) : 0;
+  const totalAfterTax = totalAfterDiscount + taxAmount;
 
-  // Terapkan pembulatan custom
+  // Apply custom rounding
   const roundedTotal = customRounding(totalAfterTax);
 
   // Calculate remaining amount (Sisa)
-  const downPaymentAmount = parseFloat(formData.downPayment) || 0;
-  const pelunasanAmount = parseFloat(formData.pelunasan) || 0;
+  const downPaymentAmount = formData.downPayment ? Number(formData.downPayment) : 0;
+  const pelunasanAmount = formData.pelunasan ? Number(formData.pelunasan) : 0;
   const sisa = roundedTotal - (downPaymentAmount + pelunasanAmount);
 
   // Untuk input PPN dan Discount agar 0 menjadi placeholder
@@ -96,15 +86,15 @@ const PriceSummarySection: React.FC<PriceSummarySectionProps> = ({ formData, tot
   const discountValue = String(formData.discount) === '' || String(formData.discount) === '0' ? '' : formData.discount;
   
   return (
-    <div className="border-t bg-white pl-6 pr-6 pt-2 pb-6 flex-shrink-0">
-      <div className="flex justify-between items-center mb-4">
+    <div className="border-t bg-white pl-4 pr-4 pt-2 pb-4 flex-shrink-0">
+      <div className="flex justify-between items-center mb-3">
         <span className="text-lg font-semibold">TOTAL</span>
         <span className="text-2xl font-bold text-[#0050C8]">{formatCurrency(roundedTotal)}</span>
       </div>
       {/* 2-column grid layout, compact and aligned */}
-      <div className="grid grid-cols-2 gap-8 items-start mb-2">
+      <div className="grid grid-cols-2 gap-6 items-start mb-2">
         {/* Left column: vertical alignment, compact */}
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2">
           {/* Tax */}
           <div className="flex items-center gap-3">
             <Label className="text-sm font-medium w-16 mr-2">PPN</Label>
@@ -139,7 +129,7 @@ const PriceSummarySection: React.FC<PriceSummarySectionProps> = ({ formData, tot
           </div>
         </div>
         {/* Right column: label beside input */}
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2">
           <div className="flex items-center gap-3">
             <Label className="text-sm font-medium w-28">Uang Muka</Label>
             <Input 
@@ -166,7 +156,11 @@ const PriceSummarySection: React.FC<PriceSummarySectionProps> = ({ formData, tot
           </div>
           <div className="flex items-center gap-3">
             <Label className="text-sm font-medium w-28">Sisa</Label>
-            <Input value={formatCurrency(sisa)} readOnly className="bg-gray-100 h-8 px-2 py-1 flex-1 " />
+            <Input 
+              value={sisa <= 0 ? "LUNAS" : formatCurrency(sisa)} 
+              readOnly 
+              className={`h-8 px-2 py-1 flex-1 ${sisa <= 0 ? 'bg-green-100 text-green-800 font-semibold' : 'bg-gray-100'}`} 
+            />
           </div>
           <div className="flex items-center gap-3">
             <Label className="text-sm font-medium w-28"> Tipe Pembayaran</Label>

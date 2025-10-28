@@ -417,14 +417,24 @@ export class DatabaseManager {
   }
 
   private async initializeDevelopment(config: DatabaseConfig): Promise<void> {
-    // Development: Prioritaskan Supabase, fallback ke Local Storage
+    // Development: Prioritaskan Local Storage untuk Electron, Supabase untuk web
+    const isElectron = typeof window !== 'undefined' && (window as any).electronAPI?.app?.isDev !== undefined;
+    
+    if (isElectron) {
+      // Electron: Gunakan Local Storage
+      this.adapter = new LocalStorageAdapter();
+      console.log('💾 Development (Electron): Using Local Storage');
+      return;
+    }
+    
+    // Web: Coba Supabase dulu, fallback ke Local Storage
     if (config.type === 'supabase' && config.connection?.url && config.connection?.key) {
       try {
         this.adapter = new SupabaseAdapter(config.connection.url, config.connection.key);
         const isConnected = await this.adapter.isConnected();
         
         if (isConnected) {
-          console.log('🚀 Development: Connected to Supabase');
+          console.log('🚀 Development (Web): Connected to Supabase');
           return;
         }
       } catch (error) {

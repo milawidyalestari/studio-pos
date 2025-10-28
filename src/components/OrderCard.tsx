@@ -89,6 +89,28 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
     return 'text-gray-600';
   };
 
+  const getPriorityBadge = (dateString: string) => {
+    if (!dateString || dateString === '-' || dateString === '') return null;
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return null;
+    
+    const today = new Date();
+    const diffTime = date.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) {
+      return { text: 'URGENT', color: 'bg-red-100 text-red-700 border-red-200' };
+    } else if (diffDays === 0) {
+      return { text: 'HARI INI', color: 'bg-orange-100 text-orange-700 border-orange-200' };
+    } else if (diffDays === 1) {
+      return { text: 'BESOK', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' };
+    } else if (diffDays <= 3) {
+      return { text: 'MINGGU INI', color: 'bg-blue-100 text-blue-700 border-blue-200' };
+    }
+    
+    return null;
+  };
+
   const handleCardClick = () => {
     if (onOrderClick && !showDeleteDialog) {
       onOrderClick(order);
@@ -134,28 +156,26 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
 
   if (isDoneColumn && order.status === 'Done') {
     return (
-      <Card
-        ref={provided?.innerRef}
-        {...(provided?.draggableProps || {})}
-        {...(provided?.dragHandleProps || {})}
-        className={`cursor-pointer transition-all duration-200 ease-out hover:shadow-md hover:scale-[1.02] ${
-          snapshot?.isDragging ? 'shadow-xl rotate-1 scale-105 z-50 opacity-95' : ''
-        } ${
-          isOptimisticallyMoved ? 'ring-2 ring-blue-400 ring-opacity-60 shadow-md bg-blue-50/30' : ''
-        }`}
-        style={{
-          transform: snapshot?.isDragging ? 'rotate(1deg) scale(1.05)' : isOptimisticallyMoved ? 'translateZ(0)' : 'none',
-          transition: snapshot?.isDragging ? 'none' : 'all 0.2s ease-out',
-          willChange: snapshot?.isDragging || isOptimisticallyMoved ? 'transform, box-shadow' : 'auto',
-          ...provided?.draggableProps?.style
-        }}
-        onClick={handleCardClick}
-      >
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle className="text-sm font-medium text-gray-900 mb-1">
-              {order.customer}
-            </CardTitle>
+      <div
+          ref={provided?.innerRef}
+          {...(provided?.draggableProps || {})}
+          {...(provided?.dragHandleProps || {})}
+          className={`bg-white border border-gray-200 rounded-lg p-4 mb-2 cursor-move ${
+            snapshot?.isDragging ? 'opacity-40 z-50' : 'opacity-100'
+          } ${
+            isOptimisticallyMoved ? 'ring-2 ring-blue-400 bg-blue-50/30' : ''
+          }`}
+          style={{
+            ...provided?.draggableProps?.style
+          }}
+          onClick={handleCardClick}
+        >
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <div className="font-medium text-gray-900">
+                {order.customer}
+              </div>
+            </div>
             <div className="flex items-center gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -185,36 +205,32 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
               )}
             </div>
           </div>
-        </CardHeader>
-      </Card>
+        </div>
     );
   }
 
   return (
     <TooltipProvider>
-      <Card 
-        ref={provided?.innerRef}
-        {...(provided?.draggableProps || {})}
-        {...(provided?.dragHandleProps || {})}
-        className={`cursor-pointer transition-all duration-200 ease-out hover:shadow-md hover:scale-[1.02] ${
-          snapshot?.isDragging ? 'shadow-xl rotate-1 scale-105 z-50 opacity-95' : ''
-        } ${
-          isOptimisticallyMoved ? 'ring-2 ring-blue-400 ring-opacity-60 shadow-md bg-blue-50/30' : ''
-        }`}
-        style={{
-          transform: snapshot?.isDragging ? 'rotate(1deg) scale(1.05)' : isOptimisticallyMoved ? 'translateZ(0)' : 'none',
-          transition: snapshot?.isDragging ? 'none' : 'all 0.2s ease-out',
-          willChange: snapshot?.isDragging || isOptimisticallyMoved ? 'transform, box-shadow' : 'auto',
-          ...provided?.draggableProps?.style
-        }}
-        onClick={handleCardClick}
-      >
-        <CardHeader className="pb-3">
-          <div className="flex justify-between items-start">
+        <div 
+          ref={provided?.innerRef}
+          {...(provided?.draggableProps || {})}
+          {...(provided?.dragHandleProps || {})}
+          className={`bg-white border border-gray-200 rounded-lg p-4 mb-2 cursor-move ${
+            snapshot?.isDragging ? 'opacity-40 z-50' : 'opacity-100'
+          } ${
+            isOptimisticallyMoved ? 'ring-2 ring-blue-400 bg-blue-50/30' : ''
+          }`}
+          style={{
+            ...provided?.draggableProps?.style
+          }}
+          onClick={handleCardClick}
+        >
+          {/* Header */}
+          <div className="flex justify-between items-start mb-3">
             <div className="flex-1">
-              <CardTitle className="text-sm font-medium text-gray-900 mb-1">
+              <div className="font-medium text-gray-900 mb-1">
                 {order.customer}
-              </CardTitle>
+              </div>
               <div className="flex items-center gap-1 text-xs">
                 <Calendar className="h-3 w-3" />
                 <span className={`font-medium ${getDeadlineColor(order.estimatedDate)}`}>
@@ -293,11 +309,9 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
               </AlertDialog>
             </div>
           </div>
-        </CardHeader>
-        
-        <CardContent className="pt-0">
+          
           {/* Items */}
-          <div className="space-y-1 mb-1">
+          <div className="space-y-1 mb-3">
             {(order.items || []).slice(0, 2).map((item, index) => {
               const itemProduct = products?.find(p => p.kode === item);
               return (
@@ -313,9 +327,9 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
             )}
           </div>
           
-          {/* Created date and designer avatar */}
-          <div className="flex justify-between items-center pt-4">
-            <div className="text-[12px] text-gray-500">
+          {/* Footer */}
+          <div className="flex justify-between items-center text-xs text-gray-600 mt-1">
+            <div>
               Dibuat: {order.created_at ? formatCreatedAt(order.created_at) : '-'}
             </div>
 
@@ -338,8 +352,7 @@ const OrderCard = ({ order, provided, snapshot, onOrderClick, onEditOrder, onDel
               <div className="h-6 w-6 rounded-full"></div>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
     </TooltipProvider>
   );
 };

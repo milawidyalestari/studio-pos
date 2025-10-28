@@ -3,6 +3,7 @@ import { Card, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Separator } from '../ui/separator';
 import { getNotaSettings } from '../../utils/notaSettings';
+import { getStrukSettings } from '../../utils/strukSettings';
 import { PaymentStamp } from './PaymentStamp';
 
 interface PrintPreviewProps {
@@ -33,13 +34,19 @@ export const SPKPreview: React.FC<PrintPreviewProps> = ({ orderData, orderList }
            panjang !== null && lebar !== null &&
            panjang !== undefined && lebar !== undefined;
   };
+  
+  // Get struk settings
+  const strukSettings = getStrukSettings();
+  
   return (
     <div className="space-y-4">
       <Card className="border-2 border-gray-300">
         <CardContent className="p-4">
           {/* Header */}
           <div className="text-center space-y-2">
-            <h2 className="text-xl font-bold">REQUEST ORDER</h2>
+            {strukSettings.spk.showHeader && (
+              <h2 className="text-xl font-bold">{strukSettings.spk.headerText}</h2>
+            )}
             <p className="text-lg font-semibold">{orderData?.orderNumber || 'N/A'}</p>
           </div>
           
@@ -166,7 +173,7 @@ export const ReceiptPreview: React.FC<PrintPreviewProps> = ({ orderData, orderLi
         <CardContent className="p-4">
           <div className="text-center space-y-2">
             <h2 className="text-lg font-bold">RECEIPT</h2>
-            <p className="text-xs text-gray-600">Studio POS System</p>
+            <p className="text-xs text-gray-600">Azuro System</p>
             <p className="text-xs">{new Date().toLocaleDateString('id-ID')}</p>
           </div>
           
@@ -255,6 +262,7 @@ export const NotaPreview: React.FC<PrintPreviewProps> = ({ orderData, orderList,
   
   // Get custom nota settings
   const notaSettings = getNotaSettings();
+  const strukSettings = getStrukSettings();
   
   // Calculate payment status - check if remaining payment is 0 or less
   const calculatePaymentStatus = () => {
@@ -273,33 +281,23 @@ export const NotaPreview: React.FC<PrintPreviewProps> = ({ orderData, orderList,
     <div className="space-y-4">
       <Card className="border-2 border-gray-300 relative">
         <CardContent className="p-4">
-          {/* Header Section */}
-          {notaSettings.header.enabled && (
+          {/* Logo Section */}
+          {strukSettings.struk.logo.url && (
             <div className="text-center mb-4">
-              <div 
-                className="font-bold text-blue-600"
-                style={{
-                  fontSize: `${notaSettings.header.fontSize}px`,
-                  fontWeight: notaSettings.header.fontWeight as any
-                }}
-              >
-                {notaSettings.header.text}
-              </div>
+              <img
+                src={strukSettings.struk.logo.url}
+                alt="Company Logo"
+                className="mx-auto h-12 object-contain"
+              />
             </div>
           )}
           
-          {/* Logo Section */}
-          {notaSettings.logo.enabled && notaSettings.logo.url && (
+          {/* Header Section */}
+          {strukSettings.struk.showHeader && (
             <div className="text-center mb-4">
-              <img
-                src={notaSettings.logo.url}
-                alt={notaSettings.logo.altText}
-                style={{
-                  width: `${notaSettings.logo.width}px`,
-                  height: `${notaSettings.logo.height}px`
-                }}
-                className="mx-auto mb-2"
-              />
+              <div className="font-bold text-blue-600 text-lg">
+                {strukSettings.struk.headerText}
+              </div>
             </div>
           )}
           
@@ -434,11 +432,17 @@ export const NotaPreview: React.FC<PrintPreviewProps> = ({ orderData, orderList,
                   selectedItems.length === 0 || selectedItems.includes(item.id || index.toString())
                 ) || [];
                 const subtotal = selectedOrderItems.reduce((sum, item) => sum + (item.subTotal || 0), 0);
-                const total = subtotal + (orderData?.desain || 0) + (orderData?.biayaLainnya || 0) - (orderData?.downPayment || 0);
+                const total = subtotal + (orderData?.desain || 0) + (orderData?.biayaLainnya || 0);
+                const remaining = total - (orderData?.downPayment || 0) - (orderData?.pelunasan || 0);
+                
+                // Show "LUNAS" if payment is complete, otherwise show remaining amount
+                if (remaining <= 0) {
+                  return 'LUNAS';
+                }
                 return new Intl.NumberFormat('id-ID', {
                   style: 'currency',
                   currency: 'IDR'
-                }).format(total);
+                }).format(Math.max(0, remaining));
               })()}</span>
             </div>
           </div>
@@ -458,19 +462,22 @@ export const NotaPreview: React.FC<PrintPreviewProps> = ({ orderData, orderList,
           </div>
           
           {/* Footer Section */}
-          {notaSettings.footer.enabled && (
+          {strukSettings.struk.showFooter && (
             <div className="mt-4 text-center">
-              <div 
-                className="text-gray-600"
-                style={{
-                  fontSize: `${notaSettings.footer.fontSize}px`,
-                  fontWeight: notaSettings.footer.fontWeight as any
-                }}
-              >
-                {notaSettings.footer.text.split('\n').map((line, index) => (
-                  <p key={index}>{line}</p>
-                ))}
+              <div className="text-gray-600 text-xs">
+                {strukSettings.struk.footerText}
               </div>
+            </div>
+          )}
+          
+          {/* Logo Lunas */}
+          {strukSettings.struk.showLunasLogo && strukSettings.struk.lunasLogo.url && isLunas && (
+            <div className="mt-4 text-center">
+              <img
+                src={strukSettings.struk.lunasLogo.url}
+                alt="Lunas"
+                className="mx-auto h-8 object-contain opacity-80"
+              />
             </div>
           )}
           

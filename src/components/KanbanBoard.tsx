@@ -70,6 +70,69 @@ function mapOrderWithItemsToOrder(order: OrderWithItems, employeeMap: Map<string
   };
 }
 
+// Function to calculate deadline priority for sorting
+function getDeadlinePriority(estimatedDate: string): number {
+  if (!estimatedDate || estimatedDate === '-') {
+    return 999; // No deadline = lowest priority
+  }
+  
+  const deadline = new Date(estimatedDate);
+  if (isNaN(deadline.getTime())) {
+    return 999; // Invalid date = lowest priority
+  }
+  
+  const today = new Date();
+  const diffTime = deadline.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  // Priority system:
+  // 1. Overdue (negative days) - highest priority (0-99)
+  // 2. Today (0 days) - high priority (100-199)
+  // 3. Tomorrow (1 day) - medium-high priority (200-299)
+  // 4. This week (2-7 days) - medium priority (300-399)
+  // 5. Next week (8-14 days) - low-medium priority (400-499)
+  // 6. Later (15+ days) - low priority (500+)
+  // 7. No deadline - lowest priority (999)
+  
+  if (diffDays < 0) {
+    // Overdue - more overdue = higher priority
+    return Math.abs(diffDays);
+  } else if (diffDays === 0) {
+    // Today
+    return 100;
+  } else if (diffDays === 1) {
+    // Tomorrow
+    return 200;
+  } else if (diffDays <= 7) {
+    // This week
+    return 300 + diffDays;
+  } else if (diffDays <= 14) {
+    // Next week
+    return 400 + diffDays;
+  } else {
+    // Later
+    return 500 + diffDays;
+  }
+}
+
+// Function to sort orders by deadline priority
+function sortOrdersByDeadline(orders: Order[]): Order[] {
+  return [...orders].sort((a, b) => {
+    const priorityA = getDeadlinePriority(a.estimatedDate);
+    const priorityB = getDeadlinePriority(b.estimatedDate);
+    
+    // Lower number = higher priority
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB;
+    }
+    
+    // If same priority, sort by creation date (newest first)
+    const dateA = new Date(a.created_at || a.date);
+    const dateB = new Date(b.created_at || b.date);
+    return dateB.getTime() - dateA.getTime();
+  });
+}
+
 const KanbanBoard = ({ 
   orders, 
   onDragEnd, 
@@ -81,17 +144,40 @@ const KanbanBoard = ({
   employees = [],
   fadeReload = false
 }: KanbanBoardWithEmployeesProps) => {
-  const [columns, setColumns] = useState<KanbanColumnType[]>(DEFAULT_COLUMNS);
+  const { data: statuses } = useOrderStatus();
   const [showAddColumn, setShowAddColumn] = useState(false);
   const { data: products } = useProducts();
   const [newColumnTitle, setNewColumnTitle] = useState('');
   const [columnOrderSequence, setColumnOrderSequence] = useState<{[columnId: string]: string[]}>({});
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
-  const { data: statuses } = useOrderStatus();
+  
+  // Generate columns dynamically from database statuses
+  const columns = useMemo<KanbanColumnType[]>(() => {
+    if (!statuses || statuses.length === 0) {
+      return DEFAULT_COLUMNS;
+    }
+    return statuses
+      .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
+      .map(status => ({
+        id: status.name,
+        title: status.name,
+        status: status.name,
+        color: status.color || 'bg-gray-50'
+      }));
+  }, [statuses]);
   const hasInitialized = useRef(false);
+  const columnRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
+
+  // --- ALTERNATIVE HORIZONTAL SCROLL EVENT HANDLERS ---
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isDraggingRef = useRef(false);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isScrolling, setIsScrolling] = useState(false);
+  
+  // Scroll configuration
+  const SCROLL_ZONE_WIDTH = 10; // px
+  const SCROLL_SPEED = 16; // px per interval
+  const SCROLL_INTERVAL = 16; // ms (60fps)
 
   // State lokal untuk urutan card (optimistik)
   const [localOrders, setLocalOrders] = useState<OrderWithItems[]>(orders);
@@ -141,12 +227,6 @@ const KanbanBoard = ({
 
   // Saat drag & drop, update localOrders secara optimistik
   const handleDragEnd = useCallback(async (result: DropResult) => {
-    // Clear any ongoing scroll interval
-    if (scrollIntervalRef.current) {
-      clearInterval(scrollIntervalRef.current);
-      scrollIntervalRef.current = null;
-    }
-
     const { destination, source, draggableId } = result;
     if (!destination) return;
     if (destination.droppableId === source.droppableId && destination.index === source.index) return;
@@ -183,7 +263,7 @@ const KanbanBoard = ({
       
       const movedOrder = { 
         ...updated[movedIdx], 
-        status_id: newStatusId,
+        status_id: newStatusId ? String(newStatusId) : updated[movedIdx].status_id,
         order_statuses: statusObj ? { id: statusObj.id, name: statusObj.name } : updated[movedIdx].order_statuses
       };
       
@@ -215,14 +295,173 @@ const KanbanBoard = ({
     }
   }, [columnOrderSequence, statuses, onUpdateOrderStatus, onDragEnd]);
 
+  // --- ALTERNATIVE SCROLL FUNCTIONS ---
+  
+  // Method 1: Mouse-based scroll detection
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDraggingRef.current || !scrollContainerRef.current) return;
+    
+    const container = scrollContainerRef.current;
+    const rect = container.getBoundingClientRect();
+    const mouseX = e.clientX;
+    
+    // Clear existing scroll timeout
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    
+    // Check if mouse is in scroll zones
+    const isInLeftZone = mouseX - rect.left < SCROLL_ZONE_WIDTH;
+    const isInRightZone = rect.right - mouseX < SCROLL_ZONE_WIDTH;
+    
+    if (isInLeftZone && container.scrollLeft > 0) {
+      setIsScrolling(true);
+      scrollTimeoutRef.current = setTimeout(() => {
+        container.scrollLeft -= SCROLL_SPEED;
+        if (container.scrollLeft > 0) {
+          handleMouseMove(e); // Continue scrolling
+        } else {
+          setIsScrolling(false);
+        }
+      }, SCROLL_INTERVAL);
+    } else if (isInRightZone && container.scrollLeft < container.scrollWidth - container.clientWidth) {
+      setIsScrolling(true);
+      scrollTimeoutRef.current = setTimeout(() => {
+        container.scrollLeft += SCROLL_SPEED;
+        if (container.scrollLeft < container.scrollWidth - container.clientWidth) {
+          handleMouseMove(e); // Continue scrolling
+        } else {
+          setIsScrolling(false);
+        }
+      }, SCROLL_INTERVAL);
+    } else {
+      setIsScrolling(false);
+    }
+  }, []);
+
+  // Method 2: Touch-based scroll for mobile
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    if (!isDraggingRef.current || !scrollContainerRef.current) return;
+    
+    const container = scrollContainerRef.current;
+    const rect = container.getBoundingClientRect();
+    const touch = e.touches[0];
+    const touchX = touch.clientX;
+    
+    // Check if touch is in scroll zones
+    const isInLeftZone = touchX - rect.left < SCROLL_ZONE_WIDTH;
+    const isInRightZone = rect.right - touchX < SCROLL_ZONE_WIDTH;
+    
+    if (isInLeftZone && container.scrollLeft > 0) {
+      container.scrollLeft -= SCROLL_SPEED * 2; // Faster for touch
+    } else if (isInRightZone && container.scrollLeft < container.scrollWidth - container.clientWidth) {
+      container.scrollLeft += SCROLL_SPEED * 2; // Faster for touch
+    }
+  }, []);
+
+  // Method 3: Keyboard navigation
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (!isDraggingRef.current || !scrollContainerRef.current) return;
+    
+    const container = scrollContainerRef.current;
+    
+    switch (e.key) {
+      case 'ArrowLeft':
+        e.preventDefault();
+        container.scrollLeft -= SCROLL_SPEED * 3;
+        break;
+      case 'ArrowRight':
+        e.preventDefault();
+        container.scrollLeft += SCROLL_SPEED * 3;
+        break;
+      case 'Home':
+        e.preventDefault();
+        container.scrollLeft = 0;
+        break;
+      case 'End':
+        e.preventDefault();
+        container.scrollLeft = container.scrollWidth - container.clientWidth;
+        break;
+    }
+  }, []);
+
+  // Method 4: Wheel-based scroll
+  const handleWheel = useCallback((e: WheelEvent) => {
+    if (!isDraggingRef.current || !scrollContainerRef.current) return;
+    
+    e.preventDefault();
+    const container = scrollContainerRef.current;
+    
+    // Horizontal scroll with wheel
+    if (e.deltaX !== 0) {
+      container.scrollLeft += e.deltaX;
+    } else if (e.deltaY !== 0) {
+      // Convert vertical wheel to horizontal scroll
+      container.scrollLeft += e.deltaY;
+    }
+  }, []);
+
+  // Method 5: Intersection Observer for auto-scroll
+  const handleIntersection = useCallback((entries: IntersectionObserverEntry[]) => {
+    if (!isDraggingRef.current) return;
+    
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        // Column is visible, no need to scroll
+        setIsScrolling(false);
+      }
+    });
+  }, []);
+
+  // Combined drag start handler
+  const handleDragStart = useCallback((start: any) => {
+    isDraggingRef.current = true;
+    
+    // Add all event listeners
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('touchmove', handleTouchMove);
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('wheel', handleWheel, { passive: false });
+    
+    // Setup intersection observer
+    const observer = new IntersectionObserver(handleIntersection, {
+      root: scrollContainerRef.current,
+      threshold: 0.1
+    });
+    
+    // Observe all columns
+    const columns = scrollContainerRef.current?.querySelectorAll('[data-rbd-droppable-id]');
+    columns?.forEach(column => observer.observe(column));
+    
+    return () => {
+      observer.disconnect();
+    };
+  }, [handleMouseMove, handleTouchMove, handleKeyDown, handleWheel, handleIntersection]);
+
+  // Combined drag end handler
+  const handleDragEndWrapper = useCallback(async (result: DropResult) => {
+    isDraggingRef.current = false;
+    setIsScrolling(false);
+    
+    // Remove all event listeners
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('touchmove', handleTouchMove);
+    document.removeEventListener('keydown', handleKeyDown);
+    document.removeEventListener('wheel', handleWheel);
+    
+    // Clear any pending scroll timeout
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    
+    // Call original handleDragEnd
+    await handleDragEnd(result);
+  }, [handleMouseMove, handleTouchMove, handleKeyDown, handleWheel, handleDragEnd]);
+
   const handleAddColumn = useCallback(() => {
     if (!newColumnTitle.trim()) return;
-    const newColumn: KanbanColumnType = {
-      id: newColumnTitle.toLowerCase().replace(/\s+/g, '-'),
-      title: newColumnTitle,
-      status: newColumnTitle.toLowerCase().replace(/\s+/g, '-'),
-    };
-    setColumns(prev => [...prev, newColumn]);
+    // Note: Adding columns dynamically is now handled by database statuses
+    // This function is kept for compatibility but should create a new status in DB
     setNewColumnTitle('');
     setShowAddColumn(false);
     // Toast notification dihapus untuk menghindari notifikasi yang mengganggu
@@ -259,167 +498,41 @@ const KanbanBoard = ({
     }
   };
 
-  // --- SMOOTH AUTO SCROLL LOGIC DENGAN AKSELERASI ---
-  const scrollDirectionRef = useRef<'left' | 'right' | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
-  const SCROLL_THRESHOLD = 100; // px dari kiri/kanan layar
-  const SCROLL_SPEED_INITIAL = 30; // px per frame (awal)
-  const SCROLL_SPEED_ACCEL = 10; // px per frame (tambah per frame)
-  const SCROLL_SPEED_MAX = 150; // px per frame (maksimal)
-  const currentScrollSpeedRef = useRef<number>(SCROLL_SPEED_INITIAL);
-
-  // Fungsi animasi scroll dengan akselerasi
-  const smoothScroll = useCallback(() => {
-    const container = scrollContainerRef.current;
-    if (!container || !scrollDirectionRef.current) return;
-    // Scroll sesuai arah dan kecepatan saat ini
-    if (scrollDirectionRef.current === 'left') {
-      container.scrollLeft = Math.max(0, container.scrollLeft - currentScrollSpeedRef.current);
-    } else if (scrollDirectionRef.current === 'right') {
-      const maxScroll = container.scrollWidth - container.clientWidth;
-      container.scrollLeft = Math.min(maxScroll, container.scrollLeft + currentScrollSpeedRef.current);
-    }
-    // Tambah kecepatan (akselerasi) hingga batas maksimal
-    currentScrollSpeedRef.current = Math.min(
-      currentScrollSpeedRef.current + SCROLL_SPEED_ACCEL,
-      SCROLL_SPEED_MAX
-    );
-    animationFrameRef.current = requestAnimationFrame(smoothScroll);
-  }, []);
-
-  // Mousemove handler untuk deteksi arah scroll
-  const handleAutoScrollEdge = useCallback((e: MouseEvent) => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    const containerRect = container.getBoundingClientRect();
-    const mouseX = e.clientX;
-    // Deteksi arah
-    if (mouseX - containerRect.left < SCROLL_THRESHOLD) {
-      if (scrollDirectionRef.current !== 'left') {
-        scrollDirectionRef.current = 'left';
-        currentScrollSpeedRef.current = SCROLL_SPEED_INITIAL;
-        if (!animationFrameRef.current) {
-          animationFrameRef.current = requestAnimationFrame(smoothScroll);
-        }
-      }
-    } else if (containerRect.right - mouseX < SCROLL_THRESHOLD) {
-      if (scrollDirectionRef.current !== 'right') {
-        scrollDirectionRef.current = 'right';
-        currentScrollSpeedRef.current = SCROLL_SPEED_INITIAL;
-        if (!animationFrameRef.current) {
-          animationFrameRef.current = requestAnimationFrame(smoothScroll);
-        }
-      }
-    } else {
-      // Kursor keluar area trigger, stop scroll dan reset kecepatan
-      scrollDirectionRef.current = null;
-      currentScrollSpeedRef.current = SCROLL_SPEED_INITIAL;
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
-    }
-  }, [smoothScroll]);
-
-  // Pasang event listener mousemove saat drag
-  const handleDragStart = useCallback(() => {
-    isDraggingRef.current = true;
-    window.addEventListener('mousemove', handleAutoScrollEdge);
-    // Bersihkan animasi lama jika ada
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-    scrollDirectionRef.current = null;
-    currentScrollSpeedRef.current = SCROLL_SPEED_INITIAL;
-  }, [handleAutoScrollEdge]);
-
-  // Lepas event listener dan animasi saat drag selesai
-  const handleDragEndWrapper = useCallback(async (result: DropResult) => {
-    isDraggingRef.current = false;
-    window.removeEventListener('mousemove', handleAutoScrollEdge);
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-    scrollDirectionRef.current = null;
-    currentScrollSpeedRef.current = SCROLL_SPEED_INITIAL;
-    await handleDragEnd(result);
-  }, [handleDragEnd, handleAutoScrollEdge]);
-
-  // handleDragUpdate tetap untuk fallback (tidak dihapus)
-  const handleDragUpdate = useCallback((update: DragUpdate) => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    // Clear any existing scroll interval
-    if (scrollIntervalRef.current) {
-      clearInterval(scrollIntervalRef.current);
-      scrollIntervalRef.current = null;
-    }
-
-    // Ambil posisi mouse dari window event, tanpa 'any'
-    let mouseX: number | undefined = undefined;
-    if (typeof window !== 'undefined' && window.event && typeof (window.event as MouseEvent).clientX === 'number') {
-      mouseX = (window.event as MouseEvent).clientX;
-    }
-    if (typeof mouseX !== 'number') return;
-
-    const containerRect = container.getBoundingClientRect();
-    const scrollThreshold = 150; // Larger threshold for easier triggering
-    const scrollAmount = 100; // Faster scroll for better UX
-
-    // Check if we need to scroll based on mouse position
-    const shouldScrollLeft = mouseX - containerRect.left < scrollThreshold;
-    const shouldScrollRight = containerRect.right - mouseX < scrollThreshold;
-
-    if (shouldScrollLeft || shouldScrollRight) {
-      scrollIntervalRef.current = setInterval(() => {
-        const currentContainer = scrollContainerRef.current;
-        if (!currentContainer) return;
-        
-        if (shouldScrollLeft && currentContainer.scrollLeft > 0) {
-          currentContainer.scrollLeft = Math.max(0, currentContainer.scrollLeft - scrollAmount);
-        } else if (shouldScrollRight) {
-          const maxScroll = currentContainer.scrollWidth - currentContainer.clientWidth;
-          if (currentContainer.scrollLeft < maxScroll) {
-            currentContainer.scrollLeft = Math.min(maxScroll, currentContainer.scrollLeft + scrollAmount);
-          }
-        }
-      }, 100); // Slower interval for smoother experience
-    }
-  }, []);
-
-  // Cleanup on unmount
+  // Cleanup effect
   useEffect(() => {
     return () => {
-      window.removeEventListener('mousemove', handleAutoScrollEdge);
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
+      // Cleanup on unmount
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
       }
-      scrollDirectionRef.current = null;
-      currentScrollSpeedRef.current = SCROLL_SPEED_INITIAL;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('wheel', handleWheel);
     };
-  }, [handleAutoScrollEdge]);
+  }, [handleMouseMove, handleTouchMove, handleKeyDown, handleWheel]);
 
   return (
-    <div>
+    <div style={{ overflow: 'visible' }}>
       <DragDropContext 
-        onDragEnd={handleDragEndWrapper} 
-        onDragUpdate={handleDragUpdate}
+        onDragEnd={handleDragEndWrapper}
         onDragStart={handleDragStart}
       >
         <div
           ref={scrollContainerRef}
-          className="kanban-scroll-container flex gap-2 overflow-x-auto overflow-y-hidden pb-2 min-h-[600px]"
+          className={`kanban-scroll-container flex gap-6 overflow-x-scroll p-8 bg-gray-50 relative ${
+            isScrolling ? 'scroll-indicator' : ''
+          }`}
           style={{ 
             WebkitOverflowScrolling: 'touch',
             scrollBehavior: 'smooth',
-            overflowX: 'auto'
+            overflowX: 'scroll',
+            overflowY: 'visible',
+            minHeight: 'fit-content'
           }}
         >
           {columns.map((column) => {
-            const columnOrders = getColumnOrders(column.status).map(order => {
+            const columnOrders = sortOrdersByDeadline(getColumnOrders(column.status)).map(order => {
               return {
                 ...order,
                 customer: order.customer_name || order.customer || 'Tidak diketahui',
@@ -439,6 +552,7 @@ const KanbanBoard = ({
             return (
               <KanbanColumn
                 key={column.id}
+                ref={(el) => columnRefs.current[column.status] = el}
                 column={column}
                 orders={columnOrders}
                 onOrderClick={onOrderClick ? (order) => {

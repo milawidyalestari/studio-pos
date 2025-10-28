@@ -16,7 +16,7 @@ import { useUnits } from '@/hooks/useUnits';
 import { useProductCodeGenerator } from '@/hooks/useProductCodeGenerator';
 import { RefreshCw, Lock, Unlock } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 import ReactSelect from 'react-select';
 
 interface ProductFormProps {
@@ -60,12 +60,16 @@ export const ProductForm: React.FC<ProductFormProps & {
   const { data: groups = [], isLoading: groupsLoading, error: groupsError } = useQuery({
     queryKey: ['groups'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('groups')
-        .select('*')
-        .order('name', { ascending: true });
-      if (error) throw error;
-      return data || [];
+      try {
+        await databaseService.initialize();
+        const result = await databaseService.query('groups', {
+          orderBy: { column: 'name', direction: 'asc' }
+        });
+        return result || [];
+      } catch (error) {
+        console.error('Error loading groups:', error);
+        throw error;
+      }
     },
   });
 
@@ -73,9 +77,10 @@ export const ProductForm: React.FC<ProductFormProps & {
   const { data: materialsFromQuery = [], isLoading: materialsLoading, error: materialsError } = useQuery({
     queryKey: ['materials'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('materials').select('id, nama');
-      if (error) throw error;
-      return data || [];
+      const result = await databaseService.query('materials', {
+        select: 'id, nama'
+      });
+      return result || [];
     },
     enabled: !materialsProp || materialsProp.length === 0, // Hanya query jika tidak ada materialsProp
   });

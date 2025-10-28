@@ -1,0 +1,195 @@
+/* Transparent Window Styles */
+
+/* Body dengan background transparan */
+body.transparent-window {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Dark mode transparan */
+body.transparent-window.dark {
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Card dengan background semi-transparent */
+.transparent-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Dark mode card */
+.transparent-card.dark {
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Custom title bar */
+.custom-title-bar {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  -webkit-app-region: drag;
+}
+
+.custom-title-bar.dark {
+  background: rgba(0, 0, 0, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Title bar buttons */
+.title-bar-button {
+  -webkit-app-region: no-drag;
+  background: transparent;
+  border: none;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.title-bar-button:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.title-bar-button.dark:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Sidebar dengan transparansi */
+.transparent-sidebar {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.transparent-sidebar.dark {
+  background: rgba(0, 0, 0, 0.9);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Modal dengan transparansi */
+.transparent-modal {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.transparent-modal.dark {
+  background: rgba(0, 0, 0, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Overlay dengan transparansi */
+.transparent-overlay {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+/* Glass effect button */
+.glass-button {
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transition: all 0.3s ease;
+}
+
+.glass-button:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.glass-button.dark {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.glass-button.dark:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Input dengan transparansi */
+.transparent-input {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.transparent-input.dark {
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Navigation dengan transparansi */
+.transparent-nav {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.transparent-nav.dark {
+  background: rgba(0, 0, 0, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Performance optimizations */
+.transparent-window * {
+  will-change: auto;
+}
+
+.transparent-window .animated-element {
+  will-change: transform, opacity;
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .transparent-window {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  
+  .transparent-card,
+  .transparent-modal,
+  .transparent-sidebar {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .transparent-window {
+    background: rgba(255, 255, 255, 1);
+  }
+  
+  .transparent-window.dark {
+    background: rgba(0, 0, 0, 1);
+  }
+  
+  .transparent-card,
+  .transparent-modal,
+  .transparent-sidebar {
+    background: rgba(255, 255, 255, 1);
+    border: 2px solid #000;
+  }
+  
+  .transparent-card.dark,
+  .transparent-modal.dark,
+  .transparent-sidebar.dark {
+    background: rgba(0, 0, 0, 1);
+    border: 2px solid #fff;
+  }
+}
+

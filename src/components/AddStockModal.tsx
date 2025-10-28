@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useToast } from '@/hooks/use-toast';
 import { useUnits } from '@/hooks/useUnits';
 import { useMaterials } from '@/hooks/useMaterials';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 import dayjs from 'dayjs';
 
 interface AddStockModalProps {
@@ -78,11 +78,18 @@ const AddStockModal: React.FC<AddStockModalProps> = ({ isOpen, onClose, onSucces
     }
   }, [isOpen]);
 
-  // Ambil data kategori dari Supabase
+  // Ambil data kategori dari database
   useEffect(() => {
     const fetchCategories = async () => {
-      const { data, error } = await supabase.from('categories').select('id, category_name');
-      if (!error && data) setCategories(data);
+      try {
+        const { databaseService } = await import('@/services/databaseService');
+        const data = await databaseService.query('categories', {
+          select: 'id, category_name'
+        });
+        setCategories(data);
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      }
     };
     fetchCategories();
   }, []);
@@ -119,16 +126,15 @@ const AddStockModal: React.FC<AddStockModalProps> = ({ isOpen, onClose, onSucces
       kategori: addForm.kategori,
     };
 
-    const { data: inserted, error } = await supabase.from('materials').insert([payload]).select();
-    setAddLoading(false);
-    
-    if (error) {
-      toast({ title: 'Gagal', description: 'Gagal menambah item', variant: 'destructive' });
-    } else {
+    try {
+      const { databaseService } = await import('@/services/databaseService');
+      const inserted = await databaseService.create('materials', payload);
+      setAddLoading(false);
+      
       // Catat mutasi stok awal jika ada
-      if (payload.stok_awal > 0 && inserted && inserted[0]) {
-        await supabase.from('inventory_movements').insert({
-          material_id: inserted[0].id,
+      if (payload.stok_awal > 0 && inserted) {
+        await databaseService.create('inventory_movements', {
+          material_id: inserted.id,
           tanggal: dayjs().toISOString(),
           tipe_mutasi: 'stok_awal',
           jumlah: payload.stok_awal,
@@ -142,6 +148,10 @@ const AddStockModal: React.FC<AddStockModalProps> = ({ isOpen, onClose, onSucces
       if (onSuccess) {
         onSuccess();
       }
+    } catch (error) {
+      console.error('Error adding material:', error);
+      setAddLoading(false);
+      toast({ title: 'Gagal', description: 'Gagal menambah item', variant: 'destructive' });
     }
   };
 

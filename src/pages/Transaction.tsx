@@ -5,7 +5,7 @@ import { DataTable, Column } from '@/components/common/DataTable';
 import { useOrders } from '@/hooks/useOrders';
 import { usePaymentTypes } from '@/hooks/usePaymentTypes';
 import { useProducts } from '@/hooks/useProducts';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 import { PrintOverlay } from '@/components/PrintOverlay';
 import { 
   Download,
@@ -689,6 +689,56 @@ const TransactionPage = () => {
     refetch();
   };
 
+  // Export functionality
+  const handleExport = () => {
+    const currentData = activeTab === 'transactions' ? filteredTransactions : filteredPiutang;
+    const exportData = currentData.map(item => {
+      if (activeTab === 'transactions') {
+        return {
+          'Nomor Order': item.order_number,
+          'Customer': item.customer_name,
+          'Tanggal': item.tanggal,
+          'Uang Muka': item.down_payment,
+          'Pelunasan': item.pelunasan,
+          'Total Amount': item.total_amount,
+          'Metode Pembayaran': item.payment_type,
+          'Status Pembayaran': item.status_pembayaran,
+          'Status Order': item.order_status_name
+        };
+      } else {
+        return {
+          'Customer': item.customer_name,
+          'WhatsApp': item.customer_whatsapp || '-',
+          'Total Piutang': item.total_piutang,
+          'Jumlah Order': item.total_orders,
+          'Uang Muka': item.total_down_payment,
+          'Pelunasan': item.total_pelunasan,
+          'Umur Piutang': item.max_days_overdue
+        };
+      }
+    });
+
+    // Convert to CSV
+    const headers = Object.keys(exportData[0] || {});
+    const csvContent = [
+      headers.join(','),
+      ...exportData.map(row => 
+        headers.map(header => `"${row[header as keyof typeof row] || ''}"`).join(',')
+      )
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${activeTab === 'transactions' ? 'transaksi' : 'piutang'}-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+  };
+
+  // Download functionality (same as export but with different naming)
+  const handleDownload = () => {
+    handleExport();
+  };
+
   // Hitung total statistik untuk transaksi
   const totalRevenue = paymentTransactions.reduce((sum, t) => sum + t.down_payment + t.remaining_payment, 0);
   const totalOrders = paymentTransactions.length;
@@ -914,7 +964,7 @@ const TransactionPage = () => {
           </Popover>
           
           {hasAccess('Transaction', 'export_data') && (
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2" onClick={handleExport}>
               <FileDown className="h-4 w-4" />
               Export
             </Button>
@@ -926,7 +976,7 @@ const TransactionPage = () => {
           </Button>
           
           {hasAccess('Transaction', 'export_data') && (
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2" onClick={handleDownload}>
               <Download className="h-4 w-4" />
               Download
             </Button>
@@ -1135,6 +1185,7 @@ const TransactionPage = () => {
             desain: printOrderData.biaya_lain || 0,
             biayaLainnya: printOrderData.biaya_lain || 0,
             downPayment: printOrderData.down_payment || 0,
+            pelunasan: printOrderData.pelunasan || 0,
             estimasi: printOrderData.estimasi,
             estimasiWaktu: printOrderData.waktu,
             komputer: printOrderData.admin?.nama,

@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
+const { spawn } = require('child_process');
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
 // Database imports
@@ -8,30 +9,53 @@ const fs = require('fs');
 const { promisify } = require('util');
 const readFile = promisify(fs.readFile);
 
-// Set environment
-process.env.NODE_ENV = process.env.NODE_ENV || 'development';
+// Set environment - force production in packaged app
+process.env.NODE_ENV = app.isPackaged ? 'production' : (process.env.NODE_ENV || 'development');
 
-// Development flags
-const isDevelopment = process.env.NODE_ENV === 'development';
-const enableDevTools = process.argv.includes('--dev');
-const enableLogging = process.argv.includes('--enable-logging');
-const enableDebug = process.argv.includes('--inspect');
+// Hide console window on Windows
+if (process.platform === 'win32') {
+  // Hide the console window using Windows API
+  try {
+    const { exec } = require('child_process');
+    exec('powershell -Command "Add-Type -Name Win32 -Namespace Console -MemberDefinition \'[DllImport(\\"kernel32.dll\\")] public static extern IntPtr GetConsoleWindow(); [DllImport(\\"user32.dll\\")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);\'; $console = [Console.Win32]::GetConsoleWindow(); [Console.Win32]::ShowWindow($console, 0)"', (error) => {
+      if (error) {
+        // Fallback - console will remain visible
+        console.log('Console window hiding not available');
+      }
+    });
+  } catch (e) {
+    // Fallback - console will remain visible
+    console.log('Console window hiding not available');
+  }
+}
+
+// Development flags - only enable in development
+const isDevelopment = !app.isPackaged && process.env.NODE_ENV === 'development';
+const enableDevTools = isDevelopment && process.argv.includes('--dev');
+const enableLogging = isDevelopment && process.argv.includes('--enable-logging');
+const enableDebug = isDevelopment && process.argv.includes('--inspect');
 
 // Global reference to prevent garbage collection
 let mainWindow;
+let splashWindow;
 let dbPool = null;
+let viteProcess = null;
 
 // Database configuration
+let currentDbConfig = {
+  host: 'localhost',
+  port: 5432,
+  database: 'studio_pos',
+  user: 'postgres',
+  password: 'postgres'
+};
+
 const getDatabaseConfig = () => {
   const userDataPath = app.getPath('userData');
   const dbPath = path.join(userDataPath, 'studio_pos.db');
   
   return {
-    host: 'localhost',
-    port: 5432,
-    database: 'studio_pos',
-    user: 'postgres',
-    password: 'postgres',
+    ...currentDbConfig,
     // For SQLite fallback (if PostgreSQL not available)
     sqlitePath: dbPath
   };
@@ -55,35 +79,33 @@ const initializeDatabase = async () => {
         connectionTimeoutMillis: 2000,
       });
 
-      // Test connection
+      // Test connection with timeout
       const client = await dbPool.connect();
-      await client.query('SELECT NOW()');
+      await Promise.race([
+        client.query('SELECT NOW()'),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Connection timeout after 5 seconds')), 5000)
+        )
+      ]);
       client.release();
       
       console.log('✅ Connected to PostgreSQL database');
       return { type: 'postgresql', connected: true };
     } catch (pgError) {
-      console.log('⚠️ PostgreSQL connection failed, falling back to SQLite');
+      console.log('⚠️ PostgreSQL connection failed:', pgError.message);
       
-      // Fallback to SQLite
-      const sqlite3 = require('sqlite3').verbose();
-      const dbPath = config.sqlitePath;
-      
-      // Ensure directory exists
-      const dbDir = path.dirname(dbPath);
-      if (!fs.existsSync(dbDir)) {
-        fs.mkdirSync(dbDir, { recursive: true });
+      // If this is a configuration update, don't fallback to SQLite
+      if (pgError.code === 'ECONNREFUSED') {
+        throw new Error(`Cannot connect to PostgreSQL server at ${config.host}:${config.port}. Please check if PostgreSQL is running and the connection details are correct.`);
+      } else if (pgError.code === 'ENOTFOUND') {
+        throw new Error(`PostgreSQL server not found at ${config.host}. Please check the host address.`);
+      } else if (pgError.code === '28P01') {
+        throw new Error(`Authentication failed for user '${config.user}'. Please check the username and password.`);
+      } else if (pgError.code === '3D000') {
+        throw new Error(`Database '${config.database}' does not exist. Please create the database first.`);
+      } else {
+        throw new Error(`PostgreSQL connection failed: ${pgError.message}`);
       }
-      
-      dbPool = new sqlite3.Database(dbPath, (err) => {
-        if (err) {
-          console.error('❌ SQLite connection failed:', err);
-          throw err;
-        }
-        console.log('✅ Connected to SQLite database');
-      });
-      
-      return { type: 'sqlite', connected: true };
     }
   } catch (error) {
     console.error('❌ Database initialization failed:', error);
@@ -129,14 +151,108 @@ const createTables = async () => {
       }
     }
     
-    console.log('✅ Database tables created successfully');
+    // Create default admin user
+    await createDefaultUser();
+    
+    console.log('✅ Database tables and default data created successfully');
   } catch (error) {
     console.error('❌ Error creating tables:', error);
   }
 };
 
+// Create default admin user
+const createDefaultUser = async () => {
+  try {
+    const adminUser = {
+      id: 'admin',
+      username: 'admin',
+      password: 'admin123', // In production, this should be hashed
+      email: 'admin@studio-pos.com',
+      role: 'Administrator', // Fix role name
+      full_name: 'Administrator',
+      is_active: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    if (dbPool.query) {
+      // PostgreSQL
+      await dbPool.query(`
+        INSERT INTO users (id, username, password, email, role, full_name, is_active, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ON CONFLICT (id) DO NOTHING
+      `, [
+        adminUser.id, adminUser.username, adminUser.password, adminUser.email,
+        adminUser.role, adminUser.full_name, adminUser.is_active,
+        adminUser.created_at, adminUser.updated_at
+      ]);
+    } else {
+      // SQLite
+      await new Promise((resolve, reject) => {
+        dbPool.run(`
+          INSERT OR IGNORE INTO users (id, username, password, email, role, full_name, is_active, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          adminUser.id, adminUser.username, adminUser.password, adminUser.email,
+          adminUser.role, adminUser.full_name, adminUser.is_active,
+          adminUser.created_at, adminUser.updated_at
+        ], (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+    }
+
+    console.log('✅ Default admin user created (admin/admin123)');
+  } catch (error) {
+    console.error('❌ Error creating default user:', error);
+  }
+};
+
 // IPC Handlers for database operations
 const setupIpcHandlers = () => {
+  // Database configuration handler
+  ipcMain.handle('database:updateConfig', async (event, config) => {
+    try {
+      console.log('🔧 Updating database configuration:', config);
+      
+      // Update current configuration
+      if (config.connection) {
+        currentDbConfig = {
+          host: config.connection.host || 'localhost',
+          port: config.connection.port || 5432,
+          database: config.connection.database || 'studio_pos',
+          user: config.connection.username || 'postgres',
+          password: config.connection.password || 'postgres'
+        };
+      }
+      
+      // Close existing connection
+      if (dbPool) {
+        try {
+          if (dbPool.end) {
+            await dbPool.end();
+          }
+        } catch (closeError) {
+          console.warn('Warning: Error closing existing connection:', closeError.message);
+        }
+        dbPool = null;
+      }
+      
+      // Reinitialize with new config
+      const result = await initializeDatabase();
+      if (!result.connected) {
+        throw new Error(result.error || 'Database initialization failed');
+      }
+      
+      console.log('✅ Database configuration updated successfully:', currentDbConfig);
+      return { success: true, config: currentDbConfig, type: result.type };
+    } catch (error) {
+      console.error('❌ Database config update error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // Get database info
   ipcMain.handle('database:getInfo', async () => {
     try {
@@ -218,8 +334,11 @@ const setupIpcHandlers = () => {
       const values = Object.values(data);
       const placeholders = values.map((_, index) => `$${index + 1}`);
       
+      // Quote column names to avoid SQL syntax errors with reserved words
+      const quotedColumns = columns.map(col => `"${col}"`).join(', ');
+      
       const query = `
-        INSERT INTO ${table} (${columns.join(', ')}) 
+        INSERT INTO ${table} (${quotedColumns}) 
         VALUES (${placeholders.join(', ')}) 
         RETURNING *
       `;
@@ -254,8 +373,9 @@ const setupIpcHandlers = () => {
     try {
       if (!dbPool) throw new Error('Database not initialized');
       
+      // Quote column names to avoid SQL syntax errors
       const updates = Object.entries(data)
-        .map(([key, value], index) => `${key} = $${index + 1}`)
+        .map(([key, value], index) => `"${key}" = $${index + 1}`)
         .join(', ');
       const values = Object.values(data);
       
@@ -477,6 +597,101 @@ const setupIpcHandlers = () => {
     }
   });
 
+  // User authentication handlers
+  console.log('🔐 Registering auth:login handler...');
+  ipcMain.handle('auth:login', async (event, { username, password }) => {
+    try {
+      console.log('🔐 Login attempt received:', { username, password: '***' });
+      console.log('🔐 Database pool status:', dbPool ? 'Available' : 'Not available');
+      
+      // Check if database is available
+      if (!dbPool) {
+        console.log('⚠️ Database not initialized, using fallback authentication');
+        // Fallback to default admin user
+        if (username === 'admin' && password === 'admin123') {
+          return {
+            id: 'admin',
+            username: 'admin',
+            password: 'admin123',
+            email: 'admin@studio-pos.com',
+            role: 'Administrator',
+            full_name: 'Administrator',
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+        }
+        return null;
+      }
+      
+      let query, params;
+      if (dbPool.query) {
+        // PostgreSQL
+        query = 'SELECT * FROM users WHERE username = $1 AND password = $2 AND is_active = true';
+        params = [username, password];
+      } else {
+        // SQLite
+        query = 'SELECT * FROM users WHERE username = ? AND password = ? AND is_active = 1';
+        params = [username, password];
+      }
+      
+      let user = null;
+      if (dbPool.query) {
+        const result = await dbPool.query(query, params);
+        user = result.rows[0] || null;
+      } else {
+        user = await new Promise((resolve, reject) => {
+          dbPool.get(query, params, (err, row) => {
+            if (err) reject(err);
+            else resolve(row || null);
+          });
+        });
+      }
+      
+      // Fix role name if found
+      if (user && user.role === 'admin') {
+        user.role = 'Administrator';
+      }
+      
+      console.log('🔐 Login result:', user ? 'Success' : 'Failed');
+      if (user) {
+        console.log('🔐 User details:', { username: user.username, role: user.role, full_name: user.full_name });
+      }
+      return user;
+    } catch (error) {
+      console.error('❌ Login error:', error);
+      
+      // Fallback to default admin user on error
+      if (username === 'admin' && password === 'admin123') {
+        console.log('🔄 Using fallback admin user');
+        return {
+          id: 'admin',
+          username: 'admin',
+          password: 'admin123',
+          email: 'admin@studio-pos.com',
+          role: 'Administrator',
+          full_name: 'Administrator',
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+      }
+      
+      throw error;
+    }
+  });
+
+  ipcMain.handle('auth:getCurrentUser', async () => {
+    // This would typically get from session, but for now return null
+    return null;
+  });
+
+  // Test handler to verify IPC communication
+  ipcMain.handle('auth:test', async () => {
+    console.log('🧪 Auth test handler called');
+    return { success: true, message: 'Auth handlers are working' };
+  });
+
   // File dialog handlers
   ipcMain.handle('dialog:showOpenDialog', async (event, options) => {
     return await dialog.showOpenDialog(mainWindow, options);
@@ -485,40 +700,464 @@ const setupIpcHandlers = () => {
   ipcMain.handle('dialog:showSaveDialog', async (event, options) => {
     return await dialog.showSaveDialog(mainWindow, options);
   });
+
+  // Window control handlers
+  ipcMain.handle('window:setTransparent', async (event, transparent = true) => {
+    try {
+      if (mainWindow) {
+        mainWindow.setTransparent(transparent);
+        return { success: true, transparent };
+      }
+      return { success: false, error: 'Main window not found' };
+    } catch (error) {
+      console.error('Set transparent error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('window:setFrame', async (event, frame = false) => {
+    try {
+      if (mainWindow) {
+        mainWindow.setFrame(frame);
+        return { success: true, frame };
+      }
+      return { success: false, error: 'Main window not found' };
+    } catch (error) {
+      console.error('Set frame error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('window:setTitleBarStyle', async (event, style = 'hidden') => {
+    try {
+      if (mainWindow) {
+        mainWindow.setTitleBarStyle(style);
+        return { success: true, style };
+      }
+      return { success: false, error: 'Main window not found' };
+    } catch (error) {
+      console.error('Set title bar style error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('window:setVibrancy', async (event, vibrancy = 'under-window') => {
+    try {
+      if (mainWindow && process.platform === 'darwin') {
+        mainWindow.setVibrancy(vibrancy);
+        return { success: true, vibrancy };
+      }
+      return { success: false, error: 'Vibrancy only available on macOS' };
+    } catch (error) {
+      console.error('Set vibrancy error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('window:getWindowInfo', async () => {
+    try {
+      if (mainWindow) {
+        const bounds = mainWindow.getBounds();
+        return {
+          success: true,
+          info: {
+            width: bounds.width,
+            height: bounds.height,
+            x: bounds.x,
+            y: bounds.y,
+            isMaximized: mainWindow.isMaximized(),
+            isMinimized: mainWindow.isMinimized(),
+            isVisible: mainWindow.isVisible(),
+            platform: process.platform
+          }
+        };
+      }
+      return { success: false, error: 'Main window not found' };
+    } catch (error) {
+      console.error('Get window info error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Window control handlers (minimize, maximize, close)
+  ipcMain.handle('window:minimize', async () => {
+    try {
+      if (mainWindow) {
+        mainWindow.minimize();
+        return { success: true };
+      }
+      return { success: false, error: 'Main window not found' };
+    } catch (error) {
+      console.error('Minimize window error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('window:maximize', async () => {
+    try {
+      if (mainWindow) {
+        if (mainWindow.isMaximized()) {
+          mainWindow.unmaximize();
+        } else {
+          mainWindow.maximize();
+        }
+        return { success: true, isMaximized: mainWindow.isMaximized() };
+      }
+      return { success: false, error: 'Main window not found' };
+    } catch (error) {
+      console.error('Maximize window error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('window:close', async () => {
+    try {
+      if (mainWindow) {
+        mainWindow.close();
+        return { success: true };
+      }
+      return { success: false, error: 'Main window not found' };
+    } catch (error) {
+      console.error('Close window error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('window:setAlwaysOnTop', async (event, alwaysOnTop = true) => {
+    try {
+      if (mainWindow) {
+        mainWindow.setAlwaysOnTop(alwaysOnTop);
+        return { success: true, alwaysOnTop };
+      }
+      return { success: false, error: 'Main window not found' };
+    } catch (error) {
+      console.error('Set always on top error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Cash drawer handlers
+  ipcMain.handle('cashdrawer:open', async (event, options = {}) => {
+    try {
+      const { port = 'COM1', baudRate = 9600, timeout = 5000 } = options;
+      
+      // For Windows, we'll use a simple approach with serial port
+      // This is a basic implementation - you may need to install additional packages
+      let SerialPort;
+      try {
+        SerialPort = require('serialport').SerialPort;
+      } catch (error) {
+        console.warn('SerialPort not available:', error.message);
+        return Promise.resolve({ success: false, message: 'SerialPort not available' });
+      }
+      
+      const serialPort = new SerialPort({
+        path: port,
+        baudRate: baudRate,
+        autoOpen: false
+      });
+
+      return new Promise((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          serialPort.close();
+          reject(new Error('Cash drawer timeout'));
+        }, timeout);
+
+        serialPort.open((err) => {
+          if (err) {
+            clearTimeout(timeoutId);
+            reject(err);
+            return;
+          }
+
+          // Send open command (ESC/POS command for cash drawer)
+          // Different printers may use different commands
+          const openCommand = Buffer.from([0x1B, 0x70, 0x00, 0x19, 0xFA]); // ESC p 0 25 250
+          
+          port.write(openCommand, (err) => {
+            clearTimeout(timeoutId);
+            port.close();
+            
+            if (err) {
+              reject(err);
+            } else {
+              resolve({ success: true, message: 'Cash drawer opened successfully' });
+            }
+          });
+        });
+      });
+    } catch (error) {
+      console.error('Cash drawer error:', error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('cashdrawer:test', async (event, options = {}) => {
+    try {
+      // Test if cash drawer is available
+      const { port = 'COM1' } = options;
+      
+      // Check if port exists
+      const { SerialPort } = require('serialport');
+      const ports = await SerialPort.list();
+      
+      const availablePort = ports.find(p => p.path === port);
+      
+      if (!availablePort) {
+        return { 
+          available: false, 
+          message: `Port ${port} not found. Available ports: ${ports.map(p => p.path).join(', ')}` 
+        };
+      }
+
+      return { 
+        available: true, 
+        message: `Port ${port} is available`,
+        portInfo: availablePort
+      };
+    } catch (error) {
+      console.error('Cash drawer test error:', error);
+      return { 
+        available: false, 
+        message: `Error testing cash drawer: ${error.message}` 
+      };
+    }
+  });
+
+  ipcMain.handle('cashdrawer:listPorts', async () => {
+    try {
+      const { SerialPort } = require('serialport');
+      const ports = await SerialPort.list();
+      
+      return {
+        success: true,
+        ports: ports.map(port => ({
+          path: port.path,
+          manufacturer: port.manufacturer,
+          serialNumber: port.serialNumber,
+          pnpId: port.pnpId,
+          locationId: port.locationId,
+          vendorId: port.vendorId,
+          productId: port.productId
+        }))
+      };
+    } catch (error) {
+      console.error('List ports error:', error);
+      return {
+        success: false,
+        error: error.message,
+        ports: []
+      };
+    }
+  });
+  
+  console.log('✅ All IPC handlers registered successfully');
+};
+
+// Window configuration options
+const windowConfigs = {
+  // Standard window (default) - now transparent
+  standard: {
+    width: 1200,
+    height: 800,
+    transparent: true,
+    frame: false,
+    titleBarStyle: 'hiddenInset',
+    minWidth: 1024,
+    minHeight: 600,
+    resizable: true,
+    maximizable: true,
+    hasShadow: false, // No shadow for clean look
+    backgroundColor: '#00000000', // Fully transparent background
+    center: true, // Center window on screen
+    show: false, // Don't show until ready
+    skipTaskbar: false, // Show in taskbar
+    alwaysOnTop: false, // Don't always stay on top
+  },
+  
+  // Transparent window without frame
+  transparent: {
+    width: 1200,
+    height: 800,
+    transparent: true,
+    frame: false,
+    titleBarStyle: 'hidden',
+    minWidth: 1024,
+    minHeight: 600,
+    resizable: true,
+    maximizable: true,
+    hasShadow: false, // Shadow disabled for transparent windows
+    backgroundColor: '#00000000', // Fully transparent background
+    center: true, // Center window on screen
+    show: false, // Don't show until ready
+    skipTaskbar: false, // Show in taskbar
+    alwaysOnTop: false, // Don't always stay on top
+    vibrancy: 'under-window', // macOS only
+    visualEffectState: 'active', // macOS only
+  },
+  
+  // Frameless window with custom title bar
+  frameless: {
+    width: 1200,
+    height: 800,
+    transparent: true,
+    frame: false,
+    titleBarStyle: 'hidden',
+    minWidth: 1024,
+    minHeight: 600,
+    resizable: true,
+    maximizable: true,
+    hasShadow: true,
+    backgroundColor: '#00000000', // Fully transparent background
+    center: true, // Center window on screen
+    show: false, // Don't show until ready
+    skipTaskbar: false, // Show in taskbar
+    alwaysOnTop: false, // Don't always stay on top
+  },
+  
+  // Login window - completely transparent with floating card
+  login: {
+    width: 500,
+    height: 600,
+    transparent: true,
+    frame: false,
+    titleBarStyle: 'hidden',
+    minWidth: 400,
+    minHeight: 500,
+    resizable: false,
+    maximizable: false,
+    hasShadow: false, // No shadow for clean look
+    backgroundColor: '#00000000', // Fully transparent background
+    center: true, // Center window on screen
+    show: false, // Don't show until ready
+    skipTaskbar: false, // Show in taskbar
+    alwaysOnTop: true, // Stay on top during login
+  }
+};
+
+// Get window configuration from environment or default
+const getWindowConfig = () => {
+  const configType = process.env.WINDOW_TYPE || 'standard';
+  return windowConfigs[configType] || windowConfigs.standard;
+};
+
+// Start Vite dev server for development
+const startViteServer = () => {
+  if (!isDev) return;
+  
+  console.log('🚀 Starting Vite dev server...');
+  
+  viteProcess = spawn('npm', ['run', 'dev:electron'], {
+    stdio: 'pipe', // Hide console output
+    shell: true,
+    windowsHide: true, // Hide console window on Windows
+    detached: false
+  });
+
+  // Handle Vite output silently
+  viteProcess.stdout.on('data', (data) => {
+    // Only log important messages, not all Vite output
+    const output = data.toString();
+    if (output.includes('ready in') || output.includes('Local:')) {
+      console.log('✅ Vite server ready');
+    }
+  });
+
+  viteProcess.stderr.on('data', (data) => {
+    // Only log errors, not warnings
+    const output = data.toString();
+    if (output.includes('Error:') || output.includes('error:')) {
+      console.error('❌ Vite server error:', output);
+    }
+  });
+
+  viteProcess.on('error', (error) => {
+    console.error('❌ Vite server error:', error);
+  });
+
+  viteProcess.on('exit', (code) => {
+    if (code !== 0) {
+      console.log('🔄 Vite server exited with code:', code);
+    }
+  });
+};
+
+// Create splash screen
+const createSplashScreen = () => {
+  splashWindow = new BrowserWindow({
+    width: 500,
+    height: 600,
+    frame: false, // Borderless window
+    alwaysOnTop: true,
+    transparent: true, // Transparan agar background terlihat
+    resizable: false,
+    backgroundColor: '#00000000', // Background transparan
+    hasShadow: true, // Ada shadow untuk depth
+    skipTaskbar: true, // Don't show in taskbar
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      enableRemoteModule: false,
+    },
+    show: false,
+    // Hide console window on Windows
+    ...(process.platform === 'win32' && { windowsHide: true }),
+  });
+
+  // Load splash screen tanpa background berwarna
+  const splashPath = path.join(__dirname, 'splash-clean.html');
+  splashWindow.loadFile(splashPath);
+
+  // Show splash screen when ready
+  splashWindow.once('ready-to-show', () => {
+    splashWindow.show();
+  });
+
+  return splashWindow;
 };
 
 // Create main window
 const createWindow = () => {
+  const config = getWindowConfig();
+  
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
+    width: config.width,
+    height: config.height,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       enableRemoteModule: false,
       preload: path.join(__dirname, 'preload.js'),
-      // Development optimizations
-      devTools: isDevelopment,
-      webSecurity: !isDevelopment,
+      // Development settings
+      devTools: isDevelopment, // Enable DevTools in development
+      webSecurity: true,
     },
-    icon: path.join(__dirname, '..', 'public', 'favicon.ico'),
+    icon: path.join(__dirname, 'assets', 'icon.ico'),
     show: false,
-    titleBarStyle: 'default',
-    // Development window settings
-    ...(isDevelopment && {
-      minWidth: 1200,
-      minHeight: 800,
-      resizable: true,
-      maximizable: true,
-    })
+    // Window appearance
+    transparent: config.transparent,
+    frame: config.frame,
+    titleBarStyle: config.titleBarStyle,
+    hasShadow: config.hasShadow,
+    vibrancy: config.vibrancy,
+    visualEffectState: config.visualEffectState,
+    
+    // Window behavior
+    minWidth: config.minWidth,
+    minHeight: config.minHeight,
+    resizable: config.resizable,
+    maximizable: config.maximizable,
+    
+    // Hide console window on Windows
+    ...(process.platform === 'win32' && { windowsHide: true }),
   });
 
   // Load the app
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
     
-    // Development tools
-    if (enableDevTools || isDevelopment) {
+    // Development tools - always open in development mode
+    if (isDevelopment) {
       mainWindow.webContents.openDevTools();
     }
     
@@ -548,29 +1187,53 @@ const createWindow = () => {
         mainWindow.loadFile(altPath);
       } else {
         console.error('❌ Alternative path also not found');
-        // Show error dialog
-        const { dialog } = require('electron');
-        dialog.showErrorBox('App Loading Error', 'Could not find application files. Please reinstall the application.');
+        // Try app.asar path
+        const asarPath = path.join(process.resourcesPath, 'app.asar', 'dist', 'index.html');
+        console.log('Trying asar path:', asarPath);
+        if (require('fs').existsSync(asarPath)) {
+          mainWindow.loadFile(asarPath);
+        } else {
+          console.error('❌ All paths failed');
+          // Try resources path
+          const resourcesPath = path.join(process.resourcesPath, 'dist', 'index.html');
+          console.log('Trying resources path:', resourcesPath);
+          if (require('fs').existsSync(resourcesPath)) {
+            mainWindow.loadFile(resourcesPath);
+          } else {
+            console.error('❌ All paths failed');
+            // Show error dialog
+            const { dialog } = require('electron');
+            dialog.showErrorBox('App Loading Error', 'Could not find application files. Please reinstall the application.');
+          }
+        }
       }
     }
   }
 
   // Show window when ready
   mainWindow.once('ready-to-show', () => {
+    // Close splash screen if it exists
+    if (splashWindow) {
+      splashWindow.close();
+      splashWindow = null;
+    }
+    
     mainWindow.show();
     
-    // Always log in production for debugging
-    console.log('🎯 Main window ready');
-    console.log('🔧 Development mode:', isDevelopment);
-    console.log('📦 App packaged:', app.isPackaged);
-    console.log('🛠️ DevTools enabled:', enableDevTools);
-    console.log('📝 Logging enabled:', enableLogging);
-    console.log('📂 App path:', app.getAppPath());
-    console.log('📂 Resources path:', process.resourcesPath);
+    // Log only in development
+    if (isDevelopment) {
+      console.log('🎯 Main window ready');
+      console.log('🔧 Development mode:', isDevelopment);
+      console.log('📦 App packaged:', app.isPackaged);
+      console.log('🛠️ DevTools enabled:', enableDevTools);
+      console.log('📝 Logging enabled:', enableLogging);
+      console.log('📂 App path:', app.getAppPath());
+      console.log('📂 Resources path:', process.resourcesPath);
+    }
     
-    // Open DevTools in production for debugging
-    if (!isDev) {
-      mainWindow.webContents.openDevTools();
+    // Ensure DevTools are closed in production
+    if (!isDevelopment && !isDev) {
+      mainWindow.webContents.closeDevTools();
     }
   });
 
@@ -579,50 +1242,121 @@ const createWindow = () => {
     console.error('❌ Failed to load:', errorDescription, 'URL:', validatedURL);
   });
 
-  // Handle console messages from renderer
-  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
-    console.log('Renderer console:', level, message);
-  });
+  // Handle console messages from renderer (only in development)
+  if (isDevelopment) {
+    mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+      console.log('Renderer console:', level, message);
+    });
+  }
 
   // Handle window closed
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+
+  // Handle window minimize/restore events
+  mainWindow.on('minimize', () => {
+    console.log('Window minimized');
+  });
+
+  mainWindow.on('restore', () => {
+    console.log('Window restored');
+    // Ensure window is properly restored
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+
+  // Handle when window is shown from taskbar
+  mainWindow.on('show', () => {
+    console.log('Window shown from taskbar');
+    // Force window to be visible and focused
+    if (mainWindow && mainWindow.isMinimized()) {
+      mainWindow.restore();
+    }
+    mainWindow.focus();
+  });
+
+  // Handle taskbar click (Windows)
+  mainWindow.on('focus', () => {
+    console.log('Window focused');
+  });
+
+  // Handle when window is hidden
+  mainWindow.on('hide', () => {
+    console.log('Window hidden');
+  });
 };
 
 // App event handlers
 app.whenReady().then(async () => {
-  console.log('🚀 Starting Studio POS Electron app...');
+  if (isDevelopment) {
+    console.log('🚀 Starting Studio POS Electron app...');
+  }
+  
+  // Start Vite dev server first if in development
+  if (isDev) {
+    startViteServer();
+    // Wait a bit for Vite to start
+    await new Promise(resolve => setTimeout(resolve, 3000));
+  }
+  
+  // Setup IPC handlers FIRST - before anything else
+  console.log('🔧 Setting up IPC handlers...');
+  setupIpcHandlers();
+  console.log('✅ IPC handlers registered successfully');
+  
+  // Show splash screen after handlers are registered
+  createSplashScreen();
   
   // Initialize database
   const dbStatus = await initializeDatabase();
-  console.log('Database status:', dbStatus);
+  if (isDevelopment) {
+    console.log('Database status:', dbStatus);
+  }
   
   if (dbStatus.connected) {
     // Create tables if they don't exist
     await createTables();
   }
   
-  // Setup IPC handlers
-  setupIpcHandlers();
-  
-  // Create window
+  // Create window after everything is ready
   createWindow();
   
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
+    } else {
+      // If window exists but is minimized, restore it
+      if (mainWindow && mainWindow.isMinimized()) {
+        mainWindow.restore();
+        mainWindow.show();
+        mainWindow.focus();
+      } else if (mainWindow && !mainWindow.isVisible()) {
+        mainWindow.show();
+        mainWindow.focus();
+      }
     }
   });
 });
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
+    // Kill Vite process when app closes
+    if (viteProcess) {
+      viteProcess.kill();
+    }
     app.quit();
   }
 });
 
 app.on('before-quit', async () => {
+  // Kill Vite process
+  if (viteProcess) {
+    viteProcess.kill();
+  }
+  
   // Close database connection
   if (dbPool) {
     if (dbPool.end) {

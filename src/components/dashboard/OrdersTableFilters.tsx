@@ -12,10 +12,10 @@ const OrdersTableFilters: React.FC<OrdersTableFiltersProps> = ({
   onDeadlineFilterChange
 }) => {
   const filters = [
-    { key: 'all', label: 'All' },
-    { key: 'today', label: 'Today' },
-    { key: 'tomorrow', label: 'Tomorrow' },
-    { key: 'overdue', label: 'Overdue' }
+    { key: 'all', label: 'Semua' },
+    { key: 'today', label: 'Hari Ini' },
+    { key: 'tomorrow', label: 'Besok' },
+    { key: 'overdue', label: 'Terlambat' }
   ];
 
   return (

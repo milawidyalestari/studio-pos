@@ -52,7 +52,11 @@ const SupplierModal = ({ isOpen, onClose, onSave, supplier }: SupplierModalProps
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    // If we have a supplier (editing), include the id in the data
+    const dataToSave = supplier 
+      ? { ...formData, id: supplier.id }
+      : formData;
+    onSave(dataToSave);
   };
 
   const handleChange = (field: string, value: string | number) => {

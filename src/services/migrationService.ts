@@ -1,570 +1,445 @@
-import { DatabaseService } from '@/lib/database';
-import { Transaction, Category } from '@/types/finance';
-import { CashRegisterConfig } from '@/types/cashRegister';
+/**
+ * Migration Service - Database Schema Migration System
+ * 
+ * This service handles database schema migrations for different database types
+ * Supports: PostgreSQL, SQLite, and LocalStorage
+ */
 
-export interface MigrationStatus {
-  tableName: string;
-  totalRecords: number;
-  migratedRecords: number;
-  migrationStatus: 'pending' | 'running' | 'completed' | 'failed';
-  errorMessage?: string;
+export interface Migration {
+  version: string;
+  name: string;
+  up: (adapter: any) => Promise<void>;
+  down?: (adapter: any) => Promise<void>;
 }
 
-export interface MigrationProgress {
-  currentTable: string;
-  currentRecord: number;
-  totalRecords: number;
-  percentage: number;
-  status: string;
+export interface MigrationResult {
+  success: boolean;
+  appliedMigrations: string[];
+  error?: string;
 }
 
 export class MigrationService {
-  public database: DatabaseService;
-  private onProgress?: (progress: MigrationProgress) => void;
+  private static instance: MigrationService;
+  private migrations: Migration[] = [];
 
-  constructor(database: DatabaseService) {
-    this.database = database;
+  private constructor() {
+    this.registerMigrations();
   }
 
-  setProgressCallback(callback: (progress: MigrationProgress) => void) {
-    this.onProgress = callback;
-  }
-
-  private updateProgress(
-    currentTable: string,
-    currentRecord: number,
-    totalRecords: number,
-    status: string
-  ) {
-    if (this.onProgress) {
-      const percentage = Math.round((currentRecord / totalRecords) * 100);
-      this.onProgress({
-        currentTable,
-        currentRecord,
-        totalRecords,
-        percentage,
-        status
-      });
+  static getInstance(): MigrationService {
+    if (!MigrationService.instance) {
+      MigrationService.instance = new MigrationService();
     }
+    return MigrationService.instance;
   }
 
-  async migrateAllData(): Promise<MigrationStatus[]> {
-    const results: MigrationStatus[] = [];
+  /**
+   * Register all available migrations
+   */
+  private registerMigrations(): void {
+    this.migrations = [
+      {
+        version: '001',
+        name: 'initial_schema',
+        up: this.createInitialSchema.bind(this)
+      },
+      {
+        version: '002', 
+        name: 'create_default_admin',
+        up: this.createDefaultAdmin.bind(this)
+      },
+      {
+        version: '003',
+        name: 'create_sample_data',
+        up: this.createSampleData.bind(this)
+      }
+    ];
+  }
 
+  /**
+   * Run all pending migrations
+   */
+  async runMigrations(adapter: any): Promise<MigrationResult> {
     try {
-      // Migrate categories
-      results.push(await this.migrateCategories());
+      const appliedMigrations: string[] = [];
+      
+      // Get already applied migrations
+      const appliedVersions = await this.getAppliedMigrations(adapter);
+      
+      // Filter pending migrations
+      const pendingMigrations = this.migrations.filter(
+        migration => !appliedVersions.includes(migration.version)
+      );
 
-      // Migrate transactions
-      results.push(await this.migrateTransactions());
+      console.log(`🔄 Running ${pendingMigrations.length} pending migrations...`);
 
-      // Migrate cash register configs
-      results.push(await this.migrateCashRegisterConfigs());
+      // Run each pending migration
+      for (const migration of pendingMigrations) {
+        try {
+          console.log(`📦 Running migration ${migration.version}: ${migration.name}`);
+          await migration.up(adapter);
+          
+          // Mark migration as applied
+          await this.markMigrationApplied(adapter, migration.version);
+          appliedMigrations.push(migration.version);
+          
+          console.log(`✅ Migration ${migration.version} completed`);
+        } catch (error) {
+          console.error(`❌ Migration ${migration.version} failed:`, error);
+          throw error;
+        }
+      }
 
-      // Migrate products
-      results.push(await this.migrateProducts());
+      return {
+        success: true,
+        appliedMigrations
+      };
 
-      // Migrate app settings
-      results.push(await this.migrateAppSettings());
-
-      return results;
     } catch (error) {
       console.error('Migration failed:', error);
-      throw error;
-    }
-  }
-
-  async migrateCategories(): Promise<MigrationStatus> {
-    try {
-      this.updateProgress('categories', 0, 1, 'Starting category migration...');
-
-      // Get categories from local storage
-      const localCategories = this.getLocalStorageData('categories') || [];
-      
-      if (localCategories.length === 0) {
-        this.updateProgress('categories', 1, 1, 'No categories to migrate');
-        return {
-          tableName: 'categories',
-          totalRecords: 0,
-          migratedRecords: 0,
-          migrationStatus: 'completed'
-        };
-      }
-
-      let migratedCount = 0;
-      
-      for (let i = 0; i < localCategories.length; i++) {
-        const category = localCategories[i];
-        
-        try {
-          // Check if category already exists
-          const existingCategory = await this.database.getCategoryByName(category.name);
-          
-          if (!existingCategory) {
-            // Create new category in database
-            await this.database.createCategory({
-              name: category.name,
-              type: category.type,
-              color: category.color || '#3B82F6',
-              icon: category.icon,
-              description: category.description
-            });
-            migratedCount++;
-          }
-          
-          this.updateProgress(
-            'categories',
-            i + 1,
-            localCategories.length,
-            `Migrated ${migratedCount} categories`
-          );
-        } catch (error) {
-          console.error(`Failed to migrate category ${category.name}:`, error);
-        }
-      }
-
-      this.updateProgress('categories', localCategories.length, localCategories.length, 'Category migration completed');
-      
       return {
-        tableName: 'categories',
-        totalRecords: localCategories.length,
-        migratedRecords: migratedCount,
-        migrationStatus: 'completed'
-      };
-    } catch (error) {
-      return {
-        tableName: 'categories',
-        totalRecords: 0,
-        migratedRecords: 0,
-        migrationStatus: 'failed',
-        errorMessage: error instanceof Error ? error.message : 'Unknown error'
+        success: false,
+        appliedMigrations: [],
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
 
-  async migrateTransactions(): Promise<MigrationStatus> {
-    try {
-      this.updateProgress('transactions', 0, 1, 'Starting transaction migration...');
-
-      // Get transactions from local storage
-      const localTransactions = this.getLocalStorageData('transactions') || [];
-      
-      if (localTransactions.length === 0) {
-        this.updateProgress('transactions', 1, 1, 'No transactions to migrate');
-        return {
-          tableName: 'transactions',
-          totalRecords: 0,
-          migratedRecords: 0,
-          migrationStatus: 'completed'
-        };
+  /**
+   * Create initial database schema
+   */
+  private async createInitialSchema(adapter: any): Promise<void> {
+    // Check database type from config
+    const configStr = localStorage.getItem('database_config');
+    let schema = this.getInitialSchema();
+    
+    if (configStr) {
+      const config = JSON.parse(configStr);
+      if (config.type === 'sqlite') {
+        // Use SQLite-compatible schema
+        const { sqliteMigrationService } = await import('./sqliteMigrationService');
+        schema = sqliteMigrationService.getSQLiteSchema();
       }
-
-      let migratedCount = 0;
-      
-      for (let i = 0; i < localTransactions.length; i++) {
-        const transaction = localTransactions[i];
-        
-        try {
-          // Check if transaction already exists
-          const existingTransaction = await this.database.getTransactionByReference(transaction.reference_number);
-          
-          if (!existingTransaction) {
-            // Get category ID if category exists
-            let categoryId: string | null = null;
-            if (transaction.category) {
-              const category = await this.database.getCategoryByName(transaction.category);
-              categoryId = category?.id || null;
-            }
-
-            // Create new transaction in database
-            await this.database.createTransaction({
-              title: transaction.title,
-              amount: transaction.amount,
-              type: transaction.type,
-              categoryId,
-              date: new Date(transaction.date),
-              description: transaction.description,
-              paymentMethod: transaction.paymentMethod,
-              referenceNumber: transaction.referenceNumber
-            });
-            migratedCount++;
-          }
-          
-          this.updateProgress(
-            'transactions',
-            i + 1,
-            localTransactions.length,
-            `Migrated ${migratedCount} transactions`
-          );
-        } catch (error) {
-          console.error(`Failed to migrate transaction ${transaction.title}:`, error);
-        }
-      }
-
-      this.updateProgress('transactions', localTransactions.length, localTransactions.length, 'Transaction migration completed');
-      
-      return {
-        tableName: 'transactions',
-        totalRecords: localTransactions.length,
-        migratedRecords: migratedCount,
-        migrationStatus: 'completed'
-      };
-    } catch (error) {
-      return {
-        tableName: 'transactions',
-        totalRecords: 0,
-        migratedRecords: 0,
-        migrationStatus: 'failed',
-        errorMessage: error instanceof Error ? error.message : 'Unknown error'
-      };
+    }
+    
+    // For PostgreSQL/SQLite - execute SQL
+    if (adapter.query && typeof adapter.query === 'function') {
+      // This is a database adapter
+      await this.executeSQL(adapter, schema);
+    } else {
+      // This is LocalStorage - create tables structure
+      await this.createLocalStorageTables(schema);
     }
   }
 
-  async migrateCashRegisterConfigs(): Promise<MigrationStatus> {
-    try {
-      this.updateProgress('cash_register_configs', 0, 1, 'Starting cash register config migration...');
+  /**
+   * Create default admin user
+   */
+  private async createDefaultAdmin(adapter: any): Promise<void> {
+    const adminUser = {
+      username: 'admin',
+      password: 'admin123',
+      email: 'admin@studio-pos.com',
+      nama: 'Administrator',
+      role: 'Administrator',
+      status: 'Active',
+      is_active: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
 
-      // Get cash register configs from local storage
-      const localConfigs = this.getLocalStorageData('cashRegisterConfigs') || [];
-      
-      if (localConfigs.length === 0) {
-        this.updateProgress('cash_register_configs', 1, 1, 'No cash register configs to migrate');
-        return {
-          tableName: 'cash_register_configs',
-          totalRecords: 0,
-          migratedRecords: 0,
-          migrationStatus: 'completed'
-        };
-      }
-
-      let migratedCount = 0;
-      
-      for (let i = 0; i < localConfigs.length; i++) {
-        const config = localConfigs[i];
-        
-        try {
-          // Check if config already exists
-          const existingConfig = await this.database.getCashRegisterConfigByName(config.name);
-          
-          if (!existingConfig) {
-            // Create new config in database
-            await this.database.createCashRegisterConfig({
-              name: config.name,
-              manufacturer: config.manufacturer,
-              model: config.model,
-              type: config.type,
-              connectionType: config.connectionType,
-              protocol: config.protocol,
-              ipAddress: config.ipAddress,
-              port: config.port,
-              baudRate: config.baudRate,
-              features: config.features,
-              commands: config.commands,
-              settings: config.settings,
-              status: config.status || 'disconnected'
-            });
-            migratedCount++;
-          }
-          
-          this.updateProgress(
-            'cash_register_configs',
-            i + 1,
-            localConfigs.length,
-            `Migrated ${migratedCount} cash register configs`
-          );
-        } catch (error) {
-          console.error(`Failed to migrate cash register config ${config.name}:`, error);
-        }
-      }
-
-      this.updateProgress('cash_register_configs', localConfigs.length, localConfigs.length, 'Cash register config migration completed');
-      
-      return {
-        tableName: 'cash_register_configs',
-        totalRecords: localConfigs.length,
-        migratedRecords: migratedCount,
-        migrationStatus: 'completed'
-      };
-    } catch (error) {
-      return {
-        tableName: 'cash_register_configs',
-        totalRecords: 0,
-        migratedRecords: 0,
-        migrationStatus: 'failed',
-        errorMessage: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
-  }
-
-  async migrateProducts(): Promise<MigrationStatus> {
-    try {
-      this.updateProgress('products', 0, 1, 'Starting product migration...');
-
-      // Get products from local storage
-      const localProducts = this.getLocalStorageData('products') || [];
-      
-      if (localProducts.length === 0) {
-        this.updateProgress('products', 1, 1, 'No products to migrate');
-        return {
-          tableName: 'products',
-          totalRecords: 0,
-          migratedRecords: 0,
-          migrationStatus: 'completed'
-        };
-      }
-
-      let migratedCount = 0;
-      
-      for (let i = 0; i < localProducts.length; i++) {
-        const product = localProducts[i];
-        
-        try {
-          // Check if product already exists
-          const existingProduct = await this.database.getProductBySku(product.sku);
-          
-          if (!existingProduct) {
-            // Create new product in database
-            await this.database.createProduct({
-              name: product.name,
-              description: product.description,
-              price: product.price,
-              cost: product.cost,
-              category: product.category,
-              sku: product.sku,
-              barcode: product.barcode,
-              stockQuantity: product.stockQuantity || 0,
-              minStockLevel: product.minStockLevel || 0
-            });
-            migratedCount++;
-          }
-          
-          this.updateProgress(
-            'products',
-            i + 1,
-            localProducts.length,
-            `Migrated ${migratedCount} products`
-          );
-        } catch (error) {
-          console.error(`Failed to migrate product ${product.name}:`, error);
-        }
-      }
-
-      this.updateProgress('products', localProducts.length, localProducts.length, 'Product migration completed');
-      
-      return {
-        tableName: 'products',
-        totalRecords: localProducts.length,
-        migratedRecords: migratedCount,
-        migrationStatus: 'completed'
-      };
-    } catch (error) {
-      return {
-        tableName: 'products',
-        totalRecords: 0,
-        migratedRecords: 0,
-        migrationStatus: 'failed',
-        errorMessage: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
-  }
-
-  async migrateAppSettings(): Promise<MigrationStatus> {
-    try {
-      this.updateProgress('app_settings', 0, 1, 'Starting app settings migration...');
-
-      // Get app settings from local storage
-      const localSettings = this.getLocalStorageData('appSettings') || {};
-      
-      if (Object.keys(localSettings).length === 0) {
-        this.updateProgress('app_settings', 1, 1, 'No app settings to migrate');
-        return {
-          tableName: 'app_settings',
-          totalRecords: 0,
-          migratedRecords: 0,
-          migrationStatus: 'completed'
-        };
-      }
-
-      let migratedCount = 0;
-      const settingKeys = Object.keys(localSettings);
-      
-      for (let i = 0; i < settingKeys.length; i++) {
-        const key = settingKeys[i];
-        const value = localSettings[key];
-        
-        try {
-          // Create or update setting in database
-          await this.database.createOrUpdateAppSetting({
-            key,
-            value: String(value),
-            type: typeof value === 'boolean' ? 'boolean' : 'string',
-            description: `Migrated from local storage`
-          });
-          migratedCount++;
-          
-          this.updateProgress(
-            'app_settings',
-            i + 1,
-            settingKeys.length,
-            `Migrated ${migratedCount} app settings`
-          );
-        } catch (error) {
-          console.error(`Failed to migrate app setting ${key}:`, error);
-        }
-      }
-
-      this.updateProgress('app_settings', settingKeys.length, settingKeys.length, 'App settings migration completed');
-      
-      return {
-        tableName: 'app_settings',
-        totalRecords: settingKeys.length,
-        migratedRecords: migratedCount,
-        migrationStatus: 'completed'
-      };
-    } catch (error) {
-      return {
-        tableName: 'app_settings',
-        totalRecords: 0,
-        migratedRecords: 0,
-        migrationStatus: 'failed',
-        errorMessage: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
-  }
-
-  private getLocalStorageData(key: string): any {
-    try {
-      const data = localStorage.getItem(key);
-      return data ? JSON.parse(data) : null;
-    } catch (error) {
-      console.error(`Failed to get local storage data for key ${key}:`, error);
-      return null;
-    }
-  }
-
-  async getMigrationStatus(): Promise<MigrationStatus[]> {
-    try {
-      // This would call the database function get_migration_status()
-      // For now, return a basic status
-      return [
-        {
-          tableName: 'categories',
-          totalRecords: 0,
-          migratedRecords: 0,
-          migrationStatus: 'pending'
-        },
-        {
-          tableName: 'transactions',
-          totalRecords: 0,
-          migratedRecords: 0,
-          migrationStatus: 'pending'
-        },
-        {
-          tableName: 'cash_register_configs',
-          totalRecords: 0,
-          migratedRecords: 0,
-          migrationStatus: 'pending'
-        },
-        {
-          tableName: 'products',
-          totalRecords: 0,
-          migratedRecords: 0,
-          migrationStatus: 'pending'
-        },
-        {
-          tableName: 'app_settings',
-          totalRecords: 0,
-          migratedRecords: 0,
-          migrationStatus: 'pending'
-        }
-      ];
-    } catch (error) {
-      console.error('Failed to get migration status:', error);
-      throw error;
-    }
-  }
-
-  async backupLocalStorage(): Promise<string> {
-    try {
-      const backupData: Record<string, any> = {};
-      
-      // Backup all relevant local storage data
-      const keys = [
-        'categories',
-        'transactions',
-        'cashRegisterConfigs',
-        'products',
-        'appSettings',
-        'cashRegisterConnections',
-        'testResults'
-      ];
-
-      keys.forEach(key => {
-        const data = this.getLocalStorageData(key);
-        if (data) {
-          backupData[key] = data;
-        }
-      });
-
-      const backupString = JSON.stringify(backupData, null, 2);
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `studio-pos-backup-${timestamp}.json`;
-
-      // Create download link
-      const blob = new Blob([backupString], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      link.click();
-      URL.revokeObjectURL(url);
-
-      return filename;
-    } catch (error) {
-      console.error('Failed to backup local storage:', error);
-      throw error;
-    }
-  }
-
-  async restoreFromBackup(backupFile: File): Promise<void> {
-    try {
-      const backupData = await this.readBackupFile(backupFile);
-      
-      // Restore data to local storage
-      Object.entries(backupData).forEach(([key, value]) => {
-        try {
-          localStorage.setItem(key, JSON.stringify(value));
-        } catch (error) {
-          console.error(`Failed to restore key ${key}:`, error);
-        }
-      });
-
-      console.log('Backup restored successfully');
-    } catch (error) {
-      console.error('Failed to restore from backup:', error);
-      throw error;
-    }
-  }
-
-  private async readBackupFile(file: File): Promise<Record<string, any>> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      
-      reader.onload = (event) => {
-        try {
-          const content = event.target?.result as string;
-          const data = JSON.parse(content);
-          resolve(data);
-        } catch (error) {
-          reject(new Error('Invalid backup file format'));
-        }
-      };
-
-      reader.onerror = () => {
-        reject(new Error('Failed to read backup file'));
-      };
-
-      reader.readAsText(file);
+    // Check if admin already exists
+    const existingUsers = await adapter.query('employees', {
+      where: { username: 'admin' },
+      limit: 1
     });
+
+    if (existingUsers.length === 0) {
+      await adapter.create('employees', adminUser);
+      console.log('✅ Default admin user created');
+    } else {
+      console.log('ℹ️ Admin user already exists');
+    }
+  }
+
+  /**
+   * Create sample data
+   */
+  private async createSampleData(adapter: any): Promise<void> {
+    // Create sample categories
+    const categories = [
+      {
+        name: 'Makanan',
+        type: 'product',
+        color: '#10b981',
+        icon: '🍽️',
+        description: 'Kategori untuk makanan',
+        created_at: new Date().toISOString()
+      },
+      {
+        name: 'Minuman',
+        type: 'product', 
+        color: '#3b82f6',
+        icon: '🥤',
+        description: 'Kategori untuk minuman',
+        created_at: new Date().toISOString()
+      },
+      {
+        name: 'Snack',
+        type: 'product',
+        color: '#f59e0b',
+        icon: '🍿',
+        description: 'Kategori untuk snack',
+        created_at: new Date().toISOString()
+      }
+    ];
+
+    for (const category of categories) {
+      const existing = await adapter.query('categories', {
+        where: { name: category.name },
+        limit: 1
+      });
+
+      if (existing.length === 0) {
+        await adapter.create('categories', category);
+      }
+    }
+
+    console.log('✅ Sample data created');
+  }
+
+  /**
+   * Get initial database schema
+   */
+  private getInitialSchema(): string {
+    return `
+      -- Create employees table
+      CREATE TABLE IF NOT EXISTS employees (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        username VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        email VARCHAR(255),
+        nama VARCHAR(255) NOT NULL,
+        role VARCHAR(100) NOT NULL DEFAULT 'User',
+        status VARCHAR(50) NOT NULL DEFAULT 'Active',
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      -- Create categories table
+      CREATE TABLE IF NOT EXISTS categories (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(255) UNIQUE NOT NULL,
+        type VARCHAR(100) NOT NULL DEFAULT 'product',
+        color VARCHAR(7) NOT NULL DEFAULT '#6b7280',
+        icon VARCHAR(10),
+        description TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      -- Create products table
+      CREATE TABLE IF NOT EXISTS products (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(255) NOT NULL,
+        sku VARCHAR(100) UNIQUE,
+        description TEXT,
+        price DECIMAL(15,2) NOT NULL DEFAULT 0,
+        cost DECIMAL(15,2) NOT NULL DEFAULT 0,
+        stock INTEGER NOT NULL DEFAULT 0,
+        min_stock INTEGER NOT NULL DEFAULT 0,
+        category_id UUID REFERENCES categories(id),
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      -- Create customers table
+      CREATE TABLE IF NOT EXISTS customers (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255),
+        phone VARCHAR(20),
+        address TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      -- Create orders table
+      CREATE TABLE IF NOT EXISTS orders (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        order_number VARCHAR(50) UNIQUE NOT NULL,
+        customer_id UUID REFERENCES customers(id),
+        total_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+        payment_method VARCHAR(100),
+        payment_status VARCHAR(50) NOT NULL DEFAULT 'pending',
+        status VARCHAR(50) NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      -- Create order_items table
+      CREATE TABLE IF NOT EXISTS order_items (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
+        product_id UUID REFERENCES products(id),
+        quantity INTEGER NOT NULL DEFAULT 1,
+        price DECIMAL(15,2) NOT NULL,
+        total DECIMAL(15,2) NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      -- Create indexes
+      CREATE INDEX IF NOT EXISTS idx_employees_username ON employees(username);
+      CREATE INDEX IF NOT EXISTS idx_employees_email ON employees(email);
+      CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku);
+      CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
+      CREATE INDEX IF NOT EXISTS idx_orders_number ON orders(order_number);
+      CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
+      CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
+      CREATE INDEX IF NOT EXISTS idx_order_items_product ON order_items(product_id);
+
+      -- Create updated_at trigger function
+      CREATE OR REPLACE FUNCTION update_updated_at_column()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        NEW.updated_at = NOW();
+        RETURN NEW;
+      END;
+      $$ language 'plpgsql';
+
+      -- Create triggers for updated_at
+      CREATE TRIGGER update_employees_updated_at 
+        BEFORE UPDATE ON employees
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+      CREATE TRIGGER update_categories_updated_at 
+        BEFORE UPDATE ON categories
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+      CREATE TRIGGER update_products_updated_at 
+        BEFORE UPDATE ON products
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+      CREATE TRIGGER update_customers_updated_at 
+        BEFORE UPDATE ON customers
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+      CREATE TRIGGER update_orders_updated_at 
+        BEFORE UPDATE ON orders
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    `;
+  }
+
+  /**
+   * Execute SQL for database adapters
+   */
+  private async executeSQL(adapter: any, sql: string): Promise<void> {
+    // Split SQL into individual statements
+    const statements = sql
+      .split(';')
+      .map(stmt => stmt.trim())
+      .filter(stmt => stmt.length > 0);
+
+    for (const statement of statements) {
+      try {
+        await adapter.query(statement);
+      } catch (error) {
+        console.warn(`Warning executing SQL: ${statement}`, error);
+        // Continue with other statements
+      }
+    }
+  }
+
+  /**
+   * Create LocalStorage tables structure
+   */
+  private async createLocalStorageTables(schema: string): Promise<void> {
+    // For LocalStorage, we just need to initialize empty arrays
+    const tables = ['employees', 'categories', 'products', 'customers', 'orders', 'order_items'];
+    
+    for (const table of tables) {
+      const existing = localStorage.getItem(`studio_pos_${table}`);
+      if (!existing) {
+        localStorage.setItem(`studio_pos_${table}`, JSON.stringify([]));
+      }
+    }
+  }
+
+  /**
+   * Get applied migrations from database
+   */
+  private async getAppliedMigrations(adapter: any): Promise<string[]> {
+    try {
+      // Try to get from migrations table
+      const migrations = await adapter.query('migrations', {
+        select: 'version',
+        orderBy: { column: 'version', direction: 'asc' }
+      });
+      
+      return migrations.map((m: any) => m.version);
+    } catch (error) {
+      // If migrations table doesn't exist, return empty array
+      return [];
+    }
+  }
+
+  /**
+   * Mark migration as applied
+   */
+  private async markMigrationApplied(adapter: any, version: string): Promise<void> {
+    try {
+      // Try to insert into migrations table
+      await adapter.create('migrations', {
+        version,
+        applied_at: new Date().toISOString()
+      });
+    } catch (error) {
+      // If migrations table doesn't exist, create it first
+      try {
+        await adapter.query(`
+          CREATE TABLE IF NOT EXISTS migrations (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            version VARCHAR(50) UNIQUE NOT NULL,
+            applied_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+          )
+        `);
+        
+        await adapter.create('migrations', {
+          version,
+          applied_at: new Date().toISOString()
+        });
+      } catch (createError) {
+        console.warn('Could not create migrations table:', createError);
+        // For LocalStorage, just log
+        console.log(`Migration ${version} applied (LocalStorage)`);
+      }
+    }
+  }
+
+  /**
+   * Get migration status
+   */
+  async getMigrationStatus(adapter: any): Promise<{
+    total: number;
+    applied: number;
+    pending: number;
+    appliedMigrations: string[];
+  }> {
+    const appliedVersions = await this.getAppliedMigrations(adapter);
+    const pendingMigrations = this.migrations.filter(
+      migration => !appliedVersions.includes(migration.version)
+    );
+
+    return {
+      total: this.migrations.length,
+      applied: appliedVersions.length,
+      pending: pendingMigrations.length,
+      appliedMigrations: appliedVersions
+    };
   }
 }
+
+// Export singleton instance
+export const migrationService = MigrationService.getInstance();

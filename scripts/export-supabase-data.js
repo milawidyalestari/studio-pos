@@ -127,7 +127,7 @@ async function exportData() {
 }
 
 function generateSQLFile(data, filePath) {
-  let sqlContent = `-- Studio POS Data Export\n-- Generated: ${new Date().toISOString()}\n\n`;
+  let sqlContent = `-- Azuro Data Export\n-- Generated: ${new Date().toISOString()}\n\n`;
   
   // Disable foreign key checks
   sqlContent += `SET session_replication_role = replica;\n\n`;
@@ -161,7 +161,7 @@ function generateSQLFile(data, filePath) {
 }
 
 function generateSummaryFile(exportData, totalRecords, filePath) {
-  let summary = `Studio POS Data Export Summary\n`;
+  let summary = `Azuro Data Export Summary\n`;
   summary += `=====================================\n\n`;
   summary += `Export Date: ${exportData.metadata.exportDate}\n`;
   summary += `Source URL: ${exportData.metadata.sourceUrl}\n`;

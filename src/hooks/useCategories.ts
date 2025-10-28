@@ -1,6 +1,6 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 
 export interface Category {
   id: string;
@@ -17,18 +17,12 @@ export const useCategories = () => {
     queryFn: async () => {
       console.log('Fetching categories from database...');
       
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .order('category_name', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching categories:', error);
-        throw error;
-      }
+      const data = await databaseService.query<Category>('categories', {
+        orderBy: { column: 'category_name', direction: 'asc' }
+      });
 
       console.log('Categories fetched successfully:', data);
-      return data as Category[];
+      return data;
     },
   });
 };
@@ -38,14 +32,7 @@ export const useCreateCategory = () => {
   
   return useMutation({
     mutationFn: async (categoryData: Omit<Category, 'id' | 'created_at' | 'updated_at'>) => {
-      const { data, error } = await supabase
-        .from('categories')
-        .insert([categoryData])
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return await databaseService.create<Category>('categories', categoryData as Omit<Category, 'id'>);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
@@ -58,15 +45,7 @@ export const useUpdateCategory = () => {
   
   return useMutation({
     mutationFn: async ({ id, ...categoryData }: Partial<Category> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('categories')
-        .update(categoryData)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return await databaseService.update('categories', id, categoryData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
@@ -79,12 +58,7 @@ export const useDeleteCategory = () => {
   
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('categories')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      await databaseService.delete('categories', id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 import { CheckCircle, XCircle, AlertTriangle, Database } from 'lucide-react';
 
 export const DatabaseSetupHelper = () => {
@@ -47,10 +47,10 @@ export const DatabaseSetupHelper = () => {
       });
 
       if (rolesError) {
-        console.log('Roles table error:', rolesError);
+        // Roles table error
       }
       if (permissionsError) {
-        console.log('Role permissions table error:', permissionsError);
+        // Role permissions table error
       }
 
     } catch (error) {
@@ -184,7 +184,6 @@ export const DatabaseSetupHelper = () => {
         throw error;
       }
 
-      console.log('✅ Owner role added to roles table');
       await checkTables();
 
     } catch (error) {

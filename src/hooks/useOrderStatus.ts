@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 
 export interface OrderStatus {
   id: number;
@@ -16,18 +16,12 @@ export function useOrderStatus() {
     queryFn: async () => {
       console.log('Fetching order statuses from database...');
       
-      const { data, error } = await supabase
-        .from('order_statuses')
-        .select('*')
-        .order('display_order', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching order statuses:', error);
-        throw error;
-      }
+      const data = await databaseService.query<OrderStatus>('order_statuses', {
+        orderBy: { column: 'display_order', direction: 'asc' }
+      });
 
       console.log('Order statuses fetched successfully:', data);
-      return data as OrderStatus[];
+      return data;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes cache
   });

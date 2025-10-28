@@ -2,7 +2,7 @@
 
 export function getCurrentUserRole() {
   try {
-    const user = JSON.parse(localStorage.getItem('studio_pos_user') || '{}');
+    const user = JSON.parse(localStorage.getItem('azuro_user') || '{}');
     return user.role || '';
   } catch {
     return '';

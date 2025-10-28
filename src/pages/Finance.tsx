@@ -18,9 +18,9 @@ import {
   Check,
   Printer,
   CreditCard,
-  Users,
   AlertTriangle,
   X,
+  ChevronDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,11 +29,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useHasAccess } from '@/context/RoleAccessContext';
 import { useTransactionMaster } from '@/hooks/useTransactionMaster';
 import { useCategories } from '@/hooks/useCategories';
+import { useOrderAnalytics } from '@/hooks/useOrderAnalytics';
 import { formatCurrency } from '@/utils/formatters';
+import { ProductRevenueChart } from '@/components/charts/ProductRevenueChart';
 import {
   LineChart,
   Line,
@@ -45,10 +48,8 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
-  PieChart,
-  Pie,
-  Cell,
 } from 'recharts';
+
 
 const Finance = () => {
   const hasAccess = useHasAccess();
@@ -57,6 +58,7 @@ const Finance = () => {
     refreshInterval: 60000 // Set to 1 minute if needed
   });
   const { data: categories = [], isLoading: categoriesLoading, error: categoriesError } = useCategories();
+  const { analytics: orderAnalytics, isLoading: orderAnalyticsLoading, error: orderAnalyticsError } = useOrderAnalytics();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [dateRange, setDateRange] = useState('today');
   
@@ -113,36 +115,6 @@ const Finance = () => {
     });
   }, [transactions]);
 
-  const categorySales = useMemo(() => {
-    if (!transactions || transactions.length === 0) return [];
-    
-    // Group transactions by category
-    const categoryMap = new Map();
-    
-    transactions.forEach(transaction => {
-      if (transaction.transaction_type === 'income') {
-        const categoryName = transaction.categories?.category_name || 'Lainnya';
-        const existing = categoryMap.get(categoryName) || { sales: 0, transactions: 0 };
-        
-        existing.sales += transaction.amount || 0;
-        existing.transactions += 1;
-        categoryMap.set(categoryName, existing);
-      }
-    });
-    
-    // Convert to array and calculate percentages
-    const totalSales = Array.from(categoryMap.values()).reduce((sum, item) => sum + item.sales, 0);
-    
-    return Array.from(categoryMap.entries())
-      .map(([category, data]) => ({
-        category,
-        sales: data.sales,
-        percentage: totalSales > 0 ? Math.round((data.sales / totalSales) * 100) : 0,
-        transactions: data.transactions
-      }))
-      .sort((a, b) => b.sales - a.sales)
-      .slice(0, 6); // Top 6 categories
-  }, [transactions]);
 
   // Transaksi terbaru dari database
   const recentTransactions = useMemo(() => {
@@ -175,6 +147,66 @@ const Finance = () => {
   const formatNumber = useCallback((num: number) => {
     return new Intl.NumberFormat('id-ID').format(num);
   }, []);
+
+  // Fungsi untuk mendapatkan data berdasarkan filter tanggal
+  const getFilteredData = useCallback(() => {
+    if (!transactions || transactions.length === 0) {
+      return {
+        totalSales: 0,
+        totalExpenses: 0,
+        netProfit: 0,
+        salesTransactions: 0,
+        expenseTransactions: 0,
+        filteredCategorySales: []
+      };
+    }
+
+    const now = new Date();
+    let startDate: Date;
+    let endDate: Date = now;
+
+    switch (dateRange) {
+      case 'today':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+        break;
+      case 'week':
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+        break;
+      case 'year':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+        break;
+      default:
+        startDate = new Date(0); // All time
+        endDate = new Date();
+    }
+
+    const filteredTransactions = transactions.filter(transaction => {
+      const transactionDate = new Date(transaction.transaction_date || '');
+      return transactionDate >= startDate && transactionDate <= endDate;
+    });
+
+    const salesTransactions = filteredTransactions.filter(t => t.transaction_type === 'income');
+    const expenseTransactions = filteredTransactions.filter(t => t.transaction_type === 'expense');
+
+    const totalSales = salesTransactions.reduce((sum, transaction) => sum + (transaction.amount || 0), 0);
+    const totalExpenses = expenseTransactions.reduce((sum, transaction) => sum + (transaction.amount || 0), 0);
+    const netProfit = totalSales - totalExpenses;
+
+    return {
+      totalSales,
+      totalExpenses,
+      netProfit,
+      salesTransactions: salesTransactions.length,
+      expenseTransactions: expenseTransactions.length
+    };
+  }, [transactions, dateRange]);
 
   // Fungsi untuk handle input form
   const handleCashFormChange = useCallback((field: string, value: string) => {
@@ -360,15 +392,39 @@ const Finance = () => {
       .filter(t => t.transaction_type === 'income')
       .reduce((sum, transaction) => sum + (transaction.amount || 0), 0);
 
+    // Format number helper
+    const formatNumber = (num: number) => {
+      return new Intl.NumberFormat('id-ID').format(num);
+    };
+
+    // Debug logging
+    console.log('DashboardTab - Order Analytics:', orderAnalytics);
+    console.log('DashboardTab - Order Analytics Loading:', orderAnalyticsLoading);
+    console.log('DashboardTab - Order Analytics Error:', orderAnalyticsError);
+
+    // Show loading state if order analytics is loading
+    if (orderAnalyticsLoading) {
+      return (
+        <div className="space-y-6">
+          <div className="flex justify-center items-center h-64">
+            <div className="text-center">
+              <LoaderCircle className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+              <p className="text-lg text-gray-600">Memuat data orderan...</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-6">
         {/* Key Metrics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Pendapatan Hari Ini</p>
+                  <p className="text-sm text-gray-600 mb-1">Omzet Harian</p>
                   <p className="text-2xl font-bold text-gray-900">{formatCurrency(todayRevenue)}</p>
                   <p className="text-xs text-gray-500 mt-1 flex items-center">
                     <TrendingUp className="w-3 h-3 mr-1 text-green-500" />
@@ -383,11 +439,11 @@ const Finance = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Pesanan Hari Ini</p>
-                  <p className="text-2xl font-bold text-gray-900">{formatNumber(todayTransactions)}</p>
+                  <p className="text-sm text-gray-600 mb-1">Orderan Hari Ini</p>
+                  <p className="text-2xl font-bold text-gray-900">{formatNumber(orderAnalytics.todayOrders)}</p>
                   <p className="text-xs text-gray-500 mt-1 flex items-center">
                     <TrendingUp className="w-3 h-3 mr-1 text-green-500" />
-                    +8% dari kemarin
+                    {formatCurrency(orderAnalytics.todayRevenue)} omzet
                   </p>
                 </div>
                 <ShoppingCart className="h-8 w-8 text-green-600" />
@@ -413,14 +469,29 @@ const Finance = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Total Pendapatan</p>
-                  <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalRevenue)}</p>
+                  <p className="text-sm text-gray-600 mb-1">Total Orderan</p>
+                  <p className="text-2xl font-bold text-gray-900">{formatNumber(orderAnalytics.totalOrders)}</p>
                   <p className="text-xs text-gray-500 mt-1 flex items-center">
                     <TrendingUp className="w-3 h-3 mr-1 text-green-500" />
-                    Semua waktu
+                    {formatCurrency(orderAnalytics.totalRevenue)} total
                   </p>
                 </div>
                 <FileText className="h-8 w-8 text-indigo-600" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Order Selesai</p>
+                  <p className="text-2xl font-bold text-gray-900">{formatNumber(orderAnalytics.completedOrders)}</p>
+                  <p className="text-xs text-gray-500 mt-1 flex items-center">
+                    <CheckCircle className="w-3 h-3 mr-1 text-green-500" />
+                    {orderAnalytics.totalOrders > 0 ? Math.round((orderAnalytics.completedOrders / orderAnalytics.totalOrders) * 100) : 0}% dari total
+                  </p>
+                </div>
+                <CheckCircle className="h-8 w-8 text-green-600" />
               </div>
             </CardContent>
           </Card>
@@ -428,14 +499,44 @@ const Finance = () => {
 
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Revenue Trend */}
+          {/* Product Revenue Trend */}
+          <ProductRevenueChart data={orderAnalytics.dailyProductData} />
+          
+          {/* Revenue vs Expenses Trend */}
           <Card>
             <CardHeader>
-              <CardTitle>Tren Pendapatan 7 Hari</CardTitle>
+              <CardTitle>Pendapatan vs Pengeluaran 7 Hari</CardTitle>
+              {transactions.length === 0 && (
+                <p className="text-sm text-gray-500 mt-1">Belum ada data transaksi untuk ditampilkan</p>
+              )}
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={salesData}>
+                <LineChart data={(() => {
+                  // Generate last 7 days data
+                  const last7Days = [];
+                  for (let i = 6; i >= 0; i--) {
+                    const date = new Date();
+                    date.setDate(date.getDate() - i);
+                    const dateStr = date.toISOString().split('T')[0];
+                    
+                    // Calculate revenue and expenses for this date
+                    const dayTransactions = transactions.filter(t => t.transaction_date === dateStr);
+                    const revenue = dayTransactions
+                      .filter(t => t.transaction_type === 'income' && t.status === 'completed')
+                      .reduce((sum, t) => sum + Number(t.amount), 0);
+                    const expenses = dayTransactions
+                      .filter(t => t.transaction_type === 'expense' && t.status === 'completed')
+                      .reduce((sum, t) => sum + Number(t.amount), 0);
+                    
+                    last7Days.push({
+                      date: dateStr,
+                      revenue,
+                      expenses
+                    });
+                  }
+                  return last7Days;
+                })()}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
                     dataKey="date"
@@ -446,84 +547,72 @@ const Finance = () => {
                       })
                     }
                   />
-                  <YAxis tickFormatter={(value) => `${value / 1000000}Jt`} />
+                  <YAxis yAxisId="left" orientation="left" />
                   <Tooltip 
-                    formatter={(value: any, name: any, props: any) => [
-                      formatCurrency(value), 
-                      props.dataKey === 'revenue' ? 'Pendapatan' : 'Profit'
-                    ]} 
+                    formatter={(value: any, name: any, props: any) => {
+                      return [formatCurrency(value), name === 'revenue' ? 'Pendapatan' : 'Pengeluaran'];
+                    }}
+                    labelFormatter={(date) => new Date(date).toLocaleDateString('id-ID')}
                   />
                   <Legend />
                   <Line
+                    yAxisId="left"
                     type="monotone"
                     dataKey="revenue"
-                    stroke="#3b82f6"
+                    stroke="#10b981"
                     strokeWidth={3}
                     name="Pendapatan"
                   />
                   <Line
+                    yAxisId="left"
                     type="monotone"
-                    dataKey="profit"
-                    stroke="#10b981"
+                    dataKey="expenses"
+                    stroke="#ef4444"
                     strokeWidth={3}
-                    name="Profit"
+                    name="Pengeluaran"
                   />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
-          {/* Product Sales */}
+        </div>
+
+
+        {/* Order Analytics Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+          {/* Daily Order Trend */}
           <Card>
             <CardHeader>
-              <CardTitle>Penjualan per Produk</CardTitle>
+              <CardTitle>Tren Orderan 7 Hari</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={categorySales}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={125}
-                    fill="#8884d8"
-                    dataKey="sales"
-                    label={({ percentage, index }) => {
-                      // Hanya tampilkan label untuk 3 kategori terbesar (index 0, 1, 2)
-                      return index < 3 ? `${percentage}%` : '';
-                    }}
-                    labelLine={false}
-                  >
-                    {categorySales.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
+                <BarChart data={orderAnalytics.dailyRevenueData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="date"
+                    tickFormatter={(date) =>
+                      new Date(date).toLocaleDateString('id-ID', {
+                        day: '2-digit',
+                        month: '2-digit',
+                      })
+                    }
+                  />
+                  <YAxis yAxisId="left" orientation="left" />
+                  <YAxis yAxisId="right" orientation="right" />
                   <Tooltip 
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        const data = payload[0].payload;
-                        return (
-                          <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-                            <p className="font-semibold text-gray-900">{data.category}</p>
-                            <p className="text-sm text-gray-600">Penjualan: {formatCurrency(data.sales)}</p>
-                            <p className="text-sm text-gray-600">Persentase: {data.percentage}%</p>
-                            <p className="text-sm text-gray-600">Jumlah Transaksi: {data.transactions}</p>
-                          </div>
-                        );
+                    formatter={(value: any, name: any, props: any) => {
+                      if (props.dataKey === 'revenue') {
+                        return [formatCurrency(value), 'Omzet'];
                       }
-                      return null;
+                      return [value, 'Jumlah Order'];
                     }}
+                    labelFormatter={(date) => new Date(date).toLocaleDateString('id-ID')}
                   />
-                  <Legend 
-                    formatter={(value, entry, index) => {
-                      const data = categorySales[index];
-                      return data ? `${data.category} (${data.percentage}%)` : value;
-                    }}
-                    wrapperStyle={{ fontSize: '11px' }}
-                    layout="vertical"
-                    align="right"
-                    verticalAlign="middle"
-                  />
-                </PieChart>
+                  <Legend />
+                  <Bar yAxisId="left" dataKey="revenue" fill="#3b82f6" name="Omzet" />
+                  <Line yAxisId="right" type="monotone" dataKey="orders" stroke="#10b981" strokeWidth={3} name="Jumlah Order" />
+                </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
@@ -578,6 +667,57 @@ const Finance = () => {
                           {tx.status === 'completed' ? 'Selesai' : 
                            tx.status === 'pending' ? 'Pending' :
                            tx.status === 'cancelled' ? 'Dibatalkan' : 'Ditolak'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent Orders */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Orderan Terbaru</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-4 text-gray-600">No. Order</th>
+                    <th className="text-left py-3 px-4 text-gray-600">Tanggal</th>
+                    <th className="text-left py-3 px-4 text-gray-600">Customer</th>
+                    <th className="text-right py-3 px-4 text-gray-600">Total</th>
+                    <th className="text-center py-3 px-4 text-gray-600">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orderAnalytics.recentOrders.map((order) => (
+                    <tr key={order.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 px-4 font-medium">{order.order_number}</td>
+                      <td className="py-3 px-4 text-gray-600">
+                        {new Date(order.created_at).toLocaleDateString('id-ID')}
+                      </td>
+                      <td className="py-3 px-4">{order.customer_name}</td>
+                      <td className="py-3 px-4 text-right font-medium text-green-600">
+                        {formatCurrency(order.total_amount)}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            order.status.toLowerCase().includes('selesai') || order.status.toLowerCase().includes('completed')
+                              ? 'bg-green-100 text-green-800'
+                              : order.status.toLowerCase().includes('pending') || order.status.toLowerCase().includes('proses')
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : order.status.toLowerCase().includes('cancel')
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          {order.status}
                         </span>
                       </td>
                     </tr>
@@ -660,136 +800,168 @@ const Finance = () => {
     </div>
   );
 
-  const ReportsTab = () => (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-xl font-semibold text-gray-800">Laporan Keuangan</h2>
-        <div className="flex gap-2">
-          <select
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="today">Hari Ini</option>
-            <option value="week">Minggu Ini</option>
-            <option value="month">Bulan Ini</option>
-            <option value="year">Tahun Ini</option>
-          </select>
-          <Button className="bg-blue-600 hover:bg-blue-700">
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </Button>
+  const ReportsTab = () => {
+    const filteredData = getFilteredData();
+    const marginPercentage = filteredData.totalSales > 0 ? Math.round((filteredData.netProfit / filteredData.totalSales) * 100) : 0;
+
+    const getDateRangeLabel = () => {
+      switch (dateRange) {
+        case 'today': return 'Hari Ini';
+        case 'week': return 'Minggu Ini';
+        case 'month': return 'Bulan Ini';
+        case 'year': return 'Tahun Ini';
+        default: return 'Semua Waktu';
+      }
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h2 className="text-xl font-semibold text-gray-800">Laporan Keuangan</h2>
+          <div className="flex gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="justify-between min-w-[140px]">
+                  <Filter className="w-4 h-4 mr-2" />
+                  {getDateRangeLabel()}
+                  <ChevronDown className="w-4 h-4 ml-2" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-2">
+                <div className="space-y-1">
+                  <Button
+                    variant="ghost"
+                    className={`w-full justify-start ${
+                      dateRange === 'today' 
+                        ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                        : 'hover:bg-blue-50 hover:text-blue-600'
+                    }`}
+                    onClick={() => setDateRange('today')}
+                  >
+                    Hari Ini
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className={`w-full justify-start ${
+                      dateRange === 'week' 
+                        ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                        : 'hover:bg-blue-50 hover:text-blue-600'
+                    }`}
+                    onClick={() => setDateRange('week')}
+                  >
+                    Minggu Ini
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className={`w-full justify-start ${
+                      dateRange === 'month' 
+                        ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                        : 'hover:bg-blue-50 hover:text-blue-600'
+                    }`}
+                    onClick={() => setDateRange('month')}
+                  >
+                    Bulan Ini
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className={`w-full justify-start ${
+                      dateRange === 'year' 
+                        ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                        : 'hover:bg-blue-50 hover:text-blue-600'
+                    }`}
+                    onClick={() => setDateRange('year')}
+                  >
+                    Tahun Ini
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+            <Button className="bg-blue-600 hover:bg-blue-700">
+              <Download className="w-4 h-4 mr-2" />
+              Export
+            </Button>
+          </div>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-blue-600" />
+                <div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {formatCurrency(filteredData.totalSales)}
+                  </div>
+                  <div className="text-xs text-gray-600">Total Penjualan</div>
+                  <div className="text-xs text-gray-500">{filteredData.salesTransactions} Transaksi</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-2">
+                <TrendingDown className="h-4 w-4 text-red-600" />
+                <div>
+                  <div className="text-2xl font-bold text-red-600">
+                    {formatCurrency(filteredData.totalExpenses)}
+                  </div>
+                  <div className="text-xs text-gray-600">Total Pengeluaran</div>
+                  <div className="text-xs text-gray-500">{filteredData.expenseTransactions} Transaksi</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-green-600" />
+                <div>
+                  <div className="text-2xl font-bold text-green-600">
+                    {formatCurrency(filteredData.netProfit)}
+                  </div>
+                  <div className="text-xs text-gray-600">Laba Bersih</div>
+                  <div className="text-xs text-gray-500">Margin {marginPercentage}%</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Detailed Analysis */}
+        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+          {/* Monthly Comparison */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Perbandingan Bulanan</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={salesData.slice(-7)}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="date"
+                    tickFormatter={(date) =>
+                      new Date(date).toLocaleDateString('id-ID', {
+                        day: '2-digit',
+                        month: '2-digit',
+                      })
+                    }
+                  />
+                  <YAxis tickFormatter={(value) => `${value / 1000000}Jt`} />
+                  <Tooltip formatter={(value: any) => formatCurrency(value)} />
+                  <Legend />
+                  <Bar dataKey="revenue" fill="#3b82f6" name="Pendapatan" />
+                  <Bar dataKey="profit" fill="#10b981" name="Profit" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
         </div>
       </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-blue-600" />
-              <div>
-                <div className="text-2xl font-bold text-blue-600">
-                  {formatCurrency(24700000)}
-                </div>
-                <div className="text-xs text-gray-600">Total Penjualan</div>
-                <div className="text-xs text-gray-500">127 Transaksi</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2">
-              <TrendingDown className="h-4 w-4 text-red-600" />
-              <div>
-                <div className="text-2xl font-bold text-red-600">
-                  {formatCurrency(7400000)}
-                </div>
-                <div className="text-xs text-gray-600">Total Pengeluaran</div>
-                <div className="text-xs text-gray-500">45 Transaksi</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-green-600" />
-              <div>
-                <div className="text-2xl font-bold text-green-600">
-                  {formatCurrency(17300000)}
-                </div>
-                <div className="text-xs text-gray-600">Laba Bersih</div>
-                <div className="text-xs text-gray-500">Margin 70%</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Detailed Analysis */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Sales by Product */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Analisis Penjualan per Produk</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {categorySales.map((category, index) => (
-                <div key={category.category} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-4 h-4 rounded-full"
-                      style={{ backgroundColor: COLORS[index] }}
-                    ></div>
-                    <div>
-                      <p className="font-medium text-gray-800">{category.category}</p>
-                      <p className="text-sm text-gray-600">{category.transactions} transaksi</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium text-gray-800">
-                      {formatCurrency(category.sales)}
-                    </p>
-                    <p className="text-sm text-gray-600">{category.percentage}%</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-        {/* Monthly Comparison */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Perbandingan Bulanan</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={salesData.slice(-7)}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="date"
-                  tickFormatter={(date) =>
-                    new Date(date).toLocaleDateString('id-ID', {
-                      day: '2-digit',
-                      month: '2-digit',
-                    })
-                  }
-                />
-                <YAxis tickFormatter={(value) => `${value / 1000000}Jt`} />
-                <Tooltip formatter={(value: any) => formatCurrency(value)} />
-                <Legend />
-                <Bar dataKey="revenue" fill="#3b82f6" name="Pendapatan" />
-                <Bar dataKey="profit" fill="#10b981" name="Profit" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen">
@@ -876,11 +1048,11 @@ const Finance = () => {
                     </SelectTrigger>
                     <SelectContent>
                       {categoriesLoading ? (
-                        <SelectItem value="" disabled>Loading categories...</SelectItem>
+                        <SelectItem value="loading" disabled>Loading categories...</SelectItem>
                       ) : categoriesError ? (
-                        <SelectItem value="" disabled>Error loading categories</SelectItem>
+                        <SelectItem value="error" disabled>Error loading categories</SelectItem>
                       ) : categories.length === 0 ? (
-                        <SelectItem value="" disabled>No categories available</SelectItem>
+                        <SelectItem value="no-categories" disabled>No categories available</SelectItem>
                       ) : (
                         <>
                           {cashTransactionType === 'income' ? (
@@ -903,7 +1075,7 @@ const Finance = () => {
                           {categories.filter(cat => 
                             cashTransactionType === 'income' ? cat.group_name === 'income' : cat.group_name === 'expense'
                           ).length === 0 && (
-                            <SelectItem value="" disabled>
+                            <SelectItem value="no-matching-categories" disabled>
                               No {cashTransactionType} categories found
                             </SelectItem>
                           )}

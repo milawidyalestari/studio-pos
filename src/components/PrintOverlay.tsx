@@ -18,7 +18,9 @@ import {
 import { usePrintService } from '../hooks/usePrintService';
 import { printService } from '../services/printService';
 import { getNotaSettings } from '../utils/notaSettings';
+import { getStrukSettings } from '../utils/strukSettings';
 import { notaPrintService } from '../services/notaPrintService';
+import { PaymentStamp } from './print/PaymentStamp';
 
 export interface PrintOverlayProps {
   isOpen: boolean;
@@ -46,6 +48,7 @@ export interface PrintOverlayProps {
     [key: string]: any;
   };
   onCloseAndReopenRequestOrder?: () => void;
+  preventCloseOnOutsideClick?: boolean;
 }
 
 export const PrintOverlay: React.FC<PrintOverlayProps> = ({
@@ -57,7 +60,8 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
   previewContent,
   printType,
   orderData,
-  onCloseAndReopenRequestOrder
+  onCloseAndReopenRequestOrder,
+  preventCloseOnOutsideClick = false
 }) => {
   // Print service hook
   const {
@@ -246,6 +250,10 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
         // Call onPrint to trigger database update and close overlay
         onPrint();
         onClose();
+        // If this is SPK or Nota print and we have the callback, reopen Request Order modal
+        if ((printType === 'spk' || printType === 'nota') && onCloseAndReopenRequestOrder) {
+          onCloseAndReopenRequestOrder();
+        }
       } else {
         console.error('Print failed');
         // Show error message
@@ -328,7 +336,7 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
       // Receipt format
       content += 'RECEIPT\n';
       content += '=======\n';
-      content += 'Studio POS System\n';
+      content += 'Azuro System\n';
       content += `${new Date().toLocaleDateString('id-ID')}\n\n`;
       
       content += `Order: ${orderData?.orderNumber || 'N/A'}\n`;
@@ -395,11 +403,11 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
               font-weight: bold;
               font-size: 18px;
               margin-bottom: 8px;
-              border-bottom: 1px solid #ccc;
-              padding-bottom: 3px;
+              margin-top: 8px;
+              border-top: 1px solid #ddd;
             }
             .item {
-              border-top: 1px solid #ddd;
+              border-bottom: 1px solid #ddd;
               padding: 8px 0;
               margin-bottom: 8px;
             }
@@ -448,9 +456,7 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
             .total-row {
               font-weight: bold;
               font-size: 16px;
-              border-top: 1px solid #ccc;
-              padding-top: 5px;
-              margin-top: 5px;
+
             }
             .info-row {
               display: flex;
@@ -471,17 +477,11 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
               color: #666;
               margin-bottom: 15px;
               font-weight: bold;
-            }
-            .footer-text {
-              text-align: center;
-              margin-top: 20px;
-              font-size: 14px;
-              color: #666;
-            }
+            }  
             .payment-stamp {
-              position: absolute;
-              pointer-events: none;
-              z-index: 10;
+              text-align: center;
+              margin: 20px 0 10px 0;
+              opacity: 0.8;
             }
             .stamp-circle {
               border-radius: 50%;
@@ -501,14 +501,42 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
             .stamp-image {
               object-fit: contain;
             }
+            .footer-text {
+              text-align: center;
+              margin-top: 20px;
+              font-size: 14px;
+              color: #666;
+            }
             @media print {
               body { margin: 0; }
             }
           </style>
         </head>
         <body style="position: relative;">
+          ${(() => {
+            const strukSettings = getStrukSettings();
+            return strukSettings.struk.logo.url && strukSettings.struk.logo.url.trim() !== '' ? `
+              <!-- Company Logo from Struk Settings -->
+              <div class="logo-section" style="text-align: center; margin-bottom: 20px;">
+                <img src="${strukSettings.struk.logo.url}" alt="Company Logo" style="width: 120px; height: 60px; margin: 0 auto; display: block; object-fit: contain;">
+              </div>
+            ` : '';
+          })()}
+          
+          ${(() => {
+            const strukSettings = getStrukSettings();
+            return strukSettings.struk.showHeader ? `
+              <!-- Struk Header from Struk Settings -->
+              <div class="header" style="text-align: center; margin-bottom: 20px;">
+                <div style="font-size: 18px; font-weight: bold;">
+                  ${strukSettings.struk.headerText}
+                </div>
+              </div>
+            ` : '';
+          })()}
+          
           ${notaSettings.header.enabled ? `
-            <!-- Header Section -->
+            <!-- Custom Header from Nota Settings -->
             <div class="header" style="text-align: center; margin-bottom: 20px;">
               <div style="font-size: ${notaSettings.header.fontSize}px; font-weight: ${notaSettings.header.fontWeight}; color: #0050C8;">
                 ${notaSettings.header.text}
@@ -516,23 +544,21 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
             </div>
           ` : ''}
           
-          ${notaSettings.logo.enabled && notaSettings.logo.url ? `
-            <!-- Logo Section -->
-            <div class="logo-section" style="text-align: center; margin-bottom: 20px;">
-              <img src="${notaSettings.logo.url}" alt="${notaSettings.logo.altText}" style="width: ${notaSettings.logo.width}px; height: ${notaSettings.logo.height}px; margin: 0 auto; display: block;">
-            </div>
-          ` : ''}
+          ${(() => {
+            const notaSettings = getNotaSettings();
+            return `
+              <!-- Business Information from Nota Settings -->
+              <div class="business-info" style="text-align: center; margin-bottom: 20px; font-size: 14px; color: #666;">
+                <div style="font-weight: bold;">${notaSettings.businessInfo.name}</div>
+                <div>${notaSettings.businessInfo.address}</div>
+                <div>${notaSettings.businessInfo.phone}</div>
+                <div>${notaSettings.businessInfo.website}</div>
+              </div>
+            `;
+          })()}
           
-          <!-- Business Information -->
-          <div class="business-info">
-            <div>${notaSettings.businessInfo.name}</div>
-            <div>${notaSettings.businessInfo.address}</div>
-            <div>${notaSettings.businessInfo.phone}</div>
-            <div>${notaSettings.businessInfo.website}</div>
-          </div>
           
           <div class="section">
-            <div class="section-title">DETAIL ORDER:</div>
              <div class="info-row">
                <span class="info-label">Customer:</span>
                <span class="info-value">${orderData?.customerName || 'N/A'}</span>
@@ -547,8 +573,8 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
              </div>
            </div>
           
-                     <div class="section">
-             <div class="section-title">ITEMS:</div>
+            <div class="section">
+             <div class="section-title">Items:</div>
              ${orderList.filter((item, index) => {
                // For nota, show all items if none selected, otherwise show only selected items
                if (printType === 'nota') {
@@ -556,9 +582,9 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
                }
                return true; // For other print types, show all items
              }).map(item => {
-               const size = item.ukuran || {};
-        const unitPrice = Number(item.quantity) > 0 ? item.subTotal / Number(item.quantity) : 0;
-               const dimensions = (size.panjang && size.lebar && size.panjang !== '' && size.lebar !== '' && 
+                const size = item.ukuran || {};
+                const unitPrice = Number(item.quantity) > 0 ? item.subTotal / Number(item.quantity) : 0;
+                const dimensions = (size.panjang && size.lebar && size.panjang !== '' && size.lebar !== '' && 
                                  size.panjang !== 'null' && size.lebar !== 'null') ? 
                                  `${size.panjang} x ${size.lebar}` : '-';
                
@@ -569,7 +595,7 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
                      <div class="item-dimensions">${dimensions}</div>
                    </div>
                    <div class="item-details">
-                     <div class="item-price">${item.quantity} x ${new Intl.NumberFormat('id-ID', {
+                     <div class="item-price">@${item.quantity} x ${new Intl.NumberFormat('id-ID', {
           style: 'currency',
           currency: 'IDR'
                      }).format(unitPrice)}</div>
@@ -583,7 +609,7 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
              }).join('')}
            </div>
           
-                     <div class="payment-row">
+            <div class="payment-row">
             <span class="payment-label">Subtotal:</span>
             <span class="payment-value">${(() => {
               // Calculate subtotal based on selected items for nota
@@ -633,27 +659,36 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
                   selectedItems.length === 0 || selectedItems.includes(item.id || index.toString())
                 );
                 const subtotal = selectedOrderItems.reduce((sum, item) => sum + (item.subTotal || 0), 0);
-                const total = subtotal + (orderData?.desain || 0) + (orderData?.biayaLainnya || 0) - (orderData?.downPayment || 0);
+                const total = subtotal + (orderData?.desain || 0) + (orderData?.biayaLainnya || 0);
+                const remaining = total - (orderData?.downPayment || 0) - (orderData?.pelunasan || 0);
+                
+                // Show "LUNAS" if payment is complete, otherwise show remaining amount
+                if (remaining <= 0) {
+                  return 'LUNAS';
+                }
                 return new Intl.NumberFormat('id-ID', {
                   style: 'currency',
                   currency: 'IDR'
-                }).format(total);
+                }).format(Math.max(0, remaining));
+              }
+              
+              // For other print types, calculate remaining amount
+              const totalAmount = (orderData?.totalAmount || 0) + (orderData?.desain || 0) + (orderData?.biayaLainnya || 0);
+              const remaining = totalAmount - (orderData?.downPayment || 0) - (orderData?.pelunasan || 0);
+              
+              // Show "LUNAS" if payment is complete, otherwise show remaining amount
+              if (remaining <= 0) {
+                return 'LUNAS';
               }
               return new Intl.NumberFormat('id-ID', {
                 style: 'currency',
                 currency: 'IDR'
-              }).format((orderData?.totalAmount || 0) + (orderData?.desain || 0) + (orderData?.biayaLainnya || 0) - (orderData?.downPayment || 0));
+              }).format(Math.max(0, remaining));
             })()}</span>
           </div>
           
-          ${notaSettings.footer.enabled ? `
-            <div class="footer-text" style="text-align: center; margin-top: 20px; font-size: ${notaSettings.footer.fontSize}px; font-weight: ${notaSettings.footer.fontWeight}; color: #666;">
-              ${notaSettings.footer.text.split('\n').map(line => `<p>${line}</p>`).join('')}
-            </div>
-          ` : ''}
-          
           ${(() => {
-            // Calculate payment status for stamp
+            // Calculate payment status for stamp - place above footer
             const selectedOrderItems = orderList.filter((item, index) => 
               selectedItems.length === 0 || selectedItems.includes(item.id || index.toString())
             );
@@ -662,38 +697,28 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
             const remaining = total - (orderData?.downPayment || 0) - (orderData?.pelunasan || 0);
             const isLunas = remaining <= 0;
             
-            // Only show stamp for "Lunas" status and if stamp is enabled
-            if (!notaSettings.stamp.enabled || !isLunas || !notaSettings.stamp.useImage || !notaSettings.stamp.lunasImageUrl) {
+            // Get struk settings for lunas logo
+            const strukSettings = getStrukSettings();
+            
+            // Only show stamp for "Lunas" status and if stamp is enabled from struk settings
+            if (!strukSettings.struk.showLunasLogo || !isLunas || !strukSettings.struk.lunasLogo.url) {
               return '';
             }
             
-            // Position styles
-            let positionStyle = '';
-            switch (notaSettings.stamp.position) {
-              case 'top-left':
-                positionStyle = 'top: 20px; left: 20px;';
-                break;
-              case 'top-right':
-                positionStyle = 'top: 20px; right: 20px;';
-                break;
-              case 'bottom-left':
-                positionStyle = 'bottom: 20px; left: 20px;';
-                break;
-              case 'bottom-right':
-                positionStyle = 'bottom: 20px; right: 20px;';
-                break;
-              case 'center':
-                positionStyle = 'top: 50%; left: 50%; transform: translate(-50%, -50%);';
-                break;
-              default:
-                positionStyle = 'top: 20px; right: 20px;';
-            }
-            
             return `
-              <div class="payment-stamp" style="position: absolute; opacity: ${notaSettings.stamp.opacity}; pointer-events: none; z-index: 10; ${positionStyle}">
-                <img class="stamp-image" src="${notaSettings.stamp.lunasImageUrl}" alt="Lunas Stamp" style="width: ${notaSettings.stamp.size}px; height: ${notaSettings.stamp.size}px; object-fit: contain;" />
+              <div class="payment-stamp">
+                <img class="stamp-image" src="${strukSettings.struk.lunasLogo.url}" alt="Lunas Stamp" style="height: 60px; width: auto; object-fit: contain;" />
               </div>
             `;
+          })()}
+
+          ${(() => {
+            const strukSettings = getStrukSettings();
+            return strukSettings.struk.showFooter ? `
+              <div class="footer-text" style="text-align: center; margin-top: 10px; font-size: 14px; color: #666;">
+                ${strukSettings.struk.footerText.split('\n').map(line => `<p>${line}</p>`).join('')}
+              </div>
+            ` : '';
           })()}
         </body>
         </html>
@@ -742,12 +767,12 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
       <div 
         className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4 animate-in fade-in duration-300"
         onClick={(e) => {
-          if (e.target === e.currentTarget) {
+          if (e.target === e.currentTarget && !preventCloseOnOutsideClick) {
             onClose();
           }
         }}
       >
-        <div className="bg-background rounded-lg shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-300">
+        <div className="bg-card rounded-lg shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-300">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border">
             <div className="flex items-center gap-2">
@@ -791,20 +816,20 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
                 e.preventDefault();
                 e.stopPropagation();
                 // Add fade out animation
-                const modal = e.currentTarget.closest('.bg-background');
+                const modal = e.currentTarget.closest('.bg-card');
                 if (modal) {
                   modal.classList.add('animate-out', 'fade-out', 'duration-400');
                   setTimeout(() => {
                     onClose();
-                    // If this is SPK print and we have the callback, reopen Request Order modal
-                    if (printType === 'spk' && onCloseAndReopenRequestOrder) {
+                    // If this is SPK or Nota print and we have the callback, reopen Request Order modal
+                    if ((printType === 'spk' || printType === 'nota') && onCloseAndReopenRequestOrder) {
                       onCloseAndReopenRequestOrder();
                     }
                   }, 400);
                 } else {
                   onClose();
-                  // If this is SPK print and we have the callback, reopen Request Order modal
-                  if (printType === 'spk' && onCloseAndReopenRequestOrder) {
+                  // If this is SPK or Nota print and we have the callback, reopen Request Order modal
+                  if ((printType === 'spk' || printType === 'nota') && onCloseAndReopenRequestOrder) {
                     onCloseAndReopenRequestOrder();
                   }
                 }
@@ -889,12 +914,41 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
                   <p className="text-sm text-gray-600">{orderData?.orderNumber || 'N/A'}</p>
                 </div>
                 ) : (
-                  // Nota header with custom settings
+                  // Nota header with custom settings from both nota and struk settings
                   (() => {
                     const notaSettings = getNotaSettings();
+                    const strukSettings = getStrukSettings();
                     return (
                       <div className="text-center mb-4">
-                        {/* Custom Header */}
+                        {/* Company Logo from Struk Settings */}
+                        {strukSettings.struk.logo.url && strukSettings.struk.logo.url.trim() !== '' && (
+                          <div className="flex justify-center mb-2">
+                            <img
+                              src={strukSettings.struk.logo.url}
+                              alt="Company Logo"
+                              style={{
+                                width: `${notaSettings.logo.width}px`,
+                                height: `${notaSettings.logo.height}px`
+                              }}
+                              className="object-contain"
+                              onError={(e) => {
+                                console.error('Company logo failed to load:', strukSettings.struk.logo.url);
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        )}
+                        
+                        {/* Struk Header from Struk Settings */}
+                        {strukSettings.struk.showHeader && (
+                          <div className="text-gray-900 mb-2">
+                            <div className="text-lg font-bold">
+                              {strukSettings.struk.headerText}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Custom Header from Nota Settings (if enabled) */}
                         {notaSettings.header.enabled && (
                           <div 
                             className="text-gray-900 mb-2"
@@ -907,27 +961,28 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
                           </div>
                         )}
                         
-                        {/* Custom Logo */}
-                        {notaSettings.logo.enabled && notaSettings.logo.url && (
-                          <div className="flex justify-center mb-2">
-                            <img
-                              src={notaSettings.logo.url}
-                              alt={notaSettings.logo.altText}
-                              style={{
-                                width: `${notaSettings.logo.width}px`,
-                                height: `${notaSettings.logo.height}px`
-                              }}
-                              className="object-contain"
-                            />
+                        {/* Business Information from Struk Settings */}
+                        {strukSettings.struk.showBusinessInfo && (
+                          <div className="text-sm text-gray-600 space-y-1 mb-2">
+                            {strukSettings.struk.businessInfo?.name && <div className="font-semibold">{strukSettings.struk.businessInfo.name}</div>}
+                            {strukSettings.struk.businessInfo?.address && <div>{strukSettings.struk.businessInfo.address}</div>}
+                            {strukSettings.struk.businessInfo?.phone && <div>{strukSettings.struk.businessInfo.phone}</div>}
+                            {strukSettings.struk.businessInfo?.website && <div>{strukSettings.struk.businessInfo.website}</div>}
                           </div>
                         )}
                         
-                        {/* Business Information */}
-                        <div className="text-sm text-gray-600 space-y-1 mb-2">
-                          <div>{notaSettings.businessInfo.name}</div>
-                          <div>{notaSettings.businessInfo.address}</div>
-                          <div>{notaSettings.businessInfo.phone}</div>
-                          <div>{notaSettings.businessInfo.website}</div>
+                        {/* Print Timestamp */}
+                        <div className="text-xs text-gray-500 text-center mb-2">
+                          {(() => {
+                            const now = new Date();
+                            const day = now.getDate();
+                            const month = now.getMonth() + 1;
+                            const year = now.getFullYear();
+                            const hours = now.getHours();
+                            const minutes = now.getMinutes();
+                            const seconds = now.getSeconds();
+                            return `${day}/${month}/${year} ${hours}.${minutes.toString().padStart(2, '0')}.${seconds.toString().padStart(2, '0')}`;
+                          })()}
                         </div>
                       </div>
                     );
@@ -1109,11 +1164,20 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
                           selectedItems.length === 0 || selectedItems.includes(item.id || index.toString())
                         );
                         const subtotal = selectedOrderItems.reduce((sum, item) => sum + (item.subTotal || 0), 0);
-                        const total = subtotal + (orderData?.desain || 0) + (orderData?.biayaLainnya || 0) - (orderData?.downPayment || 0);
+                        const total = subtotal + (orderData?.desain || 0) + (orderData?.biayaLainnya || 0);
+                        const downPayment = orderData?.downPayment || 0;
+                        const pelunasan = orderData?.pelunasan || 0;
+                        const remaining = total - downPayment - pelunasan;
+                        
+                        
+                        // Show "LUNAS" if payment is complete, otherwise show remaining amount
+                        if (remaining <= 0) {
+                          return 'LUNAS';
+                        }
                         return new Intl.NumberFormat('id-ID', {
-                        style: 'currency',
-                        currency: 'IDR'
-                        }).format(total);
+                          style: 'currency',
+                          currency: 'IDR'
+                        }).format(Math.max(0, remaining));
                       })()}</span>
                     </div>
                   </div>
@@ -1146,19 +1210,50 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
                   )}
                 </div>
                 
-                {/* Custom Footer for Nota */}
+                {/* Payment Stamp for Preview - Positioned above footer, center aligned */}
                 {printType === 'nota' && (() => {
-                  const notaSettings = getNotaSettings();
-                  return notaSettings.footer.enabled ? (
-                    <div className="mt-4 text-center">
-                      <div 
-                        className="text-gray-600"
-                        style={{
-                          fontSize: `${notaSettings.footer.fontSize}px`,
-                          fontWeight: notaSettings.footer.fontWeight as any
+                  // Calculate payment status for stamp
+                  const selectedOrderItems = orderList.filter((item, index) => 
+                    selectedItems.length === 0 || selectedItems.includes(item.id || index.toString())
+                  );
+                  const subtotal = selectedOrderItems.reduce((sum, item) => sum + (item.subTotal || 0), 0);
+                  const total = subtotal + (orderData?.desain || 0) + (orderData?.biayaLainnya || 0);
+                  const downPayment = orderData?.downPayment || 0;
+                  const pelunasan = orderData?.pelunasan || 0;
+                  const remaining = total - downPayment - pelunasan;
+                  const isLunas = remaining <= 0;
+                  
+                  if (!isLunas) return null;
+                  
+                  const strukSettings = getStrukSettings();
+                  
+                  // Only show stamp if enabled and logo is configured
+                  if (!strukSettings.struk.showLunasLogo || !strukSettings.struk.lunasLogo.url) {
+                    return null;
+                  }
+                  
+                  return (
+                    <div className="mt-4 mb-4 flex justify-center">
+                      <img
+                        src={strukSettings.struk.lunasLogo.url}
+                        alt="Lunas Stamp"
+                        className="h-16 w-auto object-contain opacity-80"
+                        onError={(e) => {
+                          console.error('Lunas stamp failed to load:', strukSettings.struk.lunasLogo.url);
+                          e.currentTarget.style.display = 'none';
                         }}
-                      >
-                        {notaSettings.footer.text.split('\n').map((line, index) => (
+                      />
+                    </div>
+                  );
+                })()}
+
+                {/* Custom Footer for Nota - Using Struk Settings */}
+                {printType === 'nota' && (() => {
+                  const strukSettings = getStrukSettings();
+                  return strukSettings.struk.showFooter ? (
+                    <div className="mt-4 text-center">
+                      <div className="text-gray-600 text-sm">
+                        {strukSettings.struk.footerText.split('\n').map((line, index) => (
                           <p key={index}>{line}</p>
                         ))}
                       </div>
@@ -1174,7 +1269,7 @@ export const PrintOverlay: React.FC<PrintOverlayProps> = ({
                   <div className="flex gap-3 pt-3">
                     <Button variant="outline" className="flex-1" onClick={() => {
                       // Add fade out animation
-                      const modal = document.querySelector('.bg-background');
+                      const modal = document.querySelector('.bg-card');
                       if (modal) {
                         modal.classList.add('animate-out', 'fade-out', 'duration-200');
                         setTimeout(() => {

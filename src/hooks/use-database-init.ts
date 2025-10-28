@@ -63,38 +63,38 @@ export const useDatabaseInit = () => {
         await databaseManager.initialize(config);
         setIsInitialized(true);
         console.log('✅ Database initialized successfully');
-              } else {
-          // Check if we're in Electron environment with retry
-          let isElectron = false;
-          let retryCount = 0;
-          const maxRetries = 5;
+      } else {
+        // Check if we're in Electron environment with retry
+        let isElectron = false;
+        let retryCount = 0;
+        const maxRetries = 5;
+        
+        while (retryCount < maxRetries) {
+          isElectron = typeof window !== 'undefined' && (window as any).electronAPI;
+          if (isElectron) break;
           
-          while (retryCount < maxRetries) {
-            isElectron = typeof window !== 'undefined' && (window as any).electronAPI;
-            if (isElectron) break;
-            
-            console.log(`🔄 Waiting for Electron API... (${retryCount + 1}/${maxRetries})`);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            retryCount++;
-          }
-          
-          if (isElectron) {
-            // Use PostgreSQL/SQLite in Electron
-            console.log('🖥️ Using PostgreSQL/SQLite configuration for Electron');
-            await databaseManager.initialize({
-              mode: 'production',
-              type: 'postgresql'
-            });
-          } else {
-            // Default to local storage for web development
-            console.log('💾 Using default local storage configuration');
-            await databaseManager.initialize({
-              mode: 'development',
-              type: 'local'
-            });
-          }
-          setIsInitialized(true);
+          console.log(`🔄 Waiting for Electron API... (${retryCount + 1}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          retryCount++;
         }
+        
+        if (isElectron) {
+          // Use local storage for Electron (prioritize local over Supabase)
+          console.log('🖥️ Using local storage configuration for Electron');
+          await databaseManager.initialize({
+            mode: 'development',
+            type: 'local'
+          });
+        } else {
+          // Default to local storage for web development
+          console.log('💾 Using default local storage configuration');
+          await databaseManager.initialize({
+            mode: 'development',
+            type: 'local'
+          });
+        }
+        setIsInitialized(true);
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       console.error('❌ Database initialization failed:', errorMessage);

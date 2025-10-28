@@ -1,5 +1,5 @@
 
-import { supabase } from '@/integrations/supabase/client';
+import { databaseService } from '@/services/databaseService';
 
 // Fungsi untuk mengembalikan stok bahan ketika order dihapus
 const restoreMaterialStock = async (orderItems: any[]) => {
@@ -8,49 +8,41 @@ const restoreMaterialStock = async (orderItems: any[]) => {
     
     for (const item of orderItems) {
       // Cari produk berdasarkan item_name (kode produk)
-      const { data: product, error: productError } = await supabase
-        .from('products')
-        .select('id, kode, nama')
-        .eq('kode', item.item_name)
-        .single();
+      const products = await databaseService.query('products', {
+        where: { kode: item.item_name }
+      });
       
-      if (productError || !product) {
+      const product = products[0];
+      if (!product) {
         console.warn(`Product not found for item: ${item.item_name}`);
         continue;
       }
       
       // Cari bahan yang terkait dengan produk ini
-      const { data: productMaterials, error: materialsError } = await supabase
-        .from('product_materials')
-        .select('material_id')
-        .eq('product_id', product.id);
-      
-      if (materialsError) {
-        console.error('Error fetching product materials:', materialsError);
-        continue;
-      }
+      const productMaterials = await databaseService.query('product_materials', {
+        where: { product_id: (product as any).id }
+      });
       
       if (!productMaterials || productMaterials.length === 0) {
-        console.log(`No materials found for product: ${product.nama}`);
+        console.log(`No materials found for product: ${(product as any).nama}`);
         continue;
       }
       
       // Ambil detail bahan untuk setiap material_id
       for (const productMaterial of productMaterials) {
-        const { data: material, error: materialError } = await supabase
-          .from('materials')
-          .select('id, kode, nama, stok_akhir, stok_aktif, stok_minimum, stok_keluar')
-          .eq('id', productMaterial.material_id)
-          .single();
+        const materials = await databaseService.query('materials', {
+          where: { id: (productMaterial as any).material_id }
+        });
         
-        if (materialError || !material) {
-          console.error(`Error fetching material ${productMaterial.material_id}:`, materialError);
+        const material = materials[0];
+        if (!material) {
+          console.error(`Error fetching material ${(productMaterial as any).material_id}`);
           continue;
         }
         
         // Hanya kembalikan stok jika bahan aktif
-        if (!material.stok_aktif) {
-          console.log(`Material ${material.nama} is not active, skipping stock restoration`);
+        if (!(material as any).stok_aktif) {
+          console.log(`Material ${(material as any).nama} is not active, skipping stock restoration`);
           continue;
         }
         
@@ -59,41 +51,26 @@ const restoreMaterialStock = async (orderItems: any[]) => {
         if (quantityToRestore <= 0) continue;
         
         // Update stok bahan
-        const newStokKeluar = Math.max(0, (material.stok_keluar || 0) - quantityToRestore);
-        const newStokAkhir = (material.stok_akhir || 0) + quantityToRestore;
+        const newStokKeluar = Math.max(0, ((material as any).stok_keluar || 0) - quantityToRestore);
+        const newStokAkhir = ((material as any).stok_akhir || 0) + quantityToRestore;
         
         // Update stok di database
-        const { error: updateError } = await supabase
-          .from('materials')
-          .update({
-            stok_keluar: newStokKeluar,
-            stok_akhir: newStokAkhir,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', material.id);
-        
-        if (updateError) {
-          console.error(`Error updating stock for material ${material.nama}:`, updateError);
-          continue;
-        }
+        await databaseService.update('materials', (material as any).id, {
+          stok_keluar: newStokKeluar,
+          stok_akhir: newStokAkhir
+        });
         
         // Catat pergerakan stok di inventory_movements
-        const { error: movementError } = await supabase
-          .from('inventory_movements')
-          .insert({
-            material_id: material.id,
-            tanggal: new Date().toISOString(),
-            tipe_mutasi: 'pengembalian',
-            jumlah: quantityToRestore, // Positif karena pengembalian
-            keterangan: `Pengembalian stok untuk order yang dihapus: ${item.item_name} (${quantityToRestore} unit)`,
-            user_id: null
-          });
+        await databaseService.create('inventory_movements', {
+          material_id: (material as any).id,
+          tanggal: new Date().toISOString(),
+          tipe_mutasi: 'pengembalian',
+          jumlah: quantityToRestore,
+          keterangan: `Pengembalian stok untuk order yang dihapus: ${item.item_name} (${quantityToRestore} unit)`,
+          user_id: null
+        } as any);
         
-        if (movementError) {
-          console.error(`Error recording inventory movement for material ${material.nama}:`, movementError);
-        }
-        
-        console.log(`Successfully restored stock for material ${material.nama}: ${quantityToRestore} units`);
+        console.log(`Successfully restored stock for material ${(material as any).nama}: ${quantityToRestore} units`);
       }
     }
     
@@ -108,48 +85,41 @@ export const deleteOrderFromDatabase = async (orderId: string) => {
   try {
     console.log('Deleting order from database:', orderId);
     
-    // Get order items before deleting them (for stock restoration)
-    const { data: orderItems, error: fetchItemsError } = await supabase
-      .from('order_items')
-      .select('*')
-      .eq('order_id', orderId);
-
-    if (fetchItemsError) {
-      console.error('Error fetching order items:', fetchItemsError);
-      throw fetchItemsError;
+    // 1. Hapus notifikasi yang terkait dengan order ini terlebih dahulu
+    try {
+      const notifications = await databaseService.query('notifications', {
+        where: { order_id: orderId }
+      });
+      
+      for (const notification of notifications) {
+        await databaseService.delete('notifications', (notification as any).id);
+      }
+      console.log(`Deleted ${notifications.length} notifications for order ${orderId}`);
+    } catch (notifError) {
+      console.warn('Error deleting notifications, continuing with order deletion:', notifError);
     }
+    
+    // 2. Dapatkan order items sebelum dihapus (untuk restore stok)
+    const orderItems = await databaseService.query('order_items', {
+      where: { order_id: orderId }
+    });
 
-    // Restore material stock for order items
+    // 3. Kembalikan stok bahan untuk order items
     if (orderItems && orderItems.length > 0) {
       console.log('Restoring material stock for order items:', orderItems);
       await restoreMaterialStock(orderItems);
     }
     
-    // First delete order items
-    const { error: itemsError } = await supabase
-      .from('order_items')
-      .delete()
-      .eq('order_id', orderId);
-
-    if (itemsError) {
-      console.error('Error deleting order items:', itemsError);
-      throw itemsError;
+    // 4. Hapus order items
+    for (const item of orderItems) {
+      await databaseService.delete('order_items', (item as any).id);
     }
 
-    // Then delete the order
-    const { data, error } = await supabase
-      .from('orders')
-      .delete()
-      .eq('id', orderId)
-      .select();
+    // 5. Terakhir, hapus order
+    await databaseService.delete('orders', orderId);
 
-    if (error) {
-      console.error('Database error deleting order:', error);
-      throw error;
-    }
-
-    console.log('Order deleted successfully:', data);
-    return data;
+    console.log('Order deleted successfully');
+    return { success: true };
   } catch (error) {
     console.error('Error deleting order from database:', error);
     throw error;
